@@ -1,0 +1,136 @@
+export const products = [
+  {
+    id: "c-001",
+    name: "FORMA COURT",
+    category: "sneakers",
+    price: 3499,
+    oldPrice: 4299,
+    badge: "BESTSELLER",
+    color: "Cloud White",
+    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
+    highlights: ["Full-grain vegan micro-leather", "Dual-density memory footbed", "Hand-stitched cupsole"],
+    description: "A clean everyday court silhouette with a considered, minimal finish.",
+    image: "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-tying-his-sneakers-before-running-43477-large.mp4"
+  },
+  {
+    id: "c-002",
+    name: "MONO RUNNER",
+    category: "sneakers",
+    price: 4299,
+    oldPrice: null,
+    badge: "NEW",
+    color: "Stone / Sand",
+    sizes: ["UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
+    highlights: ["Featherlight EVA midsole", "Breathable organic cotton lining", "All-day arch support"],
+    description: "Lightweight-inspired styling made for everyday movement.",
+    image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-close-up-of-a-person-walking-in-sneakers-43481-large.mp4"
+  },
+  {
+    id: "c-003",
+    name: "ATELIER LOAFER",
+    category: "formal",
+    price: 3899,
+    oldPrice: null,
+    badge: "",
+    color: "Espresso",
+    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"],
+    highlights: ["Supple matte finish", "Blister-free heel collar", "Flexible rubber-injected sole"],
+    description: "A refined slip-on profile for smart days and evenings.",
+    image: "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=1000&q=85",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-legs-of-a-man-walking-on-the-street-43483-large.mp4"
+  },
+  {
+    id: "c-004",
+    name: "CITY DERBY",
+    category: "formal",
+    price: 4599,
+    oldPrice: 4999,
+    badge: "LIMITED",
+    color: "Black",
+    sizes: ["UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
+    highlights: ["Water-resistant upper", "Cushioned leather-feel insole", "Waxed cotton laces"],
+    description: "A timeless lace-up shape with a modern, understated presence.",
+    image: "https://images.unsplash.com/photo-1614252369475-531506b0b9e9?auto=format&fit=crop&w=1000&q=85",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-walking-in-a-modern-city-43480-large.mp4"
+  },
+  {
+    id: "c-005",
+    name: "WEEKEND SLIDE",
+    category: "slides",
+    price: 1499,
+    oldPrice: null,
+    badge: "",
+    color: "Warm Taupe",
+    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
+    highlights: ["Contoured anatomical footbed", "Water-friendly matte strap", "Anti-slip tread"],
+    description: "An easy slip-on essential for relaxed everyday plans.",
+    image: "https://images.unsplash.com/photo-1603487742131-4160ec999306?auto=format&fit=crop&w=1000&q=85",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-close-up-of-a-person-walking-in-sneakers-43481-large.mp4"
+  },
+  {
+    id: "c-006",
+    name: "TERRA LOW",
+    category: "sneakers",
+    price: 3799,
+    oldPrice: null,
+    badge: "NEW",
+    color: "Olive / Cream",
+    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"],
+    highlights: ["Suede-textured tonal panels", "Natural gum outsole", "Breathable perforated toe"],
+    description: "A versatile low-top designed to work across your rotation.",
+    image: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=1000&q=85",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-tying-his-sneakers-before-running-43477-large.mp4"
+  },
+  {
+    id: "c-007",
+    name: "JUNIOR COURT VELCRO",
+    category: "sneakers",
+    collection: "kids",
+    price: 2199,
+    oldPrice: 2599,
+    badge: "KIDS",
+    color: "Chalk / Sage",
+    sizes: ["UK 1", "UK 2", "UK 3", "UK 4", "UK 5"],
+    highlights: ["Easy dual-strap closure", "Soft impact-absorbing sole", "Machine-washable footbed"],
+    description: "Built for playground sprints and everyday school runs.",
+    image: "https://images.unsplash.com/photo-1514989940723-e8e51635b782?auto=format&fit=crop&w=1000&q=85",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-tying-his-sneakers-before-running-43477-large.mp4"
+  }
+];
+
+export const videoReels = [
+  {
+    id: "reel-01",
+    title: "Morning Commute in Forma Court",
+    tag: "EVERYDAY WEAR",
+    productId: "c-001",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-tying-his-sneakers-before-running-43477-large.mp4",
+    poster: "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    id: "reel-02",
+    title: "Zero Break-In Comfort Test",
+    tag: "FLEX & CUSHION",
+    productId: "c-002",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-close-up-of-a-person-walking-in-sneakers-43481-large.mp4",
+    poster: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    id: "reel-03",
+    title: "Desk to Dinner Styling",
+    tag: "SMART EDIT",
+    productId: "c-003",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-legs-of-a-man-walking-on-the-street-43483-large.mp4",
+    poster: "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    id: "reel-04",
+    title: "Built for the Long Walk Home",
+    tag: "CRAFT & DETAIL",
+    productId: "c-006",
+    videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-man-walking-in-a-modern-city-43480-large.mp4",
+    poster: "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=800&q=80"
+  }
+];
