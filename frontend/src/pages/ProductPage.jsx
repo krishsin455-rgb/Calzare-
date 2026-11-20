@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Droplets,
+  Edit3,
   Film,
   Headphones,
   Heart,
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   Sparkles,
   Tag,
+  Trash2,
   Truck,
   Volume2,
   VolumeX,
@@ -129,6 +131,17 @@ function safeVideoSrc(url) {
   return url;
 }
 
+function createEmptyDraft(defaultSize = "UK 8") {
+  return {
+    author: "",
+    location: "",
+    size: defaultSize,
+    rating: 5,
+    quote: "",
+    body: ""
+  };
+}
+
 export default function ProductPage({
   homepage,
   product,
@@ -139,7 +152,8 @@ export default function ProductPage({
   onAddToCart,
   onSelectProduct,
   onGoBack,
-  money
+  money,
+  canManageReviews = false
 }) {
   const current = product || products[0] || null;
   const sizes = current?.sizes?.length ? current.sizes : DEFAULT_SIZES;
@@ -160,7 +174,7 @@ export default function ProductPage({
   const [clipMuted, setClipMuted] = useState(false);
   const [failedClipIds, setFailedClipIds] = useState({});
 
-  // Interactive Product Reviews / Comments State
+  // Admin-Only Product Reviews State
   const [customReviewsByProduct, setCustomReviewsByProduct] = useState(() => {
     try {
       const saved = JSON.parse(
@@ -172,14 +186,10 @@ export default function ProductPage({
     }
   });
   const [reviewFormOpen, setReviewFormOpen] = useState(false);
-  const [reviewDraft, setReviewDraft] = useState({
-    author: "",
-    location: "",
-    size: sizes.includes("UK 8") ? "UK 8" : sizes[0],
-    rating: 5,
-    quote: "",
-    body: ""
-  });
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [reviewDraft, setReviewDraft] = useState(() =>
+    createEmptyDraft(sizes.includes("UK 8") ? "UK 8" : sizes[0])
+  );
 
   useEffect(() => {
     const nextSizes = current?.sizes?.length ? current.sizes : DEFAULT_SIZES;
@@ -190,8 +200,17 @@ export default function ProductPage({
     setActiveClipIndex(null);
     setFailedClipIds({});
     setSelectedColorwayId(current?.id || current?._id || "");
-    setReviewDraft((prev) => ({ ...prev, size: defaultSz }));
+    setReviewFormOpen(false);
+    setEditingReviewId(null);
+    setReviewDraft(createEmptyDraft(defaultSz));
   }, [current?.id, current?._id]);
+
+  useEffect(() => {
+    if (!canManageReviews) {
+      setReviewFormOpen(false);
+      setEditingReviewId(null);
+    }
+  }, [canManageReviews]);
 
   useEffect(() => {
     try {
@@ -342,8 +361,51 @@ export default function ProductPage({
     setFooterEmail("");
   }
 
-  function handlePostReview(e) {
+  function handleOpenNewReviewForm() {
+    if (!canManageReviews) return;
+    setEditingReviewId(null);
+    setReviewDraft(createEmptyDraft(selectedSize));
+    setReviewFormOpen(true);
+  }
+
+  function handleStartEditReview(rev) {
+    if (!canManageReviews) return;
+    const rawQuote = String(rev.quote || "").replace(/^"+|"+$/g, "").trim();
+    const cleanCity = String(rev.location || "")
+      .split("•")[0]
+      .trim();
+
+    setEditingReviewId(rev.id);
+    setReviewDraft({
+      author: rev.author || "",
+      location: cleanCity === "Verified Buyer" ? "" : cleanCity,
+      size: selectedSize,
+      rating: Number(rev.rating) || 5,
+      quote: rawQuote,
+      body: rev.body || ""
+    });
+    setReviewFormOpen(true);
+  }
+
+  function handleDeleteReview(revId) {
+    if (!canManageReviews) return;
+    setCustomReviewsByProduct((prev) => {
+      const currentList = Array.isArray(prev[productId]) ? prev[productId] : [];
+      return {
+        ...prev,
+        [productId]: currentList.filter((item) => item.id !== revId)
+      };
+    });
+    if (editingReviewId === revId) {
+      setEditingReviewId(null);
+      setReviewFormOpen(false);
+    }
+  }
+
+  function handleSaveReview(e) {
     e.preventDefault();
+    if (!canManageReviews) return;
+
     const author = reviewDraft.author.trim();
     const body = reviewDraft.body.trim();
     if (!author || !body) return;
@@ -354,29 +416,35 @@ export default function ProductPage({
         ? rawHeadline.toUpperCase()
         : `"${rawHeadline.toUpperCase()}"`;
 
-    const newReview = {
-      id: `rev-${Date.now()}`,
+    const savedReview = {
+      id: editingReviewId || `rev-${Date.now()}`,
       rating: Number(reviewDraft.rating) || 5,
       quote: formattedQuote,
       body,
       author,
       meta: `Verified Owner: ${current.name} (${reviewDraft.size || selectedSize})`,
-      location: `${reviewDraft.location.trim() || "India"} • Just Now`
+      location: `${reviewDraft.location.trim() || "India"} • Verified Buyer`
     };
 
-    setCustomReviewsByProduct((prev) => ({
-      ...prev,
-      [productId]: [newReview, ...(prev[productId] || [])]
-    }));
+    setCustomReviewsByProduct((prev) => {
+      const currentList = Array.isArray(prev[productId]) ? prev[productId] : [];
+      const existsInCustom = currentList.some((item) => item.id === editingReviewId);
+      const nextList = editingReviewId
+        ? existsInCustom
+          ? currentList.map((item) =>
+              item.id === editingReviewId ? savedReview : item
+            )
+          : [savedReview, ...currentList]
+        : [savedReview, ...currentList];
 
-    setReviewDraft({
-      author: "",
-      location: "",
-      size: selectedSize,
-      rating: 5,
-      quote: "",
-      body: ""
+      return {
+        ...prev,
+        [productId]: nextList
+      };
     });
+
+    setReviewDraft(createEmptyDraft(selectedSize));
+    setEditingReviewId(null);
     setReviewFormOpen(false);
   }
 
@@ -1106,7 +1174,7 @@ export default function ProductPage({
         </div>
       )}
 
-      {/* CUSTOMER REVIEWS & WRITE COMMENT SECTION */}
+      {/* CUSTOMER REVIEWS SECTION (ADMIN-ONLY ADD / EDIT / DELETE) */}
       <section className="calzare-reviews-section" id="product-reviews">
         <div className="calzare-reviews-header">
           <div className="calzare-rating-pill">
@@ -1119,18 +1187,24 @@ export default function ProductPage({
           <p className="calzare-reviews-sub">
             Honest reviews from customers walking in real rain, heat, and city transit.
           </p>
-          <button
-            type="button"
-            className="filter active"
-            onClick={() => setReviewFormOpen((open) => !open)}
-          >
-            {reviewFormOpen ? "CLOSE COMMENT BOX" : "WRITE A REVIEW"}
-          </button>
+          {canManageReviews && (
+            <button
+              type="button"
+              className="filter active"
+              onClick={() =>
+                reviewFormOpen
+                  ? (setReviewFormOpen(false), setEditingReviewId(null))
+                  : handleOpenNewReviewForm()
+              }
+            >
+              {reviewFormOpen ? "CLOSE REVIEW EDITOR" : "MANAGE / ADD REVIEW"}
+            </button>
+          )}
         </div>
 
-        {reviewFormOpen && (
+        {canManageReviews && reviewFormOpen && (
           <form
-            onSubmit={handlePostReview}
+            onSubmit={handleSaveReview}
             style={{
               background: "var(--surface, #f2f1eb)",
               border: "1px solid var(--line, rgba(0,0,0,0.12))",
@@ -1151,7 +1225,7 @@ export default function ProductPage({
             >
               <input
                 required
-                placeholder="Your Name *"
+                placeholder="Reviewer Name *"
                 value={reviewDraft.author}
                 onChange={(e) =>
                   setReviewDraft({ ...reviewDraft, author: e.target.value })
@@ -1204,7 +1278,7 @@ export default function ProductPage({
             <textarea
               required
               rows={3}
-              placeholder="Write your review about sizing, comfort, grip, or daily wear... *"
+              placeholder="Write or update review feedback... *"
               value={reviewDraft.body}
               onChange={(e) =>
                 setReviewDraft({ ...reviewDraft, body: e.target.value })
@@ -1216,12 +1290,15 @@ export default function ProductPage({
               <button
                 type="button"
                 className="filter"
-                onClick={() => setReviewFormOpen(false)}
+                onClick={() => {
+                  setReviewFormOpen(false);
+                  setEditingReviewId(null);
+                }}
               >
                 CANCEL
               </button>
               <button type="submit" className="filter active">
-                POST REVIEW
+                {editingReviewId ? "SAVE REVIEW" : "PUBLISH REVIEW"}
               </button>
             </div>
           </form>
@@ -1230,6 +1307,9 @@ export default function ProductPage({
         <div className="calzare-reviews-grid">
           {productReviews.map((rev) => {
             const stars = Math.max(1, Math.min(5, Number(rev.rating) || 5));
+            const isCustomReview = Array.isArray(customReviewsByProduct[productId]) &&
+              customReviewsByProduct[productId].some((item) => item.id === rev.id);
+
             return (
               <article className="calzare-review-card" key={rev.id}>
                 <div className="calzare-stars" aria-hidden="true">
@@ -1245,7 +1325,49 @@ export default function ProductPage({
                     <span className="calzare-reviewer-meta">{rev.meta}</span>
                     <span className="calzare-reviewer-loc">{rev.location}</span>
                   </div>
-                  <span className="calzare-verified-badge">✓ Verified</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span className="calzare-verified-badge">✓ Verified</span>
+                    {canManageReviews && (
+                      <>
+                        <button
+                          type="button"
+                          aria-label="Edit review"
+                          onClick={() => handleStartEditReview(rev)}
+                          style={{
+                            border: "1px solid rgba(0,0,0,0.14)",
+                            background: "#FFFFFF",
+                            borderRadius: "999px",
+                            width: "28px",
+                            height: "28px",
+                            display: "grid",
+                            placeItems: "center",
+                            cursor: "pointer"
+                          }}
+                        >
+                          <Edit3 size={12} />
+                        </button>
+                        {isCustomReview && (
+                          <button
+                            type="button"
+                            aria-label="Delete review"
+                            onClick={() => handleDeleteReview(rev.id)}
+                            style={{
+                              border: "1px solid rgba(0,0,0,0.14)",
+                              background: "#FFFFFF",
+                              borderRadius: "999px",
+                              width: "28px",
+                              height: "28px",
+                              display: "grid",
+                              placeItems: "center",
+                              cursor: "pointer"
+                            }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </article>
             );

@@ -35,6 +35,45 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
 const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
 const CATEGORIES_STORAGE_KEY = "calzare_custom_categories";
 const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
+const POLICIES_STORAGE_KEY = "calzare_store_policies_v1";
+
+const DEFAULT_STORE_POLICIES = [
+  {
+    key: "shipping",
+    title: "Shipping Policy",
+    updatedAt: "November 2026",
+    content:
+      "Orders are processed and dispatched within 24–48 business hours. Complimentary express shipping applies automatically on orders above ₹2,999. Standard delivery takes 3–5 business days across metro cities and 5–7 business days for rest of India."
+  },
+  {
+    key: "exchange",
+    title: "Exchange & Return Policy",
+    updatedAt: "November 2026",
+    content:
+      "We offer a 7-day hassle-free doorstep size exchange on unworn pairs in their original box and packaging. To initiate an exchange, reach out with your Order ID within 7 days of delivery."
+  },
+  {
+    key: "refund",
+    title: "Refund Policy",
+    updatedAt: "November 2026",
+    content:
+      "Once a returned pair passes quality inspection at our warehouse, prepaid refunds are credited back to your original payment method within 5–7 business days."
+  },
+  {
+    key: "privacy",
+    title: "Privacy Policy",
+    updatedAt: "November 2026",
+    content:
+      "Your name, phone number, email, and delivery address are collected strictly to fulfill your CALZARE order, send shipping updates, and provide customer support."
+  },
+  {
+    key: "terms",
+    title: "Terms of Service",
+    updatedAt: "November 2026",
+    content:
+      "By accessing or purchasing from CALZARE, you agree to our pricing, dispatch timelines, and 7-day exchange guidelines."
+  }
+];
 
 const STOREFRONT_PAGES = [
   { key: "home", label: "HOME PAGE" },
@@ -95,6 +134,7 @@ const NAV_GROUPS = [
 ];
 
 const DEFAULT_HOMEPAGE_CMS = {
+  reelsEnabled: true,
   sections: [
     {
       key: "hero_main",
@@ -207,19 +247,20 @@ const DEFAULT_HOMEPAGE_CMS = {
     bgColor: "#FFFFFF",
     textColor: "#0F172A",
     accentColor: "#2563EB",
+    logoSizePx: 27,
     sticky: true,
     announcementText: "COMPLIMENTARY EXPRESS SHIPPING ABOVE ₹2,999 • 7-DAY EASY EXCHANGE"
   },
   affordableStore: {
     enabled: true,
-    title: "THE UNDER ₹999 STORE",
-    subtitle:
-      "High performance foam shouldn't cost a week's wage. Premium daily comfort at honest prices.",
+    title: "Your day found its footing.",
+    subtitle: "Everyday Calzare, everyday price. Starting ₹999.",
     badgeLabel: "/999 Store",
     image: "",
     maxPrice: 999,
-    ctaLabel: "EXPLORE DROP",
-    ctaRoute: "#shop"
+    ctaLabel: "EXPLORE",
+    ctaRoute: "#shop",
+    customSlides: []
   },
   footer: {
     bgColor: "#0F172A",
@@ -414,6 +455,20 @@ function writeLocalPageAssignments(assignments) {
   } catch (_) {}
 }
 
+function readLocalPolicies() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(POLICIES_STORAGE_KEY) || "null");
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  } catch (_) {}
+  return DEFAULT_STORE_POLICIES;
+}
+
+function writeLocalPolicies(pols) {
+  try {
+    localStorage.setItem(POLICIES_STORAGE_KEY, JSON.stringify(pols));
+  } catch (_) {}
+}
+
 function DropZoneField({
   label,
   value,
@@ -537,7 +592,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   const [uploading, setUploading] = useState("");
   const [timeframe, setTimeframe] = useState("30 Days");
 
-  // Page selector for per-page Collections & Categories Add/Remove
   const [selectedAssignPage, setSelectedAssignPage] = useState("home");
 
   const [orders, setOrders] = useState([]);
@@ -571,6 +625,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       partialCodAdvance: 299,
       categories: mergedCats,
       pageAssignments: readLocalPageAssignments(mergedCats),
+      policies: readLocalPolicies(),
       collectionImages: {
         men: "",
         women: "",
@@ -776,12 +831,18 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             ...(data.settings.pageAssignments || {})
           };
           writeLocalPageAssignments(mergedAssignments);
+          const mergedPolicies =
+            Array.isArray(data.settings.policies) && data.settings.policies.length
+              ? data.settings.policies
+              : p.policies || readLocalPolicies();
+          writeLocalPolicies(mergedPolicies);
           return {
             ...p,
             ...data.settings,
             contactItems: incomingContacts,
             categories: mergedCats,
             pageAssignments: mergedAssignments,
+            policies: mergedPolicies,
             collectionImages: {
               ...(p.collectionImages || {}),
               ...(data.settings.collectionImages || {})
@@ -1173,6 +1234,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     if (updated.pageAssignments && typeof updated.pageAssignments === "object") {
       writeLocalPageAssignments(updated.pageAssignments);
     }
+    if (Array.isArray(updated.policies)) {
+      writeLocalPolicies(updated.policies);
+    }
 
     if (!token) {
       setSettings(updated);
@@ -1220,13 +1284,20 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 data.settings.pageAssignments &&
                 typeof data.settings.pageAssignments === "object"
                   ? { ...updated.pageAssignments, ...data.settings.pageAssignments }
-                  : updated.pageAssignments
+                  : updated.pageAssignments,
+              policies:
+                Array.isArray(data.settings.policies) && data.settings.policies.length
+                  ? data.settings.policies
+                  : updated.policies
             }
           : updated;
 
       writeLocalCategories(nextSettings.categories || []);
       if (nextSettings.pageAssignments) {
         writeLocalPageAssignments(nextSettings.pageAssignments);
+      }
+      if (nextSettings.policies) {
+        writeLocalPolicies(nextSettings.policies);
       }
       setSettings(nextSettings);
       notify(successMsg);
@@ -1427,7 +1498,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     count: products.filter((p) => (p.category || "").toLowerCase() === cat).length
   }));
 
-  // Toggle Collection or Category visibility on a specific storefront page
   async function handleTogglePageAssignment(pageKey, groupType, itemKey) {
     const fallbackRule = buildDefaultPageAssignments(availableCategories)[pageKey] || {
       collections: [...ALL_COLLECTIONS],
@@ -1503,7 +1573,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     }
 
     const updatedCats = [...availableCategories, clean];
-    // Automatically make the new category visible across all pages by default
     const currentAssignments =
       settings.pageAssignments || buildDefaultPageAssignments(availableCategories);
     const updatedAssignments = Object.fromEntries(
@@ -3516,8 +3585,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>HOMEPAGE CMS BUILDER</h1>
                   <p style={pageSub}>
-                    Edit page colors, font family & size, navbar, footer, featured product
-                    redirect, and Under ₹999 drop.
+                    Edit hero text, CALZARE logo size, colors, fonts, navbar, footer, featured product redirect, and Under ₹999 showcase slides.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -3532,6 +3600,392 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <ArrowUpRight size={14} /> View Storefront
                   </button>
                 </div>
+              </div>
+
+              {/* HERO TEXT & CALZARE LOGO SIZE */}
+              <div style={cardBox}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "8px",
+                    marginBottom: "12px"
+                  }}
+                >
+                  <h3 style={{ ...sectionSubTitle, margin: 0 }}>
+                    HERO SECTION TEXT & CALZARE LOGO SIZE
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveHomepage(homepage)}
+                    style={primaryBlueBtn}
+                  >
+                    <Check size={14} /> Save Hero & Logo
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gap: "12px",
+                    marginBottom: "12px"
+                  }}
+                >
+                  <div>
+                    <label style={fieldLabel}>Hero Eyebrow</label>
+                    <input
+                      value={homepage.heroEyebrow || ""}
+                      onChange={(e) =>
+                        setHomepage({ ...homepage, heroEyebrow: e.target.value })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Hero Title</label>
+                    <input
+                      value={homepage.heroTitle || ""}
+                      onChange={(e) =>
+                        setHomepage({ ...homepage, heroTitle: e.target.value })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Hero Italic Emphasis Word</label>
+                    <input
+                      value={homepage.heroTitleEmphasis || ""}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          heroTitleEmphasis: e.target.value
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>CALZARE Logo Size (px)</label>
+                    <input
+                      type="number"
+                      min={14}
+                      max={64}
+                      value={homepage.navbar?.logoSizePx ?? 27}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          navbar: {
+                            ...(homepage.navbar || {}),
+                            logoSizePx: Number(e.target.value) || 27
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={fieldLabel}>Hero Subtext / Description</label>
+                  <textarea
+                    rows={2}
+                    value={homepage.heroDescription || ""}
+                    onChange={(e) =>
+                      setHomepage({ ...homepage, heroDescription: e.target.value })
+                    }
+                    style={ctrlInput}
+                  />
+                </div>
+              </div>
+
+              {/* DEDICATED UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (SEPARATE PHOTO → PRODUCT PAGE) */}
+              <div style={cardBox}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "8px",
+                    marginBottom: "12px"
+                  }}
+                >
+                  <div>
+                    <h3 style={{ ...sectionSubTitle, margin: 0 }}>
+                      UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (CUSTOM PHOTO → PRODUCT PAGE)
+                    </h3>
+                    <p style={pageSub}>
+                      Upload a separate homepage photo (different from the product page photo) and choose which product page opens on click.
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          affordableStore: {
+                            ...(prev.affordableStore || {}),
+                            customSlides: [
+                              ...(prev.affordableStore?.customSlides || []),
+                              {
+                                id: `u999-${Date.now().toString().slice(-4)}`,
+                                title: "Everyday Pair",
+                                price: 999,
+                                image: "",
+                                productId: products[0]?.id || "c-005"
+                              }
+                            ]
+                          }
+                        }))
+                      }
+                      style={topActionBtn}
+                    >
+                      <Plus size={14} /> Add ₹999 Slide
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveHomepage(homepage)}
+                      style={primaryBlueBtn}
+                    >
+                      <Check size={14} /> Save ₹999 Slides
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                    gap: "10px",
+                    marginBottom: "14px",
+                    paddingBottom: "14px",
+                    borderBottom: "1px solid #E2E8F0"
+                  }}
+                >
+                  <div>
+                    <label style={fieldLabel}>Blue Card Badge</label>
+                    <input
+                      value={homepage.affordableStore?.badgeLabel || "/999 Store"}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          affordableStore: {
+                            ...(homepage.affordableStore || {}),
+                            badgeLabel: e.target.value
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Blue Card Heading</label>
+                    <input
+                      value={homepage.affordableStore?.title || "Your day found its footing."}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          affordableStore: {
+                            ...(homepage.affordableStore || {}),
+                            title: e.target.value
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Blue Card Subtitle</label>
+                    <input
+                      value={
+                        homepage.affordableStore?.subtitle ||
+                        "Everyday Calzare, everyday price. Starting ₹999."
+                      }
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          affordableStore: {
+                            ...(homepage.affordableStore || {}),
+                            subtitle: e.target.value
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Explore Button Label</label>
+                    <input
+                      value={homepage.affordableStore?.ctaLabel || "EXPLORE"}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          affordableStore: {
+                            ...(homepage.affordableStore || {}),
+                            ctaLabel: e.target.value
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                </div>
+
+                {!(homepage.affordableStore?.customSlides || []).length ? (
+                  <p style={pageSub}>
+                    No custom ₹999 slides added yet. Click <strong>+ Add ₹999 Slide</strong> to upload a separate homepage photo linked to a product page.
+                  </p>
+                ) : (
+                  <div style={{ display: "grid", gap: "14px" }}>
+                    {(homepage.affordableStore?.customSlides || []).map((slide, sIdx) => (
+                      <div
+                        key={slide.id || sIdx}
+                        style={{
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "10px",
+                          padding: "14px",
+                          background: "#F8FAFC",
+                          display: "grid",
+                          gap: "10px"
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center"
+                          }}
+                        >
+                          <strong style={{ fontSize: "12px", color: "#2563EB" }}>
+                            ₹999 HOMEPAGE SLIDE #{sIdx + 1}
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setHomepage((prev) => ({
+                                ...prev,
+                                affordableStore: {
+                                  ...(prev.affordableStore || {}),
+                                  customSlides: prev.affordableStore.customSlides.filter(
+                                    (_, i) => i !== sIdx
+                                  )
+                                }
+                              }))
+                            }
+                            style={{ ...topActionBtn, color: "#DC2626", padding: "4px 8px" }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                            gap: "10px"
+                          }}
+                        >
+                          <div>
+                            <label style={fieldLabel}>Homepage Slide Title</label>
+                            <input
+                              value={slide.title || ""}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  affordableStore: {
+                                    ...(prev.affordableStore || {}),
+                                    customSlides: prev.affordableStore.customSlides.map(
+                                      (it, i) =>
+                                        i === sIdx ? { ...it, title: e.target.value } : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={fieldLabel}>Homepage Slide Price (₹)</label>
+                            <input
+                              type="number"
+                              value={slide.price ?? 999}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  affordableStore: {
+                                    ...(prev.affordableStore || {}),
+                                    customSlides: prev.affordableStore.customSlides.map(
+                                      (it, i) =>
+                                        i === sIdx
+                                          ? { ...it, price: Number(e.target.value) }
+                                          : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={fieldLabel}>
+                              Target Product Page (Redirects on Click)
+                            </label>
+                            <select
+                              value={slide.productId || ""}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  affordableStore: {
+                                    ...(prev.affordableStore || {}),
+                                    customSlides: prev.affordableStore.customSlides.map(
+                                      (it, i) =>
+                                        i === sIdx
+                                          ? { ...it, productId: e.target.value }
+                                          : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            >
+                              {products.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} ({money(p.price)})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <DropZoneField
+                          label="Homepage Showcase Photo (Different from Product Page Photo)"
+                          uploadKey={`u999SlideImg-${sIdx}`}
+                          uploadingKey={uploading}
+                          value={slide.image || ""}
+                          onUploadFile={uploadMedia}
+                          onChange={(url) =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              affordableStore: {
+                                ...(prev.affordableStore || {}),
+                                customSlides: prev.affordableStore.customSlides.map(
+                                  (it, i) =>
+                                    i === sIdx ? { ...it, image: url } : it
+                                )
+                              }
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div style={cardBox}>
@@ -4592,11 +5046,54 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
           {/* ==================== SHOPPABLE REELS ==================== */}
           {activeNav === "reels" && (
             <div style={{ display: "grid", gap: "16px" }}>
-              <div>
-                <h1 style={pageTitle}>SHOPPABLE REELS MANAGER</h1>
-                <p style={pageSub}>
-                  Upload vertical fit & motion reels linked directly to products.
-                </p>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "12px"
+                }}
+              >
+                <div>
+                  <h1 style={pageTitle}>SHOPPABLE REELS MANAGER</h1>
+                  <p style={pageSub}>
+                    Upload vertical fit & motion reels linked directly to products, or toggle reels on/off.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextEnabled = homepage.reelsEnabled === false ? true : false;
+                    handleSaveHomepage({
+                      ...homepage,
+                      reelsEnabled: nextEnabled
+                    });
+                  }}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: "999px",
+                    border: "1px solid #CBD5E1",
+                    background: homepage.reelsEnabled === false ? "#F1F5F9" : "#ECFDF5",
+                    color: homepage.reelsEnabled === false ? "#475569" : "#059669",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  {homepage.reelsEnabled === false ? (
+                    <>
+                      <EyeOff size={14} /> Reels Disabled
+                    </>
+                  ) : (
+                    <>
+                      <Eye size={14} /> Reels Enabled
+                    </>
+                  )}
+                </button>
               </div>
               <form onSubmit={handleSaveReel} style={cardBox}>
                 <h3 style={sectionSubTitle}>ADD / UPDATE REEL</h3>
@@ -4874,22 +5371,118 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px"
                 }}
               >
                 <div>
                   <h1 style={pageTitle}>CMS PAGES & BRAND POLICIES</h1>
-                  <p style={pageSub}>Create and edit pages with custom banner images.</p>
+                  <p style={pageSub}>Edit store policies or create custom pages.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setPageModal(true)}
-                  style={primaryBlueBtn}
-                >
-                  <Plus size={14} /> Create Page
-                </button>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextPolicies = settings.policies || DEFAULT_STORE_POLICIES;
+                      writeLocalPolicies(nextPolicies);
+                      handleSaveSettings(
+                        { ...settings, policies: nextPolicies },
+                        "Store policies saved."
+                      );
+                    }}
+                    style={primaryBlueBtn}
+                  >
+                    <Check size={14} /> Save Policies
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPageModal(true)}
+                    style={topActionBtn}
+                  >
+                    <Plus size={14} /> Create Page
+                  </button>
+                </div>
               </div>
+
               <div style={cardBox}>
+                <h3 style={sectionSubTitle}>
+                  STORE POLICIES (SHIPPING, EXCHANGE, REFUND, PRIVACY, TERMS)
+                </h3>
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {(settings.policies || DEFAULT_STORE_POLICIES).map((pol, idx) => (
+                    <div
+                      key={pol.key || idx}
+                      style={{
+                        border: "1px solid #E2E8F0",
+                        borderRadius: "10px",
+                        padding: "12px",
+                        background: "#F8FAFC",
+                        display: "grid",
+                        gap: "8px"
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 180px",
+                          gap: "8px"
+                        }}
+                      >
+                        <input
+                          placeholder="Policy Title"
+                          value={pol.title || ""}
+                          onChange={(e) =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              policies: (prev.policies || DEFAULT_STORE_POLICIES).map(
+                                (item, i) =>
+                                  i === idx ? { ...item, title: e.target.value } : item
+                              )
+                            }))
+                          }
+                          style={{ ...ctrlInput, background: "#FFFFFF" }}
+                        />
+                        <input
+                          placeholder="Updated Date"
+                          value={pol.updatedAt || ""}
+                          onChange={(e) =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              policies: (prev.policies || DEFAULT_STORE_POLICIES).map(
+                                (item, i) =>
+                                  i === idx
+                                    ? { ...item, updatedAt: e.target.value }
+                                    : item
+                              )
+                            }))
+                          }
+                          style={{ ...ctrlInput, background: "#FFFFFF" }}
+                        />
+                      </div>
+
+                      <textarea
+                        rows={3}
+                        placeholder="Policy content..."
+                        value={pol.content || ""}
+                        onChange={(e) =>
+                          setSettings((prev) => ({
+                            ...prev,
+                            policies: (prev.policies || DEFAULT_STORE_POLICIES).map(
+                              (item, i) =>
+                                i === idx ? { ...item, content: e.target.value } : item
+                            )
+                          }))
+                        }
+                        style={{ ...ctrlInput, background: "#FFFFFF" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={cardBox}>
+                <h3 style={sectionSubTitle}>CUSTOM CMS PAGES</h3>
                 {!pages.length && <p style={pageSub}>No custom pages created yet.</p>}
                 {pages.map((pg) => (
                   <div

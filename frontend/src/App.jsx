@@ -276,6 +276,7 @@ const FALLBACK_REELS = [
 ];
 
 const DEFAULT_HOMEPAGE = {
+  reelsEnabled: true,
   heroVideoUrl: "",
   heroImage:
     "https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=2200&q=90",
@@ -302,6 +303,15 @@ const DEFAULT_HOMEPAGE = {
       "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1200&q=85",
     title: "FORMA COURT — SIGNATURE EDITION",
     price: 3499
+  },
+  affordableStore: {
+    enabled: true,
+    badgeLabel: "/999 Store",
+    title: "Your day found its footing.",
+    subtitle: "Everyday Calzare, everyday price. Starting ₹999.",
+    ctaLabel: "EXPLORE",
+    maxPrice: 999,
+    customSlides: []
   }
 };
 
@@ -319,6 +329,14 @@ const DEFAULT_SETTINGS = {
     { label: "UNISEX", url: "#unisex" },
     { label: "KIDS", url: "#kids" },
     { label: "OUR STORY", url: "#story" }
+  ],
+  storySections: [
+    {
+      eyebrow: "OUR PHILOSOPHY",
+      heading: "Wear what moves you.",
+      body: "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention.",
+      image: ""
+    }
   ]
 };
 
@@ -345,7 +363,7 @@ function parseRouteState() {
       productId: prodId || null,
       collection: "all",
       isAdmin: false,
-      scrollToStory: false
+      isStoryPage: false
     };
   }
 
@@ -359,17 +377,17 @@ function parseRouteState() {
       productId: null,
       collection: "all",
       isAdmin: true,
-      scrollToStory: false
+      isStoryPage: false
     };
   }
 
   if (slug === "story") {
     return {
-      view: "home",
+      view: "story",
       productId: null,
       collection: "all",
       isAdmin: false,
-      scrollToStory: true
+      isStoryPage: true
     };
   }
 
@@ -379,7 +397,7 @@ function parseRouteState() {
       productId: null,
       collection: slug,
       isAdmin: false,
-      scrollToStory: false
+      isStoryPage: false
     };
   }
 
@@ -388,7 +406,7 @@ function parseRouteState() {
     productId: null,
     collection: "all",
     isAdmin: false,
-    scrollToStory: false
+    isStoryPage: false
   };
 }
 
@@ -397,6 +415,7 @@ function applyHomepagePayload(hp, setHomepage) {
   setHomepage((prev) => ({
     ...prev,
     ...hp,
+    reelsEnabled: hp.reelsEnabled !== undefined ? Boolean(hp.reelsEnabled) : prev.reelsEnabled,
     heroImage: safeImg(hp.heroImage || prev.heroImage),
     heroVideoUrl: safeVid(hp.heroVideoUrl),
     campaignVideoUrl: safeVid(hp.campaignVideoUrl),
@@ -449,26 +468,99 @@ function applyHomepagePayload(hp, setHomepage) {
   }));
 }
 
+export function StorySection({ homepage, storeSettings, onExploreShop, onGoHome }) {
+  const sections =
+    Array.isArray(storeSettings?.storySections) && storeSettings.storySections.length > 0
+      ? storeSettings.storySections
+      : [
+          {
+            eyebrow: "OUR PHILOSOPHY",
+            heading: "Wear what moves you.",
+            body:
+              homepage?.heroDescription ||
+              "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention.",
+            image: safeImg(homepage?.heroImage)
+          }
+        ];
+
+  return (
+    <section id="story" className="story section-pad">
+      <div>
+        {onGoHome && (
+          <div style={{ marginBottom: "20px", textAlign: "left" }}>
+            <button
+              type="button"
+              onClick={onGoHome}
+              className="pdp-back-btn"
+            >
+              ← BACK TO HOME
+            </button>
+          </div>
+        )}
+
+        {sections.map((st, idx) => (
+          <div key={idx} style={{ marginBottom: idx < sections.length - 1 ? "48px" : 0 }}>
+            <p className="eyebrow">{st.eyebrow || "OUR STORY"}</p>
+            <h2>{st.heading || "Wear what moves you."}</h2>
+            <p>{st.body}</p>
+            {st.image && (
+              <div
+                style={{
+                  maxWidth: "760px",
+                  margin: "24px auto 0",
+                  borderRadius: "16px",
+                  overflow: "hidden"
+                }}
+              >
+                <img
+                  src={safeImg(st.image)}
+                  alt={st.heading || "Calzare Story"}
+                  style={{
+                    width: "100%",
+                    maxHeight: "420px",
+                    objectFit: "cover",
+                    display: "block"
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+
+        {onExploreShop && (
+          <div style={{ marginTop: "28px" }}>
+            <button
+              type="button"
+              className="primary-cta-btn"
+              style={{ maxWidth: "240px", margin: "0 auto" }}
+              onClick={onExploreShop}
+            >
+              EXPLORE FOOTWEAR <ArrowRight size={15} />
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function Under999StoreSection({
   homepage,
   products = [],
   onExploreDrop,
-  onSelectProduct,
-  onQuickAdd
+  onSelectProduct
 }) {
   const [under999Idx, setUnder999Idx] = useState(0);
-  const [everydayIdx, setEverydayIdx] = useState(0);
 
   const config = homepage?.affordableStore || {};
   if (config.enabled === false || config.visible === false) return null;
 
-  const title = config.title || "THE UNDER ₹999 STORE";
+  const title = config.title || "Your day found its footing.";
   const subtitle =
     config.subtitle ||
-    "High performance foam shouldn't cost a week's wage. Premium daily comfort at honest prices.";
+    "Everyday Calzare, everyday price. Starting ₹999.";
   const badgeLabel = config.badgeLabel || "/999 Store";
-  const ctaLabel = config.ctaLabel || "EXPLORE DROP";
-  const bannerImage = safeImg(config.image, "");
+  const ctaLabel = config.ctaLabel || "EXPLORE";
 
   const accentColor =
     homepage?.theme?.accentColor ||
@@ -480,582 +572,352 @@ export function Under999StoreSection({
   );
 
   const maxPrice = Number(config.maxPrice ?? 999);
-  const under999Products = publishedProducts.filter(
-    (p) => Number(p.price) > 0 && Number(p.price) <= maxPrice
-  );
 
-  const baseEverydayPool = (() => {
-    const slidesOnly = publishedProducts.filter((p) => {
-      const cat = String(p.category || "").toLowerCase();
-      const name = String(p.name || "").toLowerCase();
-      return cat === "slides" || cat === "slide" || name.includes("slide");
-    });
-    return slidesOnly.length > 0 ? slidesOnly : publishedProducts;
-  })();
-
-  const dayOfYear = Math.floor(Date.now() / 86400000);
-  const dailyOffset =
-    baseEverydayPool.length > 0 ? dayOfYear % baseEverydayPool.length : 0;
-  const everydayDailySlides =
-    baseEverydayPool.length > 0
-      ? [
-          ...baseEverydayPool.slice(dailyOffset),
-          ...baseEverydayPool.slice(0, dailyOffset)
-        ]
+  const under999Slides = useMemo(() => {
+    const custom = Array.isArray(config.customSlides)
+      ? config.customSlides.filter((s) => s && (s.title || s.image))
       : [];
 
-  const total999 = under999Products.length;
-  const safe999Idx = total999 > 0 ? under999Idx % total999 : 0;
+    if (custom.length > 0) {
+      return custom.map((s, i) => {
+        const linkedProd =
+          publishedProducts.find((p) => String(p.id) === String(s.productId)) ||
+          publishedProducts[0];
+        return {
+          key: s.id || `custom-999-${i}`,
+          title: s.title || linkedProd?.name || "Everyday Pair",
+          price: Number(s.price ?? linkedProd?.price ?? 999),
+          homepageImage: safeImg(s.image || linkedProd?.image),
+          targetProduct: linkedProd
+        };
+      });
+    }
 
-  const totalEveryday = everydayDailySlides.length;
-  const safeEverydayIdx = totalEveryday > 0 ? everydayIdx % totalEveryday : 0;
+    return [...publishedProducts]
+      .reverse()
+      .filter((p) => Number(p.price) > 0 && Number(p.price) <= maxPrice)
+      .map((p) => ({
+        key: p.id || p._id,
+        title: p.name,
+        price: Number(p.price),
+        homepageImage: safeImg(p.image),
+        targetProduct: p
+      }));
+  }, [config.customSlides, publishedProducts, maxPrice]);
+
+  const total999 = under999Slides.length;
+  const perPage = 2;
+  const pageCount = total999 > 0 ? Math.ceil(total999 / perPage) : 0;
+  const safePage = pageCount > 0 ? under999Idx % pageCount : 0;
+
+  const pages = useMemo(() => {
+    if (!total999) return [];
+    const chunks = [];
+    for (let i = 0; i < total999; i += perPage) {
+      const slice = under999Slides.slice(i, i + perPage);
+      if (slice.length === 1 && total999 > 1) {
+        slice.push(under999Slides[0]);
+      }
+      chunks.push(slice);
+    }
+    return chunks;
+  }, [under999Slides, total999]);
 
   return (
-    <div style={under999Styles.stackWrapper}>
-      <section id="under-999-store" style={under999Styles.sectionBlock}>
+    <section id="under-999-store" style={under999Styles.sectionBlock}>
+      <div className="under999-split-wrap" style={under999Styles.splitRow}>
         <div
+          className="under999-blue-banner"
           style={{
             ...under999Styles.bannerCard,
             backgroundColor: accentColor,
-            backgroundImage: bannerImage
-              ? `linear-gradient(110deg, rgba(6, 69, 184, 0.88) 0%, rgba(5, 46, 128, 0.92) 100%), url("${bannerImage}")`
-              : "linear-gradient(110deg, #0747BD 0%, #053694 100%)"
+            backgroundImage:
+              "radial-gradient(circle at 20% 25%, #0D5CE0 0%, #0645B8 52%, #03266B 100%)"
           }}
         >
           <div style={under999Styles.bannerTopRow}>
-            <span style={under999Styles.eyebrowTag}>HONEST EVERYDAY PRICING</span>
             <span style={under999Styles.badge}>{badgeLabel}</span>
           </div>
 
-          <div style={under999Styles.bannerBody}>
-            <div>
-              <h2 style={under999Styles.leftTitle}>{title}</h2>
-              <p style={under999Styles.leftSubtitle}>{subtitle}</p>
-            </div>
+          <div style={under999Styles.bannerMiddle}>
+            <h2 style={under999Styles.leftTitle}>{title}</h2>
+            <p style={under999Styles.leftSubtitle}>{subtitle}</p>
+          </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              {total999 > 1 && (
-                <>
+          <div style={under999Styles.bannerBottomRow}>
+            <button
+              type="button"
+              onClick={onExploreDrop}
+              style={under999Styles.leftBtn}
+            >
+              {ctaLabel}
+            </button>
+
+            <span style={under999Styles.sealBadge} aria-hidden="true">
+              ₹{maxPrice}
+              <br />
+              STORE
+            </span>
+          </div>
+        </div>
+
+        <div className="under999-outside-slide" style={under999Styles.scrollCol}>
+          {pages.length > 0 ? (
+            <>
+              <div style={under999Styles.viewport}>
+                <div
+                  style={{
+                    display: "flex",
+                    transform: `translateX(-${safePage * 100}%)`,
+                    transition: "transform 0.35s ease"
+                  }}
+                >
+                  {pages.map((pair, pageIdx) => (
+                    <div
+                      key={pageIdx}
+                      style={{ minWidth: "100%", boxSizing: "border-box" }}
+                    >
+                      <div
+                        className="under999-pair-grid"
+                        style={under999Styles.pairGrid}
+                      >
+                        {pair.map((item, itemIdx) => (
+                          <div
+                            key={`${item.key}-${itemIdx}`}
+                            onClick={() =>
+                              item.targetProduct && onSelectProduct?.(item.targetProduct)
+                            }
+                            style={under999Styles.featuredSlideCard}
+                          >
+                            <div style={under999Styles.featuredSlideImgWrap}>
+                              <img
+                                src={item.homepageImage}
+                                alt={item.title}
+                                style={under999Styles.productImg}
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                                }}
+                              />
+                            </div>
+
+                            <h4 style={under999Styles.slideTitle}>{item.title}</h4>
+                            <span style={under999Styles.slidePrice}>
+                              ₹{Number(item.price).toLocaleString("en-IN")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {pageCount > 1 && (
+                <div style={under999Styles.outsideControlsRow}>
                   <button
                     type="button"
-                    aria-label="Previous under 999 slide"
+                    aria-label="Previous under 999 items"
                     onClick={() =>
-                      setUnder999Idx((prev) => (prev - 1 + total999) % total999)
+                      setUnder999Idx((prev) => (prev - 1 + pageCount) % pageCount)
                     }
-                    style={under999Styles.bannerArrowBtn}
+                    style={under999Styles.outsideArrowBtn}
                   >
                     ←
                   </button>
                   <button
                     type="button"
-                    aria-label="Next under 999 slide"
-                    onClick={() => setUnder999Idx((prev) => (prev + 1) % total999)}
-                    style={under999Styles.bannerArrowBtn}
+                    aria-label="Next under 999 items"
+                    onClick={() => setUnder999Idx((prev) => (prev + 1) % pageCount)}
+                    style={under999Styles.outsideArrowBtn}
                   >
                     →
                   </button>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={onExploreDrop}
-                style={under999Styles.leftBtn}
-              >
-                {ctaLabel} ({total999})
-              </button>
-            </div>
-          </div>
-
-          {total999 > 0 && (
-            <div>
-              <div style={{ overflow: "hidden", width: "100%", borderRadius: "16px" }}>
-                <div
-                  style={{
-                    display: "flex",
-                    transform: `translateX(-${safe999Idx * 100}%)`,
-                    transition: "transform 0.35s ease"
-                  }}
-                >
-                  {under999Products.map((item, idx) => (
-                    <div
-                      key={item.id || item._id}
-                      style={{ minWidth: "100%", boxSizing: "border-box" }}
-                    >
-                      <div
-                        onClick={() => onSelectProduct?.(item)}
-                        style={under999Styles.featuredSlideCard}
-                      >
-                        <div style={under999Styles.featuredSlideImgWrap}>
-                          <img
-                            src={safeImg(item.image)}
-                            alt={item.name}
-                            style={under999Styles.productImg}
-                            onError={(e) => {
-                              e.currentTarget.onerror = null;
-                              e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                            }}
-                          />
-                        </div>
-
-                        <div style={under999Styles.featuredSlideCopy}>
-                          <span style={under999Styles.cardPill}>
-                            AT ₹{maxPrice} • SLIDE {idx + 1} OF {total999}
-                          </span>
-                          <h4
-                            style={{
-                              margin: "12px 0 6px",
-                              fontSize: "22px",
-                              fontWeight: 800,
-                              color: "#0F172A"
-                            }}
-                          >
-                            {item.name}
-                          </h4>
-                          {item.color && (
-                            <p style={{ margin: "0 0 8px", fontSize: "13px", color: "#64748B" }}>
-                              {item.color}
-                            </p>
-                          )}
-                          {item.description && (
-                            <p
-                              style={{
-                                margin: "0 0 16px",
-                                fontSize: "13.5px",
-                                lineHeight: 1.5,
-                                color: "#475569"
-                              }}
-                            >
-                              {item.description}
-                            </p>
-                          )}
-
-                          <div style={under999Styles.priceActionRow}>
-                            <div style={under999Styles.productPriceRow}>
-                              <span style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A" }}>
-                                ₹{Number(item.price).toLocaleString("en-IN")}
-                              </span>
-                              {item.oldPrice &&
-                                Number(item.oldPrice) > Number(item.price) && (
-                                  <span style={under999Styles.productOldPrice}>
-                                    ₹{Number(item.oldPrice).toLocaleString("en-IN")}
-                                  </span>
-                                )}
-                            </div>
-
-                            {onQuickAdd && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onQuickAdd(
-                                    item,
-                                    item.sizes?.[1] || item.sizes?.[0] || "UK 8"
-                                  );
-                                }}
-                                style={{
-                                  ...under999Styles.quickAddBtn,
-                                  padding: "10px 18px",
-                                  fontSize: "11px"
-                                }}
-                              >
-                                + ADD TO BAG
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {total999 > 1 && (
-                <div style={under999Styles.dotsRow}>
-                  {under999Products.map((p, idx) => (
-                    <button
-                      key={p.id || p._id || idx}
-                      type="button"
-                      aria-label={`Under 999 slide ${idx + 1}`}
-                      onClick={() => setUnder999Idx(idx)}
-                      style={{
-                        width: idx === safe999Idx ? "24px" : "8px",
-                        height: "8px",
-                        borderRadius: "999px",
-                        border: 0,
-                        padding: 0,
-                        background:
-                          idx === safe999Idx ? "#FFFFFF" : "rgba(255,255,255,0.4)",
-                        cursor: "pointer",
-                        transition: "all 0.25s ease"
-                      }}
-                    />
-                  ))}
                 </div>
               )}
+            </>
+          ) : (
+            <div style={under999Styles.emptyWhiteState}>
+              <p style={{ margin: 0, fontSize: "13px", color: "#64748B" }}>
+                Add slides in Admin → Homepage CMS → Under ₹999 Store to display them here.
+              </p>
             </div>
           )}
         </div>
-      </section>
-
-      {totalEveryday > 0 && (
-        <section id="everyday-slide-section" style={under999Styles.sectionBlock}>
-          <div style={under999Styles.slideHeader}>
-            <div>
-              <p
-                style={{
-                  margin: "0 0 4px",
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "#64748B"
-                }}
-              >
-                DAILY ROTATION • UPDATED EVERY DAY
-              </p>
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "26px",
-                  fontWeight: 800,
-                  letterSpacing: "-0.02em",
-                  color: "#0F172A"
-                }}
-              >
-                Everyday Slide ({safeEverydayIdx + 1} / {totalEveryday})
-              </h3>
-            </div>
-
-            {totalEveryday > 1 && (
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setEverydayIdx((prev) => (prev - 1 + totalEveryday) % totalEveryday)
-                  }
-                  aria-label="Previous everyday slide"
-                  style={under999Styles.arrowBtn}
-                >
-                  ←
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEverydayIdx((prev) => (prev + 1) % totalEveryday)}
-                  aria-label="Next everyday slide"
-                  style={under999Styles.arrowBtn}
-                >
-                  →
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div style={{ overflow: "hidden", width: "100%", borderRadius: "18px" }}>
-            <div
-              style={{
-                display: "flex",
-                transform: `translateX(-${safeEverydayIdx * 100}%)`,
-                transition: "transform 0.35s ease"
-              }}
-            >
-              {everydayDailySlides.map((item, idx) => (
-                <div
-                  key={item.id || item._id}
-                  style={{ minWidth: "100%", boxSizing: "border-box" }}
-                >
-                  <div
-                    onClick={() => onSelectProduct?.(item)}
-                    style={under999Styles.featuredSlideCard}
-                  >
-                    <div style={under999Styles.featuredSlideImgWrap}>
-                      <img
-                        src={safeImg(item.image)}
-                        alt={item.name}
-                        style={under999Styles.productImg}
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                        }}
-                      />
-                    </div>
-
-                    <div style={under999Styles.featuredSlideCopy}>
-                      <span style={under999Styles.cardPill}>
-                        TODAY'S PICK #{idx + 1}
-                      </span>
-                      <h4
-                        style={{
-                          margin: "12px 0 6px",
-                          fontSize: "24px",
-                          fontWeight: 800,
-                          color: "#0F172A"
-                        }}
-                      >
-                        {item.name}
-                      </h4>
-                      {item.color && (
-                        <p style={{ margin: "0 0 8px", fontSize: "13px", color: "#64748B" }}>
-                          {item.color}
-                        </p>
-                      )}
-                      {item.description && (
-                        <p
-                          style={{
-                            margin: "0 0 18px",
-                            fontSize: "14px",
-                            lineHeight: 1.55,
-                            color: "#475569"
-                          }}
-                        >
-                          {item.description}
-                        </p>
-                      )}
-
-                      <div style={under999Styles.priceActionRow}>
-                        <div style={under999Styles.productPriceRow}>
-                          <span style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A" }}>
-                            ₹{Number(item.price).toLocaleString("en-IN")}
-                          </span>
-                          {item.oldPrice &&
-                            Number(item.oldPrice) > Number(item.price) && (
-                              <span style={under999Styles.productOldPrice}>
-                                ₹{Number(item.oldPrice).toLocaleString("en-IN")}
-                              </span>
-                            )}
-                        </div>
-
-                        {onQuickAdd && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onQuickAdd(
-                                item,
-                                item.sizes?.[1] || item.sizes?.[0] || "UK 8"
-                              );
-                            }}
-                            style={{
-                              ...under999Styles.quickAddBtn,
-                              padding: "10px 20px",
-                              fontSize: "11px"
-                            }}
-                          >
-                            + ADD TO BAG
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {totalEveryday > 1 && (
-            <div style={under999Styles.dotsRow}>
-              {everydayDailySlides.map((p, idx) => (
-                <button
-                  key={p.id || p._id || idx}
-                  type="button"
-                  aria-label={`Everyday slide ${idx + 1}`}
-                  onClick={() => setEverydayIdx(idx)}
-                  style={{
-                    width: idx === safeEverydayIdx ? "24px" : "8px",
-                    height: "8px",
-                    borderRadius: "999px",
-                    border: 0,
-                    padding: 0,
-                    background: idx === safeEverydayIdx ? "#0F172A" : "#CBD5E1",
-                    cursor: "pointer",
-                    transition: "all 0.25s ease"
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-    </div>
+      </div>
+    </section>
   );
 }
 
 const under999Styles = {
-  stackWrapper: {
+  sectionBlock: {
     width: "100%",
     maxWidth: "1360px",
     margin: "0 auto",
-    padding: "36px 24px",
-    boxSizing: "border-box",
-    display: "flex",
-    flexDirection: "column",
-    gap: "36px"
+    padding: "48px 9%",
+    background: "#FFFFFF",
+    boxSizing: "border-box"
   },
-  sectionBlock: {
-    width: "100%"
+  splitRow: {
+    display: "grid",
+    gridTemplateColumns: "minmax(250px, 340px) minmax(0, 1fr)",
+    gap: "28px",
+    alignItems: "center"
   },
   bannerCard: {
-    borderRadius: "20px",
-    padding: "32px",
+    borderRadius: "24px",
+    padding: "28px 24px",
+    minHeight: "390px",
     color: "#FFFFFF",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
     display: "flex",
     flexDirection: "column",
-    gap: "24px",
+    justifyContent: "space-between",
+    gap: "18px",
     boxSizing: "border-box",
     overflow: "hidden"
   },
   bannerTopRow: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "12px"
-  },
-  eyebrowTag: {
-    fontSize: "11px",
-    fontWeight: 700,
-    letterSpacing: "0.14em",
-    textTransform: "uppercase",
-    color: "rgba(255, 255, 255, 0.85)"
+    justifyContent: "flex-end",
+    alignItems: "center"
   },
   badge: {
-    fontSize: "20px",
-    fontWeight: 600,
+    fontSize: "22px",
+    fontWeight: 500,
     letterSpacing: "-0.02em",
-    color: "rgba(255, 255, 255, 0.96)"
+    color: "#FFFFFF"
   },
-  bannerBody: {
+  bannerMiddle: {
     display: "flex",
-    flexWrap: "wrap",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: "20px"
+    flexDirection: "column",
+    gap: "12px"
   },
   leftTitle: {
-    margin: "0 0 10px",
-    fontSize: "clamp(28px, 4vw, 42px)",
-    lineHeight: 1.04,
-    fontWeight: 800,
-    letterSpacing: "-0.03em",
-    textTransform: "uppercase",
+    margin: 0,
+    fontSize: "clamp(28px, 3.2vw, 42px)",
+    lineHeight: 1.06,
+    fontWeight: 700,
+    letterSpacing: "-0.025em",
     color: "#FFFFFF"
   },
   leftSubtitle: {
     margin: 0,
-    fontSize: "15px",
-    lineHeight: 1.55,
-    color: "rgba(255, 255, 255, 0.9)",
-    maxWidth: "540px"
+    fontSize: "14px",
+    lineHeight: 1.5,
+    color: "rgba(255, 255, 255, 0.9)"
   },
-  bannerArrowBtn: {
-    width: "38px",
-    height: "38px",
-    borderRadius: "999px",
-    border: "1px solid rgba(255, 255, 255, 0.45)",
-    background: "rgba(255, 255, 255, 0.14)",
-    color: "#FFFFFF",
-    fontWeight: 700,
-    cursor: "pointer"
+  bannerBottomRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "12px"
   },
   leftBtn: {
-    background: "#FFFFFF",
-    color: "#0645B8",
-    border: 0,
+    background: "transparent",
+    color: "#FFFFFF",
+    border: "1px solid rgba(255, 255, 255, 0.65)",
     borderRadius: "999px",
-    padding: "12px 24px",
-    fontSize: "11.5px",
-    fontWeight: 800,
+    padding: "10px 24px",
+    fontSize: "11px",
+    fontWeight: 700,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
     cursor: "pointer"
   },
-  slideHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: "16px",
-    gap: "12px"
-  },
-  arrowBtn: {
-    width: "38px",
-    height: "38px",
+  sealBadge: {
+    width: "56px",
+    height: "56px",
     borderRadius: "999px",
-    border: "1px solid #CBD5E1",
+    border: "1px dashed rgba(255, 255, 255, 0.72)",
+    display: "grid",
+    placeItems: "center",
+    textAlign: "center",
+    fontSize: "9.5px",
+    fontWeight: 800,
+    lineHeight: 1.15,
+    letterSpacing: "0.06em",
+    flexShrink: 0
+  },
+  scrollCol: {
     background: "#FFFFFF",
-    color: "#0F172A",
-    fontWeight: 700,
-    cursor: "pointer"
+    borderRadius: "16px",
+    padding: "16px 12px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    gap: "20px",
+    minWidth: 0
+  },
+  viewport: {
+    overflow: "hidden",
+    width: "100%",
+    background: "#FFFFFF"
+  },
+  pairGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "24px",
+    alignItems: "center"
   },
   featuredSlideCard: {
     background: "#FFFFFF",
-    border: "1px solid #E2E8F0",
-    borderRadius: "18px",
-    overflow: "hidden",
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-    cursor: "pointer"
+    padding: "10px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    gap: "8px",
+    cursor: "pointer",
+    minWidth: 0
   },
   featuredSlideImgWrap: {
-    height: "300px",
-    background: "#F8FAFC",
-    overflow: "hidden"
+    width: "100%",
+    maxWidth: "300px",
+    height: "200px",
+    background: "#FFFFFF",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
   },
   productImg: {
     width: "100%",
     height: "100%",
-    objectFit: "cover"
+    objectFit: "contain",
+    display: "block",
+    background: "#FFFFFF"
   },
-  featuredSlideCopy: {
-    padding: "24px",
+  slideTitle: {
+    margin: "6px 0 0",
+    fontSize: "14.5px",
+    fontWeight: 500,
+    color: "#1E211D"
+  },
+  slidePrice: {
+    fontSize: "14px",
+    fontWeight: 600,
+    color: "#1D63ED"
+  },
+  outsideControlsRow: {
     display: "flex",
-    flexDirection: "column",
     justifyContent: "center",
-    alignItems: "flex-start"
+    gap: "12px",
+    background: "#FFFFFF"
   },
-  cardPill: {
-    display: "inline-block",
-    background: "#0F172A",
-    color: "#FFFFFF",
-    fontSize: "10px",
-    fontWeight: 700,
-    padding: "5px 10px",
+  outsideArrowBtn: {
+    width: "44px",
+    height: "32px",
     borderRadius: "999px",
-    letterSpacing: "0.08em",
-    textTransform: "uppercase"
-  },
-  priceActionRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: "10px",
-    width: "100%"
-  },
-  productPriceRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px"
-  },
-  productOldPrice: {
-    fontSize: "12px",
-    color: "#94A3B8",
-    textDecoration: "line-through"
-  },
-  quickAddBtn: {
-    background: "#0B0D12",
-    color: "#FFFFFF",
-    border: 0,
-    borderRadius: "999px",
-    padding: "6px 12px",
-    fontSize: "10px",
-    fontWeight: 700,
-    letterSpacing: "0.08em",
+    border: "1px solid #D6D6CE",
+    background: "#FFFFFF",
+    color: "#475569",
+    fontWeight: 600,
     cursor: "pointer"
   },
-  dotsRow: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "8px",
-    marginTop: "14px"
+  emptyWhiteState: {
+    background: "#FFFFFF",
+    padding: "32px 16px",
+    textAlign: "center"
   }
 };
 
@@ -1118,7 +980,7 @@ export function ShortVideoReelsSection({
     >
       <div className="section-heading" style={{ marginBottom: "20px" }}>
         <div>
-          <p className="eyebrow">SHORT PLAY • ON-FOOT CLIPS</p>
+          <p className="eyebrow">SOLA PLAY • ON-FOOT CLIPS</p>
           <h2>
             Calzare <em>in Motion.</em>
           </h2>
@@ -1214,7 +1076,7 @@ export function ShortVideoReelsSection({
                       textTransform: "uppercase"
                     }}
                   >
-                    {clip.tag || "SHORT PLAY"}
+                    {clip.tag || "SOLA PLAY"}
                   </span>
 
                   <span
@@ -1301,6 +1163,7 @@ function App() {
   }));
   const [category, setCategory] = useState("all");
   const [collection, setCollection] = useState(initialRoute.collection);
+  const [storyPageOpen, setStoryPageOpen] = useState(initialRoute.isStoryPage);
   const [currentUser, setCurrentUser] = useState(() =>
     JSON.parse(localStorage.getItem("calzare_user") || "null")
   );
@@ -1344,12 +1207,6 @@ function App() {
     paymentMethod: "Partial COD (₹299 Advance)"
   });
 
-  function scrollToStorySection() {
-    setTimeout(() => {
-      document.getElementById("story")?.scrollIntoView({ behavior: "smooth" });
-    }, 120);
-  }
-
   function scrollToCatalogSection() {
     setTimeout(() => {
       const target =
@@ -1366,9 +1223,7 @@ function App() {
       setIsAdmin(next.isAdmin);
       setProductPageId(next.productId);
       setCollection(next.collection);
-      if (next.scrollToStory) {
-        scrollToStorySection();
-      }
+      setStoryPageOpen(next.isStoryPage);
     };
 
     window.addEventListener("hashchange", syncRoute);
@@ -1384,6 +1239,7 @@ function App() {
 
     if (normalized === "home" || normalized === "all") {
       setCollection("all");
+      setStoryPageOpen(false);
       setProductPageId(null);
       setCategory("all");
       setMenuOpen(false);
@@ -1394,16 +1250,18 @@ function App() {
 
     if (normalized === "story") {
       setCollection("all");
+      setStoryPageOpen(true);
       setProductPageId(null);
       setCategory("all");
       setMenuOpen(false);
       window.location.hash = "story";
-      scrollToStorySection();
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
 
     const validCol = VALID_COLLECTIONS.includes(normalized) ? normalized : "all";
     setCollection(validCol);
+    setStoryPageOpen(false);
     setProductPageId(null);
     setCategory("all");
     setMenuOpen(false);
@@ -1415,6 +1273,7 @@ function App() {
     const prodId = product?.id || product?._id;
     if (!prodId) return;
     setIsAdmin(false);
+    setStoryPageOpen(false);
     setMenuOpen(false);
     setProductPageId(String(prodId));
     window.location.hash = `#product/${encodeURIComponent(String(prodId))}`;
@@ -1501,7 +1360,10 @@ function App() {
                     ...readLocalPageAssignments()
                   }
                 : prev.pageAssignments || readLocalPageAssignments(),
-            navigation: incoming.navigation?.length ? incoming.navigation : prev.navigation
+            navigation: incoming.navigation?.length ? incoming.navigation : prev.navigation,
+            storySections: incoming.storySections?.length
+              ? incoming.storySections
+              : prev.storySections
           }));
         }
       })
@@ -1541,11 +1403,11 @@ function App() {
     DEFAULT_PAGE_ASSIGNMENTS.home;
 
   const activeCategories = useMemo(() => {
+    const baseCats = ["sneakers", "slides", "formal"];
     const allKnownCats = Array.from(
       new Set([
-        ...(storeSettings.categories || ["sneakers", "formal", "slides"]).map((c) =>
-          String(c).toLowerCase()
-        ),
+        ...baseCats,
+        ...(storeSettings.categories || []).map((c) => String(c).toLowerCase()),
         ...products.map((p) => String(p.category || "").toLowerCase()).filter(Boolean)
       ])
     );
@@ -1554,18 +1416,19 @@ function App() {
       ? currentPageRule.categories.map((c) => String(c).toLowerCase())
       : null;
 
-    if (!assignedCats) return allKnownCats;
-    return allKnownCats.filter((cat) => assignedCats.includes(cat));
+    if (!assignedCats || assignedCats.length === 0) return allKnownCats;
+    const filtered = allKnownCats.filter((cat) => assignedCats.includes(cat));
+    return filtered.length > 0 ? filtered : allKnownCats;
   }, [storeSettings.categories, products, currentPageRule]);
 
   const activeCollectionsForPage = useMemo(() => {
     const assignedCols = Array.isArray(currentPageRule?.collections)
       ? currentPageRule.collections.map((c) => String(c).toLowerCase())
       : VALID_COLLECTIONS;
-    return VALID_COLLECTIONS.filter((col) => assignedCols.includes(col));
+    const filtered = VALID_COLLECTIONS.filter((col) => assignedCols.includes(col));
+    return filtered.length > 0 ? filtered : VALID_COLLECTIONS;
   }, [currentPageRule]);
 
-  // If the admin removes the currently selected category from this page, reset filter to "all"
   useEffect(() => {
     if (
       category !== "all" &&
@@ -1581,13 +1444,17 @@ function App() {
   const visibleProducts = useMemo(() => {
     const list = Array.isArray(products) ? products : [];
     const term = search.trim().toLowerCase();
+    const published = list.filter((p) => p && (p.status || "published") !== "draft");
 
-    return list.filter((p) => {
-      if (!p || (p.status || "published") === "draft") return false;
+    const primary = published.filter((p) => {
       const productCol = normalizeSlug(p.collection || p.gender || "unisex");
       const productCat = String(p.category || "").toLowerCase();
 
-      const matchesCollection = collection === "all" || productCol === collection;
+      const matchesCollection =
+        collection === "all" ||
+        productCol === collection ||
+        (collection !== "kids" && productCol === "unisex");
+
       const matchesPageCategories =
         activeCategories.length === 0 ? true : activeCategories.includes(productCat);
 
@@ -1603,6 +1470,12 @@ function App() {
 
       return matchesCollection && matchesCategory && matchesSearch;
     });
+
+    if (primary.length === 0 && !term && published.length > 0) {
+      return published;
+    }
+
+    return primary;
   }, [products, collection, category, search, maxBudgetPrice, activeCategories]);
 
   const freeShipMin = Number(storeSettings.freeShippingThreshold ?? 2999);
@@ -1748,11 +1621,6 @@ function App() {
 
       if (data.user?.role === "admin" && data.user?.adminToken) {
         sessionStorage.setItem("calzare_admin_token", data.user.adminToken);
-        setIsAdmin(true);
-        window.location.hash = "admin";
-        setAuthOpen(false);
-        setNotice(`Welcome back, ${data.user.name}.`);
-        return;
       }
 
       setCurrentUser(data.user);
@@ -1762,8 +1630,15 @@ function App() {
         name: prev.name || data.user.name || "",
         phone: prev.phone || data.user.phone || ""
       }));
-      setNotice(`Welcome back, ${data.user.name}.`);
+      setAuthForm({ name: "", email: "", phone: "", password: "" });
       setAuthOpen(false);
+
+      if (data.user?.role === "admin" && data.user?.adminToken) {
+        setIsAdmin(true);
+        window.location.hash = "admin";
+      } else {
+        setNotice(`Welcome back, ${data.user.name}.`);
+      }
     } catch (err) {
       setAuthError(err.message);
     }
@@ -1880,17 +1755,35 @@ function App() {
     : null;
 
   const pipVideoUrl = safeVid(homepage.pipVideo?.videoUrl);
-  const navItems = (
-    storeSettings.navigation?.length
-      ? storeSettings.navigation
-      : DEFAULT_SETTINGS.navigation
-  ).filter((item) => item && String(item.label || "").trim());
+
+  const navItems = useMemo(() => {
+    const raw = (
+      storeSettings.navigation?.length
+        ? storeSettings.navigation
+        : DEFAULT_SETTINGS.navigation
+    ).filter((item) => item && String(item.label || "").trim());
+
+    const homeIdx = raw.findIndex(
+      (item) => normalizeSlug(item.url || item.label) === "home"
+    );
+
+    if (homeIdx > 0) {
+      const [homeEntry] = raw.splice(homeIdx, 1);
+      return [homeEntry, ...raw];
+    }
+    if (homeIdx === -1) {
+      return [{ label: "HOME", url: "#home" }, ...raw];
+    }
+    return raw;
+  }, [storeSettings.navigation]);
 
   if (isAdmin) {
     return (
       <AdminPanel
         onExit={() => {
-          window.location.hash = "";
+          if (window.location.hash.toLowerCase() === "#admin") {
+            window.location.hash = "";
+          }
           setIsAdmin(false);
           refreshStore();
         }}
@@ -1905,13 +1798,13 @@ function App() {
       products={products}
       onExploreDrop={() => {
         setProductPageId(null);
+        setStoryPageOpen(false);
         setCollection("all");
         setCategory("under999");
         window.location.hash = "";
         scrollToCatalogSection();
       }}
       onSelectProduct={(p) => openFullProductPage(p)}
-      onQuickAdd={(p, sz) => addToCart(p, sz, true)}
     />
   );
 
@@ -1961,13 +1854,11 @@ function App() {
             const isStory =
               slug === "story" || String(nav.label || "").toLowerCase().includes("story");
 
-            const isActive = isHome
-              ? !productPageId &&
-                collection === "all" &&
-                window.location.hash.toLowerCase() !== "#story"
-              : isStory
-              ? window.location.hash.toLowerCase() === "#story"
-              : !productPageId && collection === slug;
+            const isActive = isStory
+              ? storyPageOpen
+              : isHome
+              ? !storyPageOpen && !productPageId && collection === "all"
+              : !storyPageOpen && !productPageId && collection === slug;
 
             return (
               <a
@@ -1993,36 +1884,46 @@ function App() {
           })}
         </nav>
 
-        <div className="header-actions">
+        <div className="header-actions" style={{ flexShrink: 0 }}>
           <label className="search-box">
             <Search size={16} />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" />
           </label>
           <button
+            type="button"
             className="icon-button"
             onClick={() => setCartOpen(true)}
             aria-label="Open shopping bag"
+            style={{ flexShrink: 0 }}
           >
             <ShoppingBag size={19} />
             <span className="count">{cartCount}</span>
           </button>
           <button
+            type="button"
             className="icon-button"
             onClick={openAccountModal}
             aria-label="Account sign in"
             title={currentUser ? `Signed in as ${currentUser.name}` : "Sign In"}
+            style={{
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              whiteSpace: "nowrap"
+            }}
           >
             <User size={18} />
-            {currentUser && (
-              <span style={{ fontSize: "9.5px", letterSpacing: "1px", marginLeft: "6px" }}>
-                {currentUser.name.split(" ")[0].toUpperCase()}
-              </span>
-            )}
+            <span style={{ fontSize: "10px", letterSpacing: "1px", fontWeight: 600 }}>
+              {currentUser ? currentUser.name.split(" ")[0].toUpperCase() : "SIGN IN"}
+            </span>
           </button>
           <button
+            type="button"
             className="icon-button mobile-menu"
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="Toggle menu"
+            style={{ flexShrink: 0 }}
           >
             <Menu size={18} />
           </button>
@@ -2030,34 +1931,55 @@ function App() {
       </header>
 
       <main>
-        {productPageId ? (
-          <ProductPage
+        {storyPageOpen ? (
+          <StorySection
             homepage={homepage}
-            product={products.find((p) => p.id === productPageId) || products[0]}
-            products={products}
-            allProducts={products}
-            favorites={favorites}
-            onToggleFavorite={(id) =>
-              setFavorites((old) =>
-                old.includes(id) ? old.filter((item) => item !== id) : [...old, id]
-              )
-            }
-            onAddToCart={addToCart}
-            onSelectProduct={openFullProductPage}
-            onGoBack={() => {
-              setProductPageId(null);
-              window.location.hash = collection === "all" ? "" : collection;
+            storeSettings={storeSettings}
+            onGoHome={() => navigateCollection("home")}
+            onExploreShop={() => {
+              navigateCollection("all");
+              scrollToCatalogSection();
             }}
-            money={money}
           />
+        ) : productPageId ? (
+          <>
+            <ProductPage
+              homepage={homepage}
+              product={products.find((p) => p.id === productPageId) || products[0]}
+              products={products}
+              allProducts={products}
+              favorites={favorites}
+              onToggleFavorite={(id) =>
+                setFavorites((old) =>
+                  old.includes(id) ? old.filter((item) => item !== id) : [...old, id]
+                )
+              }
+              onAddToCart={addToCart}
+              onSelectProduct={openFullProductPage}
+              onGoBack={() => {
+                setProductPageId(null);
+                window.location.hash = collection === "all" ? "" : collection;
+              }}
+              money={money}
+            />
+
+            {homepage.reelsEnabled !== false && (
+              <ShortVideoReelsSection
+                reels={reels}
+                products={products}
+                onOpenReel={openReelModal}
+                onQuickAdd={(prod, sz) => addToCart(prod, sz, true)}
+              />
+            )}
+          </>
         ) : collection !== "all" ? (
           <CollectionPage
             collection={collection}
-            products={products.filter((p) =>
-              activeCategories.length === 0
-                ? true
-                : activeCategories.includes(String(p.category || "").toLowerCase())
-            )}
+            products={
+              visibleProducts.length > 0
+                ? visibleProducts
+                : products.filter((p) => p && (p.status || "published") !== "draft")
+            }
             allowedCategories={activeCategories}
             allowedCollections={activeCollectionsForPage}
             search={search}
@@ -2078,7 +2000,7 @@ function App() {
             homepage={homepage}
             products={products}
             visibleProducts={visibleProducts}
-            reels={reels}
+            reels={homepage.reelsEnabled === false ? [] : reels}
             categories={activeCategories}
             allowedCollections={activeCollectionsForPage}
             category={category}
@@ -2842,7 +2764,11 @@ function App() {
 
       {authOpen && (
         <div className="modal-backdrop" onClick={() => setAuthOpen(false)}>
-          <div className="checkout-modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="checkout-modal"
+            style={{ maxHeight: "85dvh", overflowY: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <button className="modal-close" onClick={() => setAuthOpen(false)} aria-label="Close">
               <X size={18} />
             </button>
@@ -2901,6 +2827,20 @@ function App() {
                   )}
                 </div>
 
+                {currentUser.role === "admin" && (
+                  <button
+                    type="button"
+                    className="primary-cta-btn"
+                    onClick={() => {
+                      setAuthOpen(false);
+                      setIsAdmin(true);
+                      window.location.hash = "admin";
+                    }}
+                  >
+                    OPEN ADMIN PANEL
+                  </button>
+                )}
+
                 <button type="button" className="primary-cta-btn" onClick={handleSignOut}>
                   SIGN OUT
                 </button>
@@ -2957,6 +2897,7 @@ function App() {
                   type="button"
                   onClick={() => {
                     setAuthMode(authMode === "login" ? "register" : "login");
+                    setAuthForm({ name: "", email: "", phone: "", password: "" });
                     setAuthError("");
                   }}
                   style={{
