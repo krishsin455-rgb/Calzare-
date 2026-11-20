@@ -2290,3 +2290,146 @@ main .site-footer-dark {
     grid-template-columns: 1fr;
   }
 }
+/* ===== MOBILE UI VARIABLES & HEADER/DRAWER FIXES ===== */
+:root {
+  --mobile-nav-height: 58px;
+  --mobile-logo-size: 17px;
+  --mobile-hero-title-size: 34px;
+  --mobile-collection-title-size: 26px;
+}
+
+.mobile-only-btn {
+  display: none;
+}
+
+.mobile-search-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: var(--mobile-nav-height);
+  z-index: 19;
+}
+
+.mobile-search-dropdown input {
+  flex: 1;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.mobile-nav-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.48);
+  z-index: 95;
+  display: flex;
+}
+
+.mobile-nav-drawer {
+  width: min(82vw, 320px);
+  height: 100dvh;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 6px 0 28px rgba(0, 0, 0, 0.18);
+  animation: slideDrawerIn 0.24s ease-out;
+}
+
+@keyframes slideDrawerIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.mobile-drawer-head {
+  height: 58px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+
+.mobile-drawer-links {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-drawer-links a {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+}
+
+.mobile-drawer-footer {
+  padding: 16px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 768px) {
+  .header {
+    height: var(--mobile-nav-height) !important;
+  }
+
+  .wordmark {
+    font-size: var(--mobile-logo-size) !important;
+    padding: 0 10px !important;
+    border-right: 0 !important;
+  }
+
+  .mobile-menu {
+    display: flex !important;
+    border-right: 1px solid var(--line) !important;
+    padding: 0 12px !important;
+  }
+
+  .header-actions .desktop-search-only,
+  .desktop-sign-label {
+    display: none !important;
+  }
+
+  .mobile-only-btn {
+    display: flex !important;
+  }
+
+  .hero-copy h1 {
+    font-size: var(--mobile-hero-title-size) !important;
+  }
+
+  .collections-strip .section-heading h2 {
+    font-size: var(--mobile-collection-title-size) !important;
+  }
+
+  /* Trust bar horizontal swipe on mobile so it doesn't eat vertical space */
+  .trust-strip.mobile-swipe-mode {
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding: 14px 16px;
+    gap: 14px;
+  }
+
+  .trust-strip.mobile-swipe-mode .trust-item {
+    flex: 0 0 76%;
+    scroll-snap-align: start;
+  }
+
+  /* Under 999 Store: 1 full slide per view on mobile */
+  #under-999-store .under999-slide-item {
+    flex: 0 0 100% !important;
+    max-width: 100% !important;
+  }
+}

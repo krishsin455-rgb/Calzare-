@@ -285,6 +285,14 @@ const DEFAULT_HOMEPAGE = {
   heroDescription:
     "Thoughtful footwear. Quiet confidence. Made for wherever the day takes you.",
   campaignVideoUrl: "",
+  mobileUI: {
+    navHeightPx: 58,
+    logoSizePx: 17,
+    logoTracking: 2.4,
+    heroTitleSizePx: 34,
+    collectionTitleSizePx: 26,
+    trustLayout: "swipe"
+  },
   pipVideo: {
     enabled: false,
     label: "WATCH FIT & FLEX",
@@ -477,6 +485,12 @@ function applyHomepagePayload(hp, setHomepage) {
     heroImage: safeImg(hp.heroImage || prev.heroImage),
     heroVideoUrl: safeVid(hp.heroVideoUrl),
     campaignVideoUrl: safeVid(hp.campaignVideoUrl),
+    mobileUI: hp.mobileUI
+      ? {
+          ...prev.mobileUI,
+          ...hp.mobileUI
+        }
+      : prev.mobileUI,
     pipVideo: hp.pipVideo
       ? {
           ...prev.pipVideo,
@@ -598,6 +612,7 @@ export function StorySection({ homepage, storeSettings, onExploreShop, onGoHome 
   );
 }
 
+// Under ₹999 Store: uses ONLY custom slide photos uploaded for ₹999 slides (never product photos)
 export function Under999StoreSection({
   homepage,
   products = [],
@@ -606,6 +621,15 @@ export function Under999StoreSection({
 }) {
   const [slideIndex, setSlideIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState(null);
+  const [isMobileView, setIsMobileView] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768
+  );
+
+  useEffect(() => {
+    const onResize = () => setIsMobileView(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const config = homepage?.affordableStore || {};
   if (config.enabled === false || config.visible === false) return null;
@@ -635,41 +659,32 @@ export function Under999StoreSection({
 
   const under999Slides = useMemo(() => {
     const custom = Array.isArray(config.customSlides)
-      ? config.customSlides.filter((s) => s && (s.image || s.productId))
+      ? config.customSlides.filter(
+          (s) => s && typeof s.image === "string" && s.image.trim().length > 0
+        )
       : [];
 
-    if (custom.length > 0) {
-      return custom.map((s, i) => {
-        const linkedProd =
-          publishedProducts.find((p) => String(p.id) === String(s.productId)) ||
-          publishedProducts[0];
-        return {
-          key: s.id || `custom-999-${i}`,
-          alt: linkedProd?.name || "Calzare Under 999",
-          homepageImage: safeImg(s.image || linkedProd?.image),
-          targetProduct: linkedProd
-        };
-      });
-    }
-
-    return [...publishedProducts]
-      .reverse()
-      .filter((p) => Number(p.price) > 0 && Number(p.price) <= maxPrice)
-      .map((p) => ({
-        key: p.id || p._id,
-        alt: p.name,
-        homepageImage: safeImg(p.image),
-        targetProduct: p
-      }));
+    return custom.map((s, i) => {
+      const linkedProd =
+        publishedProducts.find((p) => String(p.id) === String(s.productId)) || null;
+      return {
+        key: s.id || `custom-999-${i}`,
+        alt: s.title || linkedProd?.name || `Calzare ₹${maxPrice} Slide ${i + 1}`,
+        slideImage: s.image.trim(),
+        targetProduct: linkedProd,
+        redirectUrl: String(s.redirectUrl || "").trim()
+      };
+    });
   }, [config.customSlides, publishedProducts, maxPrice]);
 
   if (!under999Slides.length) return null;
 
-  const visibleCount = 2;
+  const visibleCount = isMobileView ? 1 : 2;
   const maxIndex = Math.max(0, under999Slides.length - visibleCount);
   const safeIndex = Math.min(slideIndex, maxIndex);
   const canPrev = safeIndex > 0;
   const canNext = safeIndex < maxIndex;
+  const stepPercent = isMobileView ? 100 : 50;
 
   function handlePrev() {
     if (canPrev) setSlideIndex((i) => Math.max(0, i - 1));
@@ -692,6 +707,20 @@ export function Under999StoreSection({
       else handlePrev();
     }
     setTouchStartX(null);
+  }
+
+  function handleSlideClick(item) {
+    if (item.redirectUrl) {
+      if (item.redirectUrl.startsWith("#")) {
+        window.location.hash = item.redirectUrl;
+      } else {
+        window.location.href = item.redirectUrl;
+      }
+      return;
+    }
+    if (item.targetProduct) {
+      onSelectProduct?.(item.targetProduct);
+    }
   }
 
   return (
@@ -773,7 +802,7 @@ export function Under999StoreSection({
               style={{
                 display: "flex",
                 alignItems: "center",
-                transform: `translateX(-${safeIndex * 50}%)`,
+                transform: `translateX(-${safeIndex * stepPercent}%)`,
                 transition: "transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)"
               }}
             >
@@ -781,14 +810,12 @@ export function Under999StoreSection({
                 <div
                   key={`${item.key}-${idx}`}
                   className="under999-slide-item"
-                  onClick={() =>
-                    item.targetProduct && onSelectProduct?.(item.targetProduct)
-                  }
+                  onClick={() => handleSlideClick(item)}
                   style={under999Styles.slideItem}
                 >
                   <div style={under999Styles.featuredSlideImgWrap}>
                     <img
-                      src={item.homepageImage}
+                      src={item.slideImage}
                       alt={item.alt}
                       style={under999Styles.productImg}
                       onError={(e) => {
@@ -802,34 +829,36 @@ export function Under999StoreSection({
             </div>
           </div>
 
-          <div style={under999Styles.outsideControlsRow}>
-            <button
-              type="button"
-              aria-label="Previous 999 store item"
-              disabled={!canPrev}
-              onClick={handlePrev}
-              style={{
-                ...under999Styles.outsideArrowBtn,
-                opacity: canPrev ? 1 : 0.35,
-                cursor: canPrev ? "pointer" : "default"
-              }}
-            >
-              ←
-            </button>
-            <button
-              type="button"
-              aria-label="Next 999 store item"
-              disabled={!canNext}
-              onClick={handleNext}
-              style={{
-                ...under999Styles.outsideArrowBtn,
-                opacity: canNext ? 1 : 0.35,
-                cursor: canNext ? "pointer" : "default"
-              }}
-            >
-              →
-            </button>
-          </div>
+          {under999Slides.length > visibleCount && (
+            <div style={under999Styles.outsideControlsRow}>
+              <button
+                type="button"
+                aria-label="Previous 999 store item"
+                disabled={!canPrev}
+                onClick={handlePrev}
+                style={{
+                  ...under999Styles.outsideArrowBtn,
+                  opacity: canPrev ? 1 : 0.35,
+                  cursor: canPrev ? "pointer" : "default"
+                }}
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                aria-label="Next 999 store item"
+                disabled={!canNext}
+                onClick={handleNext}
+                style={{
+                  ...under999Styles.outsideArrowBtn,
+                  opacity: canNext ? 1 : 0.35,
+                  cursor: canNext ? "pointer" : "default"
+                }}
+              >
+                →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -1951,6 +1980,10 @@ function App() {
         "--surface-alt": homepage.theme?.cardBgColor || "#eeede7",
         "--accent": homepage.theme?.accentColor || "#252a22",
         "--accent-ink": homepage.theme?.accentTextColor || "#f7f6f2",
+        "--mobile-nav-height": `${homepage.mobileUI?.navHeightPx || 58}px`,
+        "--mobile-logo-size": `${homepage.mobileUI?.logoSizePx || 17}px`,
+        "--mobile-hero-title-size": `${homepage.mobileUI?.heroTitleSizePx || 34}px`,
+        "--mobile-collection-title-size": `${homepage.mobileUI?.collectionTitleSizePx || 26}px`,
         fontFamily: homepage.theme?.fontFamily || "'DM Sans', sans-serif",
         fontSize: homepage.theme?.fontSizePx ? `${homepage.theme.fontSizePx}px` : undefined
       }}

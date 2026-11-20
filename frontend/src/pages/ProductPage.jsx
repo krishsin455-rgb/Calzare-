@@ -24,6 +24,8 @@ import {
   X
 } from "lucide-react";
 
+const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
+
 const SAFE_IMAGE_FALLBACK =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
 
@@ -33,7 +35,6 @@ const BROKEN_IMAGE_IDS = [
 ];
 
 const DEFAULT_SIZES = ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"];
-const PRODUCT_REVIEWS_STORAGE_KEY = "calzare_product_reviews_v1";
 
 const DEFAULT_PRODUCT_SHORT_VIDEOS = [
   {
@@ -156,16 +157,49 @@ export default function ProductPage({
   canManageReviews = false
 }) {
   const current = product || products[0] || null;
-  const sizes = current?.sizes?.length ? current.sizes : DEFAULT_SIZES;
+  const productId = current?.id || current?._id || "";
+
+  const variantList = useMemo(() => {
+    if (!current) return [];
+    if (Array.isArray(current.variants) && current.variants.length > 0) {
+      return current.variants.map((v, idx) => ({
+        id: v.id || v._id || `${productId}-var-${idx}`,
+        label: v.label || v.name || v.color || `Variant ${idx + 1}`,
+        color: v.color || v.label || v.name || current.color || "Standard",
+        price: v.price !== undefined && v.price !== null ? Number(v.price) : Number(current.price) || 0,
+        oldPrice:
+          v.oldPrice !== undefined && v.oldPrice !== null
+            ? Number(v.oldPrice)
+            : current.oldPrice
+            ? Number(current.oldPrice)
+            : null,
+        image: safeImgSrc(v.image || current.image),
+        videoUrl: safeVideoSrc(v.videoUrl || current.videoUrl),
+        sizes: Array.isArray(v.sizes) && v.sizes.length > 0 ? v.sizes : null
+      }));
+    }
+    return [];
+  }, [current, productId]);
+
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+
+  const activeVariant =
+    variantList.length > 0
+      ? variantList[Math.min(selectedVariantIndex, variantList.length - 1)]
+      : null;
+
+  const sizes = useMemo(() => {
+    if (activeVariant?.sizes?.length) return activeVariant.sizes;
+    if (current?.sizes?.length) return current.sizes;
+    return DEFAULT_SIZES;
+  }, [activeVariant, current?.sizes]);
 
   const [selectedSize, setSelectedSize] = useState(
     sizes.includes("UK 8") ? "UK 8" : sizes[0]
   );
   const [quantity, setQuantity] = useState(1);
   const [showVideo, setShowVideo] = useState(false);
-  const [selectedColorwayId, setSelectedColorwayId] = useState(
-    current?.id || current?._id || ""
-  );
+  const [selectedColorwayId, setSelectedColorwayId] = useState(productId);
   const [footerEmail, setFooterEmail] = useState("");
   const [footerSubscribed, setFooterSubscribed] = useState(false);
 
@@ -174,36 +208,74 @@ export default function ProductPage({
   const [clipMuted, setClipMuted] = useState(false);
   const [failedClipIds, setFailedClipIds] = useState({});
 
-  // Admin-Only Product Reviews State
-  const [customReviewsByProduct, setCustomReviewsByProduct] = useState(() => {
-    try {
-      const saved = JSON.parse(
-        localStorage.getItem(PRODUCT_REVIEWS_STORAGE_KEY) || "null"
-      );
-      return saved && typeof saved === "object" ? saved : {};
-    } catch {
-      return {};
-    }
-  });
+  // Backend-Driven Reviews State
+  const [backendReviews, setBackendReviews] = useState([]);
   const [reviewFormOpen, setReviewFormOpen] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState(null);
   const [reviewDraft, setReviewDraft] = useState(() =>
     createEmptyDraft(sizes.includes("UK 8") ? "UK 8" : sizes[0])
   );
 
+  async function fetchBackendReviews() {
+    try {
+      const res = await fetch(`${API}/reviews`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = Array.isArray(data?.reviews)
+        ? data.reviews
+        : Array.isArray(data)
+        ? data
+        : [];
+      const approved = list.filter(
+        (r) => r && (r.status || "approved") === "approved"
+      );
+      setBackendReviews(
+        approved.map((r, i) => ({
+          id: r._id || r.id || `api-rev-${i}`,
+          productId: r.productId || "",
+          rating: Number(r.rating) || 5,
+          quote: r.headline
+            ? `"${String(r.headline).replace(/^"+|"+$/g, "").toUpperCase()}"`
+            : `"VERIFIED EXPERIENCE"`,
+          body: r.comment || "",
+          author: r.customerName || "Verified Buyer",
+          meta: `Verified Owner: ${r.productName || current?.name || "CALZARE"}`,
+          location: `${r.location || "India"} • Verified Buyer`
+        }))
+      );
+    } catch {
+      // Keep fallback reviews if offline
+    }
+  }
+
+  useEffect(() => {
+    fetchBackendReviews();
+    window.addEventListener("calzare_store_updated", fetchBackendReviews);
+    return () => {
+      window.removeEventListener("calzare_store_updated", fetchBackendReviews);
+    };
+  }, [current?.name]);
+
   useEffect(() => {
     const nextSizes = current?.sizes?.length ? current.sizes : DEFAULT_SIZES;
     const defaultSz = nextSizes.includes("UK 8") ? "UK 8" : nextSizes[0];
+    setSelectedVariantIndex(0);
     setSelectedSize(defaultSz);
     setQuantity(1);
     setShowVideo(false);
     setActiveClipIndex(null);
     setFailedClipIds({});
-    setSelectedColorwayId(current?.id || current?._id || "");
+    setSelectedColorwayId(productId);
     setReviewFormOpen(false);
     setEditingReviewId(null);
     setReviewDraft(createEmptyDraft(defaultSz));
-  }, [current?.id, current?._id]);
+  }, [productId]);
+
+  useEffect(() => {
+    if (!sizes.includes(selectedSize)) {
+      setSelectedSize(sizes.includes("UK 8") ? "UK 8" : sizes[0]);
+    }
+  }, [sizes, selectedSize]);
 
   useEffect(() => {
     if (!canManageReviews) {
@@ -212,30 +284,26 @@ export default function ProductPage({
     }
   }, [canManageReviews]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(
-        PRODUCT_REVIEWS_STORAGE_KEY,
-        JSON.stringify(customReviewsByProduct)
-      );
-    } catch {}
-  }, [customReviewsByProduct]);
+  const productReelsEnabled = homepage?.productReelsEnabled !== false;
 
-  const productId = current?.id || current?._id || "";
+  const currentImage = activeVariant ? activeVariant.image : safeImgSrc(current?.image);
+  const currentVideo = activeVariant
+    ? activeVariant.videoUrl
+    : safeVideoSrc(current?.videoUrl);
+  const activeColorLabel = activeVariant ? activeVariant.color : current?.color || "";
 
   // Build Product-Specific Short Video Clips (uploaded product video + reels + demo clips)
   const productShortClips = useMemo(() => {
-    if (!current) return [];
-    const posterImg = safeImgSrc(current.image);
+    if (!current || !productReelsEnabled) return [];
+    const posterImg = currentImage;
     const clips = [];
 
-    const mainProdVid = safeVideoSrc(current.videoUrl);
-    if (mainProdVid) {
+    if (currentVideo) {
       clips.push({
         id: `${productId}-main-clip`,
         label: "Official Demo",
         tag: "IN MOTION",
-        videoUrl: mainProdVid,
+        videoUrl: currentVideo,
         poster: posterImg
       });
     }
@@ -264,14 +332,14 @@ export default function ProductPage({
     }
 
     return clips.slice(0, 5);
-  }, [current, productId, reels]);
+  }, [current, productId, reels, productReelsEnabled, currentVideo, currentImage]);
 
   const productReviews = useMemo(() => {
-    const specific = Array.isArray(customReviewsByProduct[productId])
-      ? customReviewsByProduct[productId]
-      : [];
-    return [...specific, ...DEFAULT_REVIEWS];
-  }, [customReviewsByProduct, productId]);
+    const matched = backendReviews.filter(
+      (r) => !r.productId || r.productId === productId
+    );
+    return matched.length > 0 ? matched : DEFAULT_REVIEWS;
+  }, [backendReviews, productId]);
 
   const averageRating = useMemo(() => {
     if (!productReviews.length) return "5.0";
@@ -305,6 +373,35 @@ export default function ProductPage({
       .slice(0, 4);
   }, [products, current, productId]);
 
+  // Product Suggestions: 1) Similar / Suggested for You, 2) People Also Bought
+  const { suggestedItems, alsoBoughtItems } = useMemo(() => {
+    const list = (Array.isArray(products) ? products : []).filter((p) => {
+      const id = p?.id || p?._id;
+      return p && id && id !== productId && (p.status || "published") !== "draft";
+    });
+
+    const curCat = String(current?.category || "").toLowerCase();
+    const curCol = String(current?.collection || "").toLowerCase();
+
+    const similar = list.filter((p) => {
+      const pCat = String(p.category || "").toLowerCase();
+      const pCol = String(p.collection || "").toLowerCase();
+      return (curCat && pCat === curCat) || (curCol && pCol === curCol);
+    });
+
+    const primarySuggestions = (similar.length >= 3 ? similar : list).slice(0, 4);
+    const primaryIds = new Set(primarySuggestions.map((p) => p.id || p._id));
+    const secondaryAlsoBought = list
+      .filter((p) => !primaryIds.has(p.id || p._id))
+      .concat(list.filter((p) => primaryIds.has(p.id || p._id)))
+      .slice(0, 3);
+
+    return {
+      suggestedItems: primarySuggestions,
+      alsoBoughtItems: secondaryAlsoBought
+    };
+  }, [products, productId, current?.category, current?.collection]);
+
   if (!current) {
     return (
       <section className="pdp-page section-pad">
@@ -316,8 +413,6 @@ export default function ProductPage({
     );
   }
 
-  const currentImage = safeImgSrc(current.image);
-  const currentVideo = safeVideoSrc(current.videoUrl);
   const pdpCfg = homepage?.productPage || {};
 
   const formatPrice =
@@ -325,8 +420,10 @@ export default function ProductPage({
       ? money
       : (val) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
 
-  const priceNum = Number(current.price) || 0;
-  const oldPriceNum = Number(current.oldPrice) || 0;
+  const priceNum = activeVariant ? Number(activeVariant.price) || 0 : Number(current.price) || 0;
+  const oldPriceNum = activeVariant
+    ? Number(activeVariant.oldPrice) || 0
+    : Number(current.oldPrice) || 0;
   const discountPct =
     oldPriceNum > priceNum && priceNum > 0
       ? Math.round(((oldPriceNum - priceNum) / oldPriceNum) * 100)
@@ -334,16 +431,26 @@ export default function ProductPage({
 
   const isFavorite = favorites.includes(productId);
 
-  const relatedItems = (Array.isArray(products) ? products : [])
-    .filter((p) => {
-      const id = p?.id || p?._id;
-      return p && id && id !== productId && (p.status || "published") !== "draft";
-    })
-    .slice(0, 3);
+  function buildCartProductPayload() {
+    const variantSuffix =
+      activeVariant && activeVariant.label ? ` — ${activeVariant.label}` : "";
+    return {
+      ...current,
+      id: activeVariant ? `${productId}__${activeVariant.id}` : productId,
+      baseProductId: productId,
+      name: `${current.name}${variantSuffix}`,
+      color: activeColorLabel || current.color,
+      price: priceNum,
+      oldPrice: oldPriceNum || null,
+      image: currentImage,
+      videoUrl: currentVideo
+    };
+  }
 
   function handleAddSelection() {
+    const itemToAdd = buildCartProductPayload();
     for (let i = 0; i < quantity; i += 1) {
-      onAddToCart?.(current, selectedSize, i === quantity - 1);
+      onAddToCart?.(itemToAdd, selectedSize, i === quantity - 1);
     }
   }
 
@@ -387,22 +494,24 @@ export default function ProductPage({
     setReviewFormOpen(true);
   }
 
-  function handleDeleteReview(revId) {
+  async function handleDeleteReview(revId) {
     if (!canManageReviews) return;
-    setCustomReviewsByProduct((prev) => {
-      const currentList = Array.isArray(prev[productId]) ? prev[productId] : [];
-      return {
-        ...prev,
-        [productId]: currentList.filter((item) => item.id !== revId)
-      };
-    });
+    const adminToken = sessionStorage.getItem("calzare_admin_token") || "";
+    try {
+      await fetch(`${API}/admin/reviews/${revId}`, {
+        method: "DELETE",
+        headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : {}
+      });
+      await fetchBackendReviews();
+      window.dispatchEvent(new Event("calzare_store_updated"));
+    } catch {}
     if (editingReviewId === revId) {
       setEditingReviewId(null);
       setReviewFormOpen(false);
     }
   }
 
-  function handleSaveReview(e) {
+  async function handleSaveReview(e) {
     e.preventDefault();
     if (!canManageReviews) return;
 
@@ -411,37 +520,45 @@ export default function ProductPage({
     if (!author || !body) return;
 
     const rawHeadline = reviewDraft.quote.trim() || `LOVED MY ${current.name}`;
-    const formattedQuote =
-      rawHeadline.startsWith('"') && rawHeadline.endsWith('"')
-        ? rawHeadline.toUpperCase()
-        : `"${rawHeadline.toUpperCase()}"`;
+    const adminToken = sessionStorage.getItem("calzare_admin_token") || "";
 
-    const savedReview = {
-      id: editingReviewId || `rev-${Date.now()}`,
+    const isBackendId =
+      editingReviewId &&
+      backendReviews.some((item) => String(item.id) === String(editingReviewId));
+
+    const payload = {
+      productId,
+      productName: current.name,
+      customerName: author,
+      location: reviewDraft.location.trim() || "India",
       rating: Number(reviewDraft.rating) || 5,
-      quote: formattedQuote,
-      body,
-      author,
-      meta: `Verified Owner: ${current.name} (${reviewDraft.size || selectedSize})`,
-      location: `${reviewDraft.location.trim() || "India"} • Verified Buyer`
+      headline: rawHeadline.toUpperCase(),
+      comment: body,
+      status: "approved",
+      verifiedBuyer: true,
+      featuredOnHomepage: true
     };
 
-    setCustomReviewsByProduct((prev) => {
-      const currentList = Array.isArray(prev[productId]) ? prev[productId] : [];
-      const existsInCustom = currentList.some((item) => item.id === editingReviewId);
-      const nextList = editingReviewId
-        ? existsInCustom
-          ? currentList.map((item) =>
-              item.id === editingReviewId ? savedReview : item
-            )
-          : [savedReview, ...currentList]
-        : [savedReview, ...currentList];
+    try {
+      const endpoint = isBackendId
+        ? `${API}/admin/reviews/${editingReviewId}`
+        : `${API}/admin/reviews`;
+      const method = isBackendId ? "PATCH" : "POST";
 
-      return {
-        ...prev,
-        [productId]: nextList
-      };
-    });
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        await fetchBackendReviews();
+        window.dispatchEvent(new Event("calzare_store_updated"));
+      }
+    } catch {}
 
     setReviewDraft(createEmptyDraft(selectedSize));
     setEditingReviewId(null);
@@ -449,7 +566,9 @@ export default function ProductPage({
   }
 
   const activeClip =
-    activeClipIndex !== null && productShortClips[activeClipIndex]
+    productReelsEnabled &&
+    activeClipIndex !== null &&
+    productShortClips[activeClipIndex]
       ? productShortClips[activeClipIndex]
       : null;
 
@@ -569,8 +688,38 @@ export default function ProductPage({
             )}
           </div>
 
-          {/* IN-PRODUCT SHORT VIDEOS (SHORT PLAY / STORY STRIP) */}
-          {productShortClips.length > 0 && (
+          {/* PRODUCT VARIANTS SELECTOR */}
+          {variantList.length > 0 && (
+            <div className="size-block" style={{ marginBottom: "14px" }}>
+              <span className="size-label" style={{ marginBottom: "8px" }}>
+                Variant:{" "}
+                <strong style={{ color: "var(--ink)" }}>
+                  {activeVariant?.label}
+                </strong>
+              </span>
+              <div className="size-grid" style={{ marginBottom: 0 }}>
+                {variantList.map((vr, idx) => {
+                  const isSelected = idx === selectedVariantIndex;
+                  return (
+                    <button
+                      key={vr.id}
+                      type="button"
+                      className={isSelected ? "size-pill active" : "size-pill"}
+                      onClick={() => {
+                        setSelectedVariantIndex(idx);
+                        setShowVideo(false);
+                      }}
+                    >
+                      {vr.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* IN-PRODUCT SHORT VIDEOS (GATED BY ADMIN REEL TOGGLE) */}
+          {productReelsEnabled && productShortClips.length > 0 && (
             <div style={{ marginBottom: "16px" }}>
               <div
                 style={{
@@ -745,11 +894,11 @@ export default function ProductPage({
             </div>
           </div>
 
-          {current.color && (
+          {activeColorLabel && (
             <div>
               <span className="size-label" style={{ marginBottom: "6px" }}>
                 Colors:{" "}
-                <strong style={{ color: "var(--ink)" }}>{current.color}</strong>
+                <strong style={{ color: "var(--ink)" }}>{activeColorLabel}</strong>
               </span>
               <div className="pdp-swatch-row">
                 {colorOptions.map((opt) => {
@@ -859,6 +1008,74 @@ export default function ProductPage({
         </div>
       </div>
 
+      {/* SUGGESTED PRODUCTS FOR YOU */}
+      {suggestedItems.length > 0 && (
+        <section className="shop-section section-pad">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">RECOMMENDED FOR YOUR ROTATION</p>
+              <h2>
+                Suggested <em>for you.</em>
+              </h2>
+            </div>
+            <span className="product-count">CURATED PICKS</span>
+          </div>
+
+          <div
+            className="product-grid"
+            style={{
+              marginTop: "24px",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))"
+            }}
+          >
+            {suggestedItems.map((item) => {
+              const itemId = item.id || item._id;
+              const defaultSz = item.sizes?.[2] || item.sizes?.[0] || "UK 8";
+              return (
+                <article key={itemId} className="product-card">
+                  <div
+                    className="product-image-wrap clickable"
+                    onClick={() => onSelectProduct?.(item)}
+                  >
+                    <img
+                      src={safeImgSrc(item.image)}
+                      alt={item.name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                      }}
+                    />
+                    {item.badge && (
+                      <span className="product-badge">{item.badge}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="quick-add"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddToCart?.(item, defaultSz, true);
+                      }}
+                    >
+                      QUICK ADD ({defaultSz})
+                    </button>
+                  </div>
+                  <div
+                    className="product-meta clickable"
+                    onClick={() => onSelectProduct?.(item)}
+                  >
+                    <div>
+                      <h3>{item.name}</h3>
+                      <p>{item.color}</p>
+                    </div>
+                    <strong>{formatPrice(item.price)}</strong>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* FULL-SCREEN VERTICAL SHORT VIDEO MODAL (SHOPPABLE REEL PLAYER) */}
       {activeClip && (
         <div
@@ -922,7 +1139,6 @@ export default function ProductPage({
               />
             )}
 
-            {/* Top Progress Bars & Controls */}
             <div
               style={{
                 position: "relative",
@@ -1018,7 +1234,6 @@ export default function ProductPage({
               </div>
             </div>
 
-            {/* Prev / Next Clip Buttons */}
             {productShortClips.length > 1 && (
               <>
                 <button
@@ -1080,7 +1295,6 @@ export default function ProductPage({
               </>
             )}
 
-            {/* Bottom Shoppable Product Card inside Short Video */}
             <div
               style={{
                 marginTop: "auto",
@@ -1150,7 +1364,7 @@ export default function ProductPage({
                 <button
                   type="button"
                   onClick={() => {
-                    onAddToCart?.(current, selectedSize, true);
+                    onAddToCart?.(buildCartProductPayload(), selectedSize, true);
                     setActiveClipIndex(null);
                   }}
                   style={{
@@ -1174,7 +1388,7 @@ export default function ProductPage({
         </div>
       )}
 
-      {/* CUSTOMER REVIEWS SECTION (ADMIN-ONLY ADD / EDIT / DELETE) */}
+      {/* CUSTOMER REVIEWS SECTION (BACKEND SYNCED + ADMIN ADD / EDIT / DELETE) */}
       <section className="calzare-reviews-section" id="product-reviews">
         <div className="calzare-reviews-header">
           <div className="calzare-rating-pill">
@@ -1225,7 +1439,7 @@ export default function ProductPage({
             >
               <input
                 required
-                placeholder="Reviewer Name *"
+                placeholder="Reviewer / Writer Name *"
                 value={reviewDraft.author}
                 onChange={(e) =>
                   setReviewDraft({ ...reviewDraft, author: e.target.value })
@@ -1278,7 +1492,7 @@ export default function ProductPage({
             <textarea
               required
               rows={3}
-              placeholder="Write or update review feedback... *"
+              placeholder="Write or update review comment... *"
               value={reviewDraft.body}
               onChange={(e) =>
                 setReviewDraft({ ...reviewDraft, body: e.target.value })
@@ -1298,7 +1512,7 @@ export default function ProductPage({
                 CANCEL
               </button>
               <button type="submit" className="filter active">
-                {editingReviewId ? "SAVE REVIEW" : "PUBLISH REVIEW"}
+                {editingReviewId ? "SAVE TO BACKEND" : "PUBLISH TO BACKEND"}
               </button>
             </div>
           </form>
@@ -1307,8 +1521,9 @@ export default function ProductPage({
         <div className="calzare-reviews-grid">
           {productReviews.map((rev) => {
             const stars = Math.max(1, Math.min(5, Number(rev.rating) || 5));
-            const isCustomReview = Array.isArray(customReviewsByProduct[productId]) &&
-              customReviewsByProduct[productId].some((item) => item.id === rev.id);
+            const isBackendReview = backendReviews.some(
+              (item) => String(item.id) === String(rev.id)
+            );
 
             return (
               <article className="calzare-review-card" key={rev.id}>
@@ -1346,7 +1561,7 @@ export default function ProductPage({
                         >
                           <Edit3 size={12} />
                         </button>
-                        {isCustomReview && (
+                        {isBackendReview && (
                           <button
                             type="button"
                             aria-label="Delete review"
@@ -1422,7 +1637,7 @@ export default function ProductPage({
         </div>
       </div>
 
-      {relatedItems.length > 0 && (
+      {alsoBoughtItems.length > 0 && (
         <section className="shop-section section-pad">
           <div className="section-heading">
             <div>
@@ -1434,7 +1649,7 @@ export default function ProductPage({
           </div>
 
           <div className="product-grid" style={{ marginTop: "24px" }}>
-            {relatedItems.map((item) => {
+            {alsoBoughtItems.map((item) => {
               const itemId = item.id || item._id;
               return (
                 <article
