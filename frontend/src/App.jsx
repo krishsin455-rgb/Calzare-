@@ -2,19 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import AdminPanel from "./AdminPanel.jsx";
 import CollectionPage from "./pages/CollectionPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
+import PolicyPage from "./pages/PolicyPage.jsx";
 import ProductPage from "./pages/ProductPage.jsx";
+import TrackOrderPage from "./pages/TrackOrderPage.jsx";
+import Header from "./components/Header.jsx";
 import {
   ArrowRight,
   ArrowUpRight,
   Check,
-  Menu,
   Play,
   RefreshCw,
-  Search,
   ShieldCheck,
-  ShoppingBag,
   Truck,
-  User,
   Volume2,
   VolumeX,
   X
@@ -307,8 +306,8 @@ const DEFAULT_HOMEPAGE = {
   affordableStore: {
     enabled: true,
     badgeLabel: "/999 Store",
-    title: "Your day found its footing.",
-    subtitle: "Everyday Calzare, everyday price. Starting ₹999.",
+    title: "Your day\nfound its footing.",
+    subtitle: "Everyday Calzare, everyday price.\nStarting ₹999",
     ctaLabel: "EXPLORE",
     maxPrice: 999,
     customSlides: []
@@ -328,6 +327,7 @@ const DEFAULT_SETTINGS = {
     { label: "WOMEN", url: "#women" },
     { label: "UNISEX", url: "#unisex" },
     { label: "KIDS", url: "#kids" },
+    { label: "TRACK ORDER", url: "#track-order" },
     { label: "OUR STORY", url: "#story" }
   ],
   storySections: [
@@ -349,6 +349,8 @@ function normalizeSlug(value) {
   const clean = pathPart.replace(/^\/+|\/+$/g, "").split("/").pop() || "";
   if (clean === "kid") return "kids";
   if (clean === "our-story" || clean === "our_story" || clean === "about") return "story";
+  if (clean === "track" || clean === "track-order" || clean === "track_order")
+    return "track-order";
   return clean;
 }
 
@@ -363,7 +365,25 @@ function parseRouteState() {
       productId: prodId || null,
       collection: "all",
       isAdmin: false,
-      isStoryPage: false
+      isStoryPage: false,
+      isTrackPage: false,
+      trackOrderId: "",
+      policyKey: null
+    };
+  }
+
+  if (hash.toLowerCase().startsWith("#track-order")) {
+    const [, queryPart] = hash.split("?");
+    const params = new URLSearchParams(queryPart || "");
+    return {
+      view: "track",
+      productId: null,
+      collection: "all",
+      isAdmin: false,
+      isStoryPage: false,
+      isTrackPage: true,
+      trackOrderId: params.get("id") || "",
+      policyKey: null
     };
   }
 
@@ -377,7 +397,10 @@ function parseRouteState() {
       productId: null,
       collection: "all",
       isAdmin: true,
-      isStoryPage: false
+      isStoryPage: false,
+      isTrackPage: false,
+      trackOrderId: "",
+      policyKey: null
     };
   }
 
@@ -387,7 +410,36 @@ function parseRouteState() {
       productId: null,
       collection: "all",
       isAdmin: false,
-      isStoryPage: true
+      isStoryPage: true,
+      isTrackPage: false,
+      trackOrderId: "",
+      policyKey: null
+    };
+  }
+
+  if (slug === "track-order") {
+    return {
+      view: "track",
+      productId: null,
+      collection: "all",
+      isAdmin: false,
+      isStoryPage: false,
+      isTrackPage: true,
+      trackOrderId: "",
+      policyKey: null
+    };
+  }
+
+  if (slug === "shipping-policy" || slug === "refund-policy" || slug === "policy") {
+    return {
+      view: "policy",
+      productId: null,
+      collection: "all",
+      isAdmin: false,
+      isStoryPage: false,
+      isTrackPage: false,
+      trackOrderId: "",
+      policyKey: slug === "refund-policy" ? "refund-policy" : "shipping-policy"
     };
   }
 
@@ -397,7 +449,10 @@ function parseRouteState() {
       productId: null,
       collection: slug,
       isAdmin: false,
-      isStoryPage: false
+      isStoryPage: false,
+      isTrackPage: false,
+      trackOrderId: "",
+      policyKey: null
     };
   }
 
@@ -406,7 +461,10 @@ function parseRouteState() {
     productId: null,
     collection: "all",
     isAdmin: false,
-    isStoryPage: false
+    isStoryPage: false,
+    isTrackPage: false,
+    trackOrderId: "",
+    policyKey: null
   };
 }
 
@@ -488,11 +546,7 @@ export function StorySection({ homepage, storeSettings, onExploreShop, onGoHome 
       <div>
         {onGoHome && (
           <div style={{ marginBottom: "20px", textAlign: "left" }}>
-            <button
-              type="button"
-              onClick={onGoHome}
-              className="pdp-back-btn"
-            >
+            <button type="button" onClick={onGoHome} className="pdp-back-btn">
               ← BACK TO HOME
             </button>
           </div>
@@ -550,32 +604,38 @@ export function Under999StoreSection({
   onExploreDrop,
   onSelectProduct
 }) {
-  const [under999Idx, setUnder999Idx] = useState(0);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(null);
 
   const config = homepage?.affordableStore || {};
   if (config.enabled === false || config.visible === false) return null;
 
-  const title = config.title || "Your day found its footing.";
-  const subtitle =
-    config.subtitle ||
-    "Everyday Calzare, everyday price. Starting ₹999.";
   const badgeLabel = config.badgeLabel || "/999 Store";
-  const ctaLabel = config.ctaLabel || "EXPLORE";
+  const rawTitle = String(config.title || "").trim();
+  const title =
+    !rawTitle || rawTitle.toUpperCase() === "THE UNDER ₹999 STORE"
+      ? "Your day\nfound its footing."
+      : rawTitle;
 
-  const accentColor =
-    homepage?.theme?.accentColor ||
-    homepage?.navbar?.accentColor ||
-    "#0645B8";
+  const rawSubtitle = String(config.subtitle || "").trim();
+  const subtitle =
+    !rawSubtitle || rawSubtitle.startsWith("High performance foam")
+      ? "Everyday Calzare, everyday price.\nStarting ₹999"
+      : rawSubtitle;
+
+  const rawCta = String(config.ctaLabel || "").trim();
+  const ctaLabel =
+    !rawCta || rawCta.toUpperCase() === "EXPLORE DROP" ? "EXPLORE" : rawCta;
+
+  const maxPrice = Number(config.maxPrice ?? 999);
 
   const publishedProducts = (Array.isArray(products) ? products : []).filter(
     (p) => p && (p.status || "published") !== "draft"
   );
 
-  const maxPrice = Number(config.maxPrice ?? 999);
-
   const under999Slides = useMemo(() => {
     const custom = Array.isArray(config.customSlides)
-      ? config.customSlides.filter((s) => s && (s.title || s.image))
+      ? config.customSlides.filter((s) => s && (s.image || s.productId))
       : [];
 
     if (custom.length > 0) {
@@ -585,8 +645,7 @@ export function Under999StoreSection({
           publishedProducts[0];
         return {
           key: s.id || `custom-999-${i}`,
-          title: s.title || linkedProd?.name || "Everyday Pair",
-          price: Number(s.price ?? linkedProd?.price ?? 999),
+          alt: linkedProd?.name || "Calzare Under 999",
           homepageImage: safeImg(s.image || linkedProd?.image),
           targetProduct: linkedProd
         };
@@ -598,43 +657,47 @@ export function Under999StoreSection({
       .filter((p) => Number(p.price) > 0 && Number(p.price) <= maxPrice)
       .map((p) => ({
         key: p.id || p._id,
-        title: p.name,
-        price: Number(p.price),
+        alt: p.name,
         homepageImage: safeImg(p.image),
         targetProduct: p
       }));
   }, [config.customSlides, publishedProducts, maxPrice]);
 
-  const total999 = under999Slides.length;
-  const perPage = 2;
-  const pageCount = total999 > 0 ? Math.ceil(total999 / perPage) : 0;
-  const safePage = pageCount > 0 ? under999Idx % pageCount : 0;
+  if (!under999Slides.length) return null;
 
-  const pages = useMemo(() => {
-    if (!total999) return [];
-    const chunks = [];
-    for (let i = 0; i < total999; i += perPage) {
-      const slice = under999Slides.slice(i, i + perPage);
-      if (slice.length === 1 && total999 > 1) {
-        slice.push(under999Slides[0]);
-      }
-      chunks.push(slice);
+  const visibleCount = 2;
+  const maxIndex = Math.max(0, under999Slides.length - visibleCount);
+  const safeIndex = Math.min(slideIndex, maxIndex);
+  const canPrev = safeIndex > 0;
+  const canNext = safeIndex < maxIndex;
+
+  function handlePrev() {
+    if (canPrev) setSlideIndex((i) => Math.max(0, i - 1));
+  }
+
+  function handleNext() {
+    if (canNext) setSlideIndex((i) => Math.min(maxIndex, i + 1));
+  }
+
+  function handleTouchStart(e) {
+    setTouchStartX(e.touches?.[0]?.clientX ?? null);
+  }
+
+  function handleTouchEnd(e) {
+    if (touchStartX === null) return;
+    const endX = e.changedTouches?.[0]?.clientX ?? touchStartX;
+    const diff = touchStartX - endX;
+    if (Math.abs(diff) > 36) {
+      if (diff > 0) handleNext();
+      else handlePrev();
     }
-    return chunks;
-  }, [under999Slides, total999]);
+    setTouchStartX(null);
+  }
 
   return (
     <section id="under-999-store" style={under999Styles.sectionBlock}>
       <div className="under999-split-wrap" style={under999Styles.splitRow}>
-        <div
-          className="under999-blue-banner"
-          style={{
-            ...under999Styles.bannerCard,
-            backgroundColor: accentColor,
-            backgroundImage:
-              "radial-gradient(circle at 20% 25%, #0D5CE0 0%, #0645B8 52%, #03266B 100%)"
-          }}
-        >
+        <div className="under999-blue-banner" style={under999Styles.bannerCard}>
           <div style={under999Styles.bannerTopRow}>
             <span style={under999Styles.badge}>{badgeLabel}</span>
           </div>
@@ -653,96 +716,120 @@ export function Under999StoreSection({
               {ctaLabel}
             </button>
 
-            <span style={under999Styles.sealBadge} aria-hidden="true">
-              ₹{maxPrice}
-              <br />
-              STORE
-            </span>
+            <svg
+              width="54"
+              height="54"
+              viewBox="0 0 100 100"
+              aria-hidden="true"
+              style={{ flexShrink: 0, display: "block" }}
+            >
+              <defs>
+                <path
+                  id="calzareSealPath"
+                  d="M 50, 50 m -35, 0 a 35,35 0 1,1 70,0 a 35,35 0 1,1 -70,0"
+                />
+              </defs>
+              <text
+                fill="rgba(255,255,255,0.9)"
+                fontSize="9"
+                fontWeight="700"
+                letterSpacing="2.2"
+              >
+                <textPath href="#calzareSealPath">
+                  FACTORY DIRECT • CALZARE •
+                </textPath>
+              </text>
+              <circle
+                cx="50"
+                cy="50"
+                r="17"
+                fill="none"
+                stroke="rgba(255,255,255,0.45)"
+                strokeWidth="1.5"
+              />
+              <text
+                x="50"
+                y="54"
+                textAnchor="middle"
+                fill="#FFFFFF"
+                fontSize="12.5"
+                fontWeight="800"
+              >
+                ₹{maxPrice}
+              </text>
+            </svg>
           </div>
         </div>
 
-        <div className="under999-outside-slide" style={under999Styles.scrollCol}>
-          {pages.length > 0 ? (
-            <>
-              <div style={under999Styles.viewport}>
+        <div
+          className="under999-outside-slide"
+          style={under999Styles.scrollCol}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div style={under999Styles.viewport}>
+            <div
+              className="under999-track"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                transform: `translateX(-${safeIndex * 50}%)`,
+                transition: "transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)"
+              }}
+            >
+              {under999Slides.map((item, idx) => (
                 <div
-                  style={{
-                    display: "flex",
-                    transform: `translateX(-${safePage * 100}%)`,
-                    transition: "transform 0.35s ease"
-                  }}
+                  key={`${item.key}-${idx}`}
+                  className="under999-slide-item"
+                  onClick={() =>
+                    item.targetProduct && onSelectProduct?.(item.targetProduct)
+                  }
+                  style={under999Styles.slideItem}
                 >
-                  {pages.map((pair, pageIdx) => (
-                    <div
-                      key={pageIdx}
-                      style={{ minWidth: "100%", boxSizing: "border-box" }}
-                    >
-                      <div
-                        className="under999-pair-grid"
-                        style={under999Styles.pairGrid}
-                      >
-                        {pair.map((item, itemIdx) => (
-                          <div
-                            key={`${item.key}-${itemIdx}`}
-                            onClick={() =>
-                              item.targetProduct && onSelectProduct?.(item.targetProduct)
-                            }
-                            style={under999Styles.featuredSlideCard}
-                          >
-                            <div style={under999Styles.featuredSlideImgWrap}>
-                              <img
-                                src={item.homepageImage}
-                                alt={item.title}
-                                style={under999Styles.productImg}
-                                onError={(e) => {
-                                  e.currentTarget.onerror = null;
-                                  e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                                }}
-                              />
-                            </div>
-
-                            <h4 style={under999Styles.slideTitle}>{item.title}</h4>
-                            <span style={under999Styles.slidePrice}>
-                              ₹{Number(item.price).toLocaleString("en-IN")}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                  <div style={under999Styles.featuredSlideImgWrap}>
+                    <img
+                      src={item.homepageImage}
+                      alt={item.alt}
+                      style={under999Styles.productImg}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
-
-              {pageCount > 1 && (
-                <div style={under999Styles.outsideControlsRow}>
-                  <button
-                    type="button"
-                    aria-label="Previous under 999 items"
-                    onClick={() =>
-                      setUnder999Idx((prev) => (prev - 1 + pageCount) % pageCount)
-                    }
-                    style={under999Styles.outsideArrowBtn}
-                  >
-                    ←
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Next under 999 items"
-                    onClick={() => setUnder999Idx((prev) => (prev + 1) % pageCount)}
-                    style={under999Styles.outsideArrowBtn}
-                  >
-                    →
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div style={under999Styles.emptyWhiteState}>
-              <p style={{ margin: 0, fontSize: "13px", color: "#64748B" }}>
-                Add slides in Admin → Homepage CMS → Under ₹999 Store to display them here.
-              </p>
+              ))}
             </div>
-          )}
+          </div>
+
+          <div style={under999Styles.outsideControlsRow}>
+            <button
+              type="button"
+              aria-label="Previous 999 store item"
+              disabled={!canPrev}
+              onClick={handlePrev}
+              style={{
+                ...under999Styles.outsideArrowBtn,
+                opacity: canPrev ? 1 : 0.35,
+                cursor: canPrev ? "pointer" : "default"
+              }}
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              aria-label="Next 999 store item"
+              disabled={!canNext}
+              onClick={handleNext}
+              style={{
+                ...under999Styles.outsideArrowBtn,
+                opacity: canNext ? 1 : 0.35,
+                cursor: canNext ? "pointer" : "default"
+              }}
+            >
+              →
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -752,29 +839,31 @@ export function Under999StoreSection({
 const under999Styles = {
   sectionBlock: {
     width: "100%",
-    maxWidth: "1360px",
+    maxWidth: "1400px",
     margin: "0 auto",
-    padding: "48px 9%",
+    padding: "44px 4%",
     background: "#FFFFFF",
     boxSizing: "border-box"
   },
   splitRow: {
     display: "grid",
-    gridTemplateColumns: "minmax(250px, 340px) minmax(0, 1fr)",
-    gap: "28px",
+    gridTemplateColumns: "minmax(290px, 385px) minmax(0, 1fr)",
+    gap: "36px",
     alignItems: "center"
   },
   bannerCard: {
-    borderRadius: "24px",
-    padding: "28px 24px",
-    minHeight: "390px",
+    borderRadius: "20px",
+    padding: "28px 28px 26px",
+    minHeight: "480px",
+    backgroundColor: "#03226B",
+    backgroundImage:
+      "radial-gradient(circle at 80% 15%, #0D57DC 0%, #053396 46%, #02184E 100%)",
     color: "#FFFFFF",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    gap: "18px",
-    boxSizing: "border-box",
-    overflow: "hidden"
+    gap: "24px",
+    boxSizing: "border-box"
   },
   bannerTopRow: {
     display: "flex",
@@ -782,7 +871,7 @@ const under999Styles = {
     alignItems: "center"
   },
   badge: {
-    fontSize: "22px",
+    fontSize: "24px",
     fontWeight: 500,
     letterSpacing: "-0.02em",
     color: "#FFFFFF"
@@ -790,62 +879,50 @@ const under999Styles = {
   bannerMiddle: {
     display: "flex",
     flexDirection: "column",
-    gap: "12px"
+    gap: "14px"
   },
   leftTitle: {
     margin: 0,
-    fontSize: "clamp(28px, 3.2vw, 42px)",
-    lineHeight: 1.06,
-    fontWeight: 700,
+    fontSize: "clamp(32px, 3.3vw, 44px)",
+    lineHeight: 1.08,
+    fontWeight: 600,
     letterSpacing: "-0.025em",
+    whiteSpace: "pre-line",
     color: "#FFFFFF"
   },
   leftSubtitle: {
     margin: 0,
-    fontSize: "14px",
-    lineHeight: 1.5,
+    fontSize: "14.5px",
+    lineHeight: 1.55,
+    whiteSpace: "pre-line",
     color: "rgba(255, 255, 255, 0.9)"
   },
   bannerBottomRow: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: "12px"
+    gap: "12px",
+    paddingBottom: "2px"
   },
   leftBtn: {
-    background: "transparent",
+    background: "rgba(9, 53, 150, 0.45)",
     color: "#FFFFFF",
-    border: "1px solid rgba(255, 255, 255, 0.65)",
+    border: "1px solid rgba(255, 255, 255, 0.55)",
     borderRadius: "999px",
-    padding: "10px 24px",
-    fontSize: "11px",
-    fontWeight: 700,
+    padding: "11px 28px",
+    fontSize: "11.5px",
+    fontWeight: 600,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
     cursor: "pointer"
   },
-  sealBadge: {
-    width: "56px",
-    height: "56px",
-    borderRadius: "999px",
-    border: "1px dashed rgba(255, 255, 255, 0.72)",
-    display: "grid",
-    placeItems: "center",
-    textAlign: "center",
-    fontSize: "9.5px",
-    fontWeight: 800,
-    lineHeight: 1.15,
-    letterSpacing: "0.06em",
-    flexShrink: 0
-  },
   scrollCol: {
     background: "#FFFFFF",
-    borderRadius: "16px",
-    padding: "16px 12px",
+    padding: "12px 0",
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
-    gap: "20px",
+    gap: "24px",
     minWidth: 0
   },
   viewport: {
@@ -853,27 +930,21 @@ const under999Styles = {
     width: "100%",
     background: "#FFFFFF"
   },
-  pairGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "24px",
-    alignItems: "center"
-  },
-  featuredSlideCard: {
+  slideItem: {
+    flex: "0 0 50%",
+    maxWidth: "50%",
+    padding: "0 18px",
+    boxSizing: "border-box",
     background: "#FFFFFF",
-    padding: "10px",
     display: "flex",
-    flexDirection: "column",
     alignItems: "center",
-    textAlign: "center",
-    gap: "8px",
-    cursor: "pointer",
-    minWidth: 0
+    justifyContent: "center",
+    cursor: "pointer"
   },
   featuredSlideImgWrap: {
     width: "100%",
-    maxWidth: "300px",
-    height: "200px",
+    maxWidth: "330px",
+    height: "260px",
     background: "#FFFFFF",
     overflow: "hidden",
     display: "flex",
@@ -887,37 +958,24 @@ const under999Styles = {
     display: "block",
     background: "#FFFFFF"
   },
-  slideTitle: {
-    margin: "6px 0 0",
-    fontSize: "14.5px",
-    fontWeight: 500,
-    color: "#1E211D"
-  },
-  slidePrice: {
-    fontSize: "14px",
-    fontWeight: 600,
-    color: "#1D63ED"
-  },
   outsideControlsRow: {
     display: "flex",
     justifyContent: "center",
-    gap: "12px",
+    gap: "10px",
+    marginTop: "4px",
     background: "#FFFFFF"
   },
   outsideArrowBtn: {
-    width: "44px",
-    height: "32px",
+    width: "46px",
+    height: "30px",
     borderRadius: "999px",
-    border: "1px solid #D6D6CE",
+    border: "1px solid #D4D4CE",
     background: "#FFFFFF",
-    color: "#475569",
-    fontWeight: 600,
-    cursor: "pointer"
-  },
-  emptyWhiteState: {
-    background: "#FFFFFF",
-    padding: "32px 16px",
-    textAlign: "center"
+    color: "#334155",
+    fontSize: "14px",
+    fontWeight: 500,
+    display: "grid",
+    placeItems: "center"
   }
 };
 
@@ -1164,6 +1222,10 @@ function App() {
   const [category, setCategory] = useState("all");
   const [collection, setCollection] = useState(initialRoute.collection);
   const [storyPageOpen, setStoryPageOpen] = useState(initialRoute.isStoryPage);
+  const [trackPageOpen, setTrackPageOpen] = useState(initialRoute.isTrackPage);
+  const [trackOrderId, setTrackOrderId] = useState(initialRoute.trackOrderId);
+  const [policyPageKey, setPolicyPageKey] = useState(initialRoute.policyKey);
+
   const [currentUser, setCurrentUser] = useState(() =>
     JSON.parse(localStorage.getItem("calzare_user") || "null")
   );
@@ -1207,6 +1269,10 @@ function App() {
     paymentMethod: "Partial COD (₹299 Advance)"
   });
 
+  const canManageReviews = Boolean(
+    currentUser?.role === "admin" || sessionStorage.getItem("calzare_admin_token")
+  );
+
   function scrollToCatalogSection() {
     setTimeout(() => {
       const target =
@@ -1224,6 +1290,9 @@ function App() {
       setProductPageId(next.productId);
       setCollection(next.collection);
       setStoryPageOpen(next.isStoryPage);
+      setTrackPageOpen(next.isTrackPage);
+      if (next.trackOrderId) setTrackOrderId(next.trackOrderId);
+      setPolicyPageKey(next.policyKey);
     };
 
     window.addEventListener("hashchange", syncRoute);
@@ -1234,12 +1303,39 @@ function App() {
     };
   }, []);
 
+  function openTrackOrderPage(orderId = "") {
+    setCollection("all");
+    setStoryPageOpen(false);
+    setProductPageId(null);
+    setPolicyPageKey(null);
+    setTrackOrderId(orderId);
+    setTrackPageOpen(true);
+    setMenuOpen(false);
+    window.location.hash = orderId
+      ? `track-order?id=${encodeURIComponent(orderId)}`
+      : "track-order";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openPolicyPage(key = "shipping-policy") {
+    setCollection("all");
+    setStoryPageOpen(false);
+    setProductPageId(null);
+    setTrackPageOpen(false);
+    setPolicyPageKey(key);
+    setMenuOpen(false);
+    window.location.hash = key;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function navigateCollection(target) {
     const normalized = normalizeSlug(target) || "all";
 
     if (normalized === "home" || normalized === "all") {
       setCollection("all");
       setStoryPageOpen(false);
+      setTrackPageOpen(false);
+      setPolicyPageKey(null);
       setProductPageId(null);
       setCategory("all");
       setMenuOpen(false);
@@ -1251,6 +1347,8 @@ function App() {
     if (normalized === "story") {
       setCollection("all");
       setStoryPageOpen(true);
+      setTrackPageOpen(false);
+      setPolicyPageKey(null);
       setProductPageId(null);
       setCategory("all");
       setMenuOpen(false);
@@ -1259,9 +1357,21 @@ function App() {
       return;
     }
 
+    if (normalized === "track-order") {
+      openTrackOrderPage();
+      return;
+    }
+
+    if (normalized === "shipping-policy" || normalized === "refund-policy") {
+      openPolicyPage(normalized);
+      return;
+    }
+
     const validCol = VALID_COLLECTIONS.includes(normalized) ? normalized : "all";
     setCollection(validCol);
     setStoryPageOpen(false);
+    setTrackPageOpen(false);
+    setPolicyPageKey(null);
     setProductPageId(null);
     setCategory("all");
     setMenuOpen(false);
@@ -1274,6 +1384,8 @@ function App() {
     if (!prodId) return;
     setIsAdmin(false);
     setStoryPageOpen(false);
+    setTrackPageOpen(false);
+    setPolicyPageKey(null);
     setMenuOpen(false);
     setProductPageId(String(prodId));
     window.location.hash = `#product/${encodeURIComponent(String(prodId))}`;
@@ -1446,7 +1558,7 @@ function App() {
     const term = search.trim().toLowerCase();
     const published = list.filter((p) => p && (p.status || "published") !== "draft");
 
-    const primary = published.filter((p) => {
+    return published.filter((p) => {
       const productCol = normalizeSlug(p.collection || p.gender || "unisex");
       const productCat = String(p.category || "").toLowerCase();
 
@@ -1470,12 +1582,6 @@ function App() {
 
       return matchesCollection && matchesCategory && matchesSearch;
     });
-
-    if (primary.length === 0 && !term && published.length > 0) {
-      return published;
-    }
-
-    return primary;
   }, [products, collection, category, search, maxBudgetPrice, activeCategories]);
 
   const freeShipMin = Number(storeSettings.freeShippingThreshold ?? 2999);
@@ -1657,6 +1763,22 @@ function App() {
     setNotice("Signed out.");
   }
 
+  function recordLocalOrder(orderObj) {
+    if (!orderObj) return;
+    try {
+      const existing = JSON.parse(
+        localStorage.getItem("calzare_recent_orders") || "[]"
+      );
+      const next = [
+        orderObj,
+        ...(Array.isArray(existing)
+          ? existing.filter((o) => o.orderId !== orderObj.orderId)
+          : [])
+      ].slice(0, 15);
+      localStorage.setItem("calzare_recent_orders", JSON.stringify(next));
+    } catch {}
+  }
+
   async function handlePlaceOrder(event) {
     event.preventDefault();
     const orderPayload = {
@@ -1683,6 +1805,7 @@ function App() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || "Order error");
+        recordLocalOrder(data.order);
         setOrderConfirmed(data.order);
         setCart([]);
       } catch (err) {
@@ -1735,6 +1858,7 @@ function App() {
           });
           const verified = await verifyRes.json();
           if (verifyRes.ok) {
+            recordLocalOrder(verified.order);
             setOrderConfirmed(verified.order);
             setCart([]);
           } else {
@@ -1763,18 +1887,25 @@ function App() {
         : DEFAULT_SETTINGS.navigation
     ).filter((item) => item && String(item.label || "").trim());
 
-    const homeIdx = raw.findIndex(
+    const hasTrack = raw.some(
+      (item) => normalizeSlug(item.url || item.label) === "track-order"
+    );
+    const withTrack = hasTrack
+      ? raw
+      : [...raw, { label: "TRACK ORDER", url: "#track-order" }];
+
+    const homeIdx = withTrack.findIndex(
       (item) => normalizeSlug(item.url || item.label) === "home"
     );
 
     if (homeIdx > 0) {
-      const [homeEntry] = raw.splice(homeIdx, 1);
-      return [homeEntry, ...raw];
+      const [homeEntry] = withTrack.splice(homeIdx, 1);
+      return [homeEntry, ...withTrack];
     }
     if (homeIdx === -1) {
-      return [{ label: "HOME", url: "#home" }, ...raw];
+      return [{ label: "HOME", url: "#home" }, ...withTrack];
     }
-    return raw;
+    return withTrack;
   }, [storeSettings.navigation]);
 
   if (isAdmin) {
@@ -1799,6 +1930,8 @@ function App() {
       onExploreDrop={() => {
         setProductPageId(null);
         setStoryPageOpen(false);
+        setTrackPageOpen(false);
+        setPolicyPageKey(null);
         setCollection("all");
         setCategory("under999");
         window.location.hash = "";
@@ -1827,111 +1960,42 @@ function App() {
           `COMPLIMENTARY SHIPPING ABOVE ${money(freeShipMin)}  •  BUY 2 GET 10% OFF  •  BUY 3 GET 15% OFF`}
       </div>
 
-      <header
-        className="header"
-        style={{
-          background: homepage.navbar?.bgColor || undefined,
-          color: homepage.navbar?.textColor || undefined
-        }}
-      >
-        <a
-          className="wordmark"
-          href="#home"
-          onClick={(e) => {
-            e.preventDefault();
-            navigateCollection("home");
-          }}
-        >
-          {(storeSettings.storeName || "CALZARE").toUpperCase()}
-          <span>®</span>
-        </a>
-
-        <nav className={`header-links ${menuOpen ? "open" : ""}`}>
-          {navItems.map((nav) => {
-            const slug = normalizeSlug(nav.url || nav.label);
-            const isHome = slug === "home";
-            const isCollection = VALID_COLLECTIONS.includes(slug);
-            const isStory =
-              slug === "story" || String(nav.label || "").toLowerCase().includes("story");
-
-            const isActive = isStory
-              ? storyPageOpen
-              : isHome
-              ? !storyPageOpen && !productPageId && collection === "all"
-              : !storyPageOpen && !productPageId && collection === slug;
-
-            return (
-              <a
-                key={`${nav.label}-${nav.url}`}
-                href={nav.url || `#${slug}`}
-                className={isActive ? "active-nav" : ""}
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (isHome) {
-                    navigateCollection("home");
-                  } else if (isCollection) {
-                    navigateCollection(slug);
-                  } else if (isStory) {
-                    navigateCollection("story");
-                  } else {
-                    setMenuOpen(false);
-                  }
-                }}
-              >
-                {String(nav.label || "").toUpperCase()}
-              </a>
-            );
-          })}
-        </nav>
-
-        <div className="header-actions" style={{ flexShrink: 0 }}>
-          <label className="search-box">
-            <Search size={16} />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" />
-          </label>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={() => setCartOpen(true)}
-            aria-label="Open shopping bag"
-            style={{ flexShrink: 0 }}
-          >
-            <ShoppingBag size={19} />
-            <span className="count">{cartCount}</span>
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={openAccountModal}
-            aria-label="Account sign in"
-            title={currentUser ? `Signed in as ${currentUser.name}` : "Sign In"}
-            style={{
-              flexShrink: 0,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              whiteSpace: "nowrap"
-            }}
-          >
-            <User size={18} />
-            <span style={{ fontSize: "10px", letterSpacing: "1px", fontWeight: 600 }}>
-              {currentUser ? currentUser.name.split(" ")[0].toUpperCase() : "SIGN IN"}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="icon-button mobile-menu"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Toggle menu"
-            style={{ flexShrink: 0 }}
-          >
-            <Menu size={18} />
-          </button>
-        </div>
-      </header>
+      <Header
+        homepage={homepage}
+        storeSettings={storeSettings}
+        navItems={navItems}
+        collection={collection}
+        storyPageOpen={storyPageOpen}
+        trackPageOpen={trackPageOpen}
+        policyPageKey={policyPageKey}
+        productPageId={productPageId}
+        menuOpen={menuOpen}
+        setMenuOpen={setMenuOpen}
+        search={search}
+        setSearch={setSearch}
+        cartCount={cartCount}
+        setCartOpen={setCartOpen}
+        currentUser={currentUser}
+        openAccountModal={openAccountModal}
+        navigateCollection={navigateCollection}
+        openTrackOrderPage={openTrackOrderPage}
+      />
 
       <main>
-        {storyPageOpen ? (
+        {trackPageOpen ? (
+          <TrackOrderPage
+            initialOrderId={trackOrderId}
+            initialPhone={currentUser?.phone || ""}
+            onGoHome={() => navigateCollection("home")}
+            money={money}
+          />
+        ) : policyPageKey ? (
+          <PolicyPage
+            policyKey={policyPageKey}
+            onSwitchPolicy={(nextKey) => openPolicyPage(nextKey)}
+            onGoHome={() => navigateCollection("home")}
+          />
+        ) : storyPageOpen ? (
           <StorySection
             homepage={homepage}
             storeSettings={storeSettings}
@@ -1947,8 +2011,9 @@ function App() {
               homepage={homepage}
               product={products.find((p) => p.id === productPageId) || products[0]}
               products={products}
-              allProducts={products}
+              reels={reels}
               favorites={favorites}
+              canManageReviews={canManageReviews}
               onToggleFavorite={(id) =>
                 setFavorites((old) =>
                   old.includes(id) ? old.filter((item) => item !== id) : [...old, id]
@@ -2099,6 +2164,17 @@ function App() {
               </li>
               <li>
                 <a
+                  href="#track-order"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openTrackOrderPage();
+                  }}
+                >
+                  Track Order
+                </a>
+              </li>
+              <li>
+                <a
                   href="#story"
                   onClick={(e) => {
                     e.preventDefault();
@@ -2149,24 +2225,24 @@ function App() {
               </li>
               <li>
                 <a
-                  href="#policy"
+                  href="#shipping-policy"
                   onClick={(e) => {
                     e.preventDefault();
-                    setInfoModal("policy");
+                    openPolicyPage("shipping-policy");
                   }}
                 >
-                  Shipping & Exchange
+                  Shipping Policy
                 </a>
               </li>
               <li>
                 <a
-                  href="#policy"
+                  href="#refund-policy"
                   onClick={(e) => {
                     e.preventDefault();
-                    setInfoModal("policy");
+                    openPolicyPage("refund-policy");
                   }}
                 >
-                  Privacy Policy
+                  Refund & Exchange Policy
                 </a>
               </li>
             </ul>
@@ -2197,13 +2273,13 @@ function App() {
             <p className="footer-privacy-note">
               By entering the e-mail you accept the{" "}
               <a
-                href="#policy"
+                href="#shipping-policy"
                 onClick={(e) => {
                   e.preventDefault();
-                  setInfoModal("policy");
+                  openPolicyPage("shipping-policy");
                 }}
               >
-                privacy policy
+                store policies
               </a>
               .
             </p>
@@ -2600,13 +2676,27 @@ function App() {
                   Total Payable: <strong>{money(orderConfirmed.total)}</strong> (
                   {orderConfirmed.paymentMethod})
                 </p>
-                <button
-                  type="button"
-                  className="primary-cta-btn"
-                  onClick={() => setCheckoutOpen(false)}
-                >
-                  CONTINUE EXPLORING
-                </button>
+                <div style={{ display: "grid", gap: "10px" }}>
+                  <button
+                    type="button"
+                    className="primary-cta-btn"
+                    onClick={() => {
+                      const confirmedId = orderConfirmed.orderId;
+                      setCheckoutOpen(false);
+                      openTrackOrderPage(confirmedId);
+                    }}
+                  >
+                    TRACK THIS ORDER <ArrowUpRight size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="size-pill"
+                    style={{ width: "100%", padding: "12px" }}
+                    onClick={() => setCheckoutOpen(false)}
+                  >
+                    CONTINUE EXPLORING
+                  </button>
+                </div>
               </div>
             ) : (
               <form className="checkout-form" onSubmit={handlePlaceOrder}>
@@ -2671,93 +2761,45 @@ function App() {
               <X size={18} />
             </button>
 
-            {infoModal === "contact" ? (
-              <div style={{ display: "grid", gap: "14px" }}>
-                <p className="eyebrow">GET IN TOUCH</p>
-                <h3
-                  style={{
-                    fontFamily: "'Playfair Display', serif",
-                    fontSize: "28px",
-                    fontWeight: 500,
-                    margin: 0
-                  }}
-                >
-                  Contact CALZARE
-                </h3>
-                <p style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.8, margin: 0 }}>
-                  Have a question about sizing, orders, or collaborations? Our studio team responds
-                  within 24 hours.
-                </p>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    lineHeight: 1.9,
-                    background: "var(--surface-alt)",
-                    padding: "14px"
-                  }}
-                >
-                  <strong>Email:</strong> {storeSettings.supportEmail || "support@calzare.in"}
-                  <br />
-                  <strong>WhatsApp Concierge:</strong>{" "}
-                  {storeSettings.supportPhone || "+91 98765 43210"}
-                  <br />
-                  <strong>Studio Hours:</strong> Mon – Sat, 10:00 AM – 6:30 PM IST
-                </div>
-                <button
-                  type="button"
-                  className="primary-cta-btn"
-                  onClick={() => setInfoModal(null)}
-                >
-                  CLOSE
-                </button>
+            <div style={{ display: "grid", gap: "14px" }}>
+              <p className="eyebrow">GET IN TOUCH</p>
+              <h3
+                style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: "28px",
+                  fontWeight: 500,
+                  margin: 0
+                }}
+              >
+                Contact CALZARE
+              </h3>
+              <p style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.8, margin: 0 }}>
+                Have a question about sizing, orders, or collaborations? Our studio team responds
+                within 24 hours.
+              </p>
+              <div
+                style={{
+                  fontSize: "12px",
+                  lineHeight: 1.9,
+                  background: "var(--surface-alt)",
+                  padding: "14px"
+                }}
+              >
+                <strong>Email:</strong> {storeSettings.supportEmail || "support@calzare.in"}
+                <br />
+                <strong>WhatsApp Concierge:</strong>{" "}
+                {storeSettings.supportPhone || "+91 98765 43210"}
+                <br />
+                <strong>Studio Hours:</strong> Mon – Sat, 10:00 AM – 6:30 PM IST
               </div>
-            ) : (
-              <div style={{ display: "grid", gap: "14px" }}>
-                <p className="eyebrow">STORE POLICIES</p>
-                <h3
-                  style={{
-                    fontFamily: "'Playfair Display', serif",
-                    fontSize: "28px",
-                    fontWeight: 500,
-                    margin: 0
-                  }}
-                >
-                  Shipping, Exchange & Privacy
-                </h3>
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "var(--muted)",
-                    lineHeight: 1.8,
-                    display: "grid",
-                    gap: "10px"
-                  }}
-                >
-                  <p style={{ margin: 0 }}>
-                    <strong style={{ color: "var(--ink)" }}>Shipping:</strong> Complimentary
-                    standard shipping on orders above {money(freeShipMin)}. Dispatched within 24–48
-                    hours.
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong style={{ color: "var(--ink)" }}>7-Day Doorstep Exchange:</strong>{" "}
-                    Unworn pairs in original packaging can be exchanged for a different UK size
-                    within 7 days of delivery.
-                  </p>
-                  <p style={{ margin: 0 }}>
-                    <strong style={{ color: "var(--ink)" }}>Privacy:</strong> Your contact and
-                    delivery details are used solely to fulfill your CALZARE order and are never
-                    shared.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="primary-cta-btn"
-                  onClick={() => setInfoModal(null)}
-                >
-                  GOT IT
-                </button>
-              </div>
-            )}
+              <button
+                type="button"
+                className="primary-cta-btn"
+                onClick={() => setInfoModal(null)}
+              >
+                CLOSE
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2799,12 +2841,17 @@ function App() {
                       {myOrders.map((ord) => (
                         <div
                           key={ord.orderId}
+                          onClick={() => {
+                            setAuthOpen(false);
+                            openTrackOrderPage(ord.orderId);
+                          }}
                           style={{
                             padding: "10px 12px",
                             background: "var(--surface-alt)",
                             fontSize: "11.5px",
                             display: "flex",
-                            justifyContent: "space-between"
+                            justifyContent: "space-between",
+                            cursor: "pointer"
                           }}
                         >
                           <div>
@@ -2815,7 +2862,9 @@ function App() {
                           </div>
                           <div style={{ textAlign: "right" }}>
                             <strong>{money(ord.total)}</strong>
-                            <div style={{ color: "var(--muted)" }}>{ord.status}</div>
+                            <div style={{ color: "#166534", fontWeight: 600 }}>
+                              {ord.status} →
+                            </div>
                           </div>
                         </div>
                       ))}

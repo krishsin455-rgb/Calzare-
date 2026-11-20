@@ -269,6 +269,9 @@ const orderSchema = new mongoose.Schema(
     balanceDueOnDelivery: { type: Number, default: 0 },
     razorpayOrderId: { type: String, default: "" },
     razorpayPaymentId: { type: String, default: "" },
+    trackingNumber: { type: String, default: "" },
+    courierName: { type: String, default: "" },
+    trackingUrl: { type: String, default: "" },
     status: { type: String, default: "Confirmed" }
   },
   { timestamps: true }
@@ -369,7 +372,7 @@ const userSchema = new mongoose.Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
     phone: { type: String, default: "" },
-    role: { type: String, default: "customer" }, // "customer" | "admin"
+    role: { type: String, default: "customer" },
     passwordHash: { type: String, required: true }
   },
   { timestamps: true }
@@ -410,6 +413,29 @@ async function logAudit(action, target, req) {
   try {
     await AuditLog.create({ action, target, ip: req?.ip || "127.0.0.1" });
   } catch {}
+}
+
+function mapFshipStatus(rawStatus) {
+  const s = String(rawStatus || "").trim().toLowerCase();
+  if (!s) return null;
+  if (s.includes("deliver")) return "Delivered";
+  if (
+    s.includes("ship") ||
+    s.includes("transit") ||
+    s.includes("pickup") ||
+    s.includes("out for delivery") ||
+    s.includes("in_transit") ||
+    s.includes("out_for_delivery")
+  ) {
+    return "Shipped";
+  }
+  if (s.includes("pack") || s.includes("manifest") || s.includes("label")) {
+    return "Packed";
+  }
+  if (s.includes("cancel") || s.includes("rto") || s.includes("lost")) {
+    return "Cancelled";
+  }
+  return "Confirmed";
 }
 
 async function seedInitialData() {
@@ -911,6 +937,158 @@ app.patch("/api/admin/orders/:orderId", requireAdmin, async (req, res) => {
     req
   );
   res.json({ order });
+});
+
+app.post("/api/webhooks/fship", async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const data = payload.data && typeof payload.data === "object" ? payload.data : payload;
+
+    const rawOrderId = String(
+      data.order_id ||
+        data.orderId ||
+        data.customer_order_id ||
+        data.order_number ||
+        ""
+    ).trim();
+
+    const awb = String(
+      data.awb ||
+        data.awb_number ||
+        data.awb_code ||
+        data.trackingNumber ||
+        data.tracking_number ||
+        ""
+    ).trim();
+
+    const courier = String(
+      data.courier_name || data.courierName || data.courier || "FShip"
+    ).trim();
+
+    const trackUrl = String(
+      data.tracking_url ||
+        data.trackingUrl ||
+        data.track_url ||
+        (awb ? `https://ship.fship.in/tracking?awb=${encodeURIComponent(awb)}` : "")
+    ).trim();
+
+    const mappedStatus = mapFshipStatus(
+      data.status ||
+        data.current_status ||
+        data.shipment_status ||
+        data.event_status ||
+        payload.status
+    );
+
+    const query = rawOrderId
+      ? { orderId: rawOrderId }
+      : awb
+      ? { trackingNumber: awb }
+      : null;
+
+    if (!query) {
+      return res.status(400).json({ message: "Missing order_id or awb in FShip payload." });
+    }
+
+    const updateFields = {};
+    if (mappedStatus) updateFields.status = mappedStatus;
+    if (awb) updateFields.trackingNumber = awb;
+    if (courier) updateFields.courierName = courier;
+    if (trackUrl) updateFields.trackingUrl = trackUrl;
+
+    const order = await Order.findOneAndUpdate(
+      query,
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({ message: "Matching order not found in MongoDB." });
+    }
+
+    await logAudit("FSHIP_WEBHOOK_UPDATE", `${order.orderId} -> ${order.status}`, req);
+    res.json({ ok: true, order });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.post("/api/admin/orders/sync-fship", requireAdmin, async (req, res) => {
+  try {
+    const fshipToken = String(process.env.FSHIP_API_TOKEN || "").trim();
+    const fshipTrackUrl = String(
+      process.env.FSHIP_TRACK_API_URL || "https://capi.fship.in/api/track"
+    ).trim();
+
+    if (!fshipToken) {
+      const orders = await Order.find().sort({ createdAt: -1 }).lean();
+      return res.json({
+        ok: true,
+        mode: "webhook_ready",
+        message:
+          "FSHIP_API_TOKEN not set; webhook endpoint /api/webhooks/fship is active for live pushes.",
+        orders
+      });
+    }
+
+    const activeOrders = await Order.find({
+      status: { $nin: ["Delivered", "Cancelled"] }
+    }).lean();
+
+    let updatedCount = 0;
+
+    for (const ord of activeOrders) {
+      const lookupId = ord.trackingNumber || ord.orderId;
+      if (!lookupId) continue;
+
+      try {
+        const resp = await fetch(fshipTrackUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${fshipToken}`
+          },
+          body: JSON.stringify({
+            awb: ord.trackingNumber || undefined,
+            orderId: ord.orderId
+          })
+        });
+        if (!resp.ok) continue;
+        const info = await resp.json();
+        const statusCandidate =
+          info?.status || info?.current_status || info?.data?.status || "";
+        const nextStatus = mapFshipStatus(statusCandidate);
+        const nextAwb = String(
+          info?.awb || info?.awb_number || info?.data?.awb || ord.trackingNumber || ""
+        ).trim();
+        const nextCourier = String(
+          info?.courier_name ||
+            info?.courier ||
+            info?.data?.courier_name ||
+            ord.courierName ||
+            ""
+        ).trim();
+
+        const patch = {};
+        if (nextStatus && nextStatus !== ord.status) patch.status = nextStatus;
+        if (nextAwb && nextAwb !== ord.trackingNumber) patch.trackingNumber = nextAwb;
+        if (nextCourier && nextCourier !== ord.courierName) patch.courierName = nextCourier;
+
+        if (Object.keys(patch).length > 0) {
+          await Order.updateOne({ _id: ord._id }, { $set: patch });
+          updatedCount += 1;
+        }
+      } catch {
+        // Continue syncing remaining orders if one lookup fails
+      }
+    }
+
+    await logAudit("FSHIP_MANUAL_SYNC", `Updated ${updatedCount} order(s)`, req);
+    const orders = await Order.find().sort({ createdAt: -1 }).lean();
+    res.json({ ok: true, updatedCount, orders });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 app.post("/api/admin/coupons", requireAdmin, async (req, res) => {

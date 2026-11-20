@@ -37,6 +37,12 @@ const CATEGORIES_STORAGE_KEY = "calzare_custom_categories";
 const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
 const POLICIES_STORAGE_KEY = "calzare_store_policies_v1";
 
+const DEFAULT_PAYMENT_METHODS = [
+  "Partial COD (₹299 Advance)",
+  "UPI / Cards / NetBanking",
+  "Cash on Delivery"
+];
+
 const DEFAULT_STORE_POLICIES = [
   {
     key: "shipping",
@@ -253,8 +259,8 @@ const DEFAULT_HOMEPAGE_CMS = {
   },
   affordableStore: {
     enabled: true,
-    title: "Your day found its footing.",
-    subtitle: "Everyday Calzare, everyday price. Starting ₹999.",
+    title: "Your day\nfound its footing.",
+    subtitle: "Everyday Calzare, everyday price.\nStarting ₹999",
     badgeLabel: "/999 Store",
     image: "",
     maxPrice: 999,
@@ -590,6 +596,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [uploading, setUploading] = useState("");
+  const [syncingFship, setSyncingFship] = useState(false);
   const [timeframe, setTimeframe] = useState("30 Days");
 
   const [selectedAssignPage, setSelectedAssignPage] = useState("home");
@@ -621,6 +628,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
         { type: "Email", label: "Customer Support", value: "support@calzare.in" },
         { type: "Phone", label: "Helpline", value: "+91 98765 43210" }
       ],
+      paymentMethods: [...DEFAULT_PAYMENT_METHODS],
       freeShippingThreshold: 2999,
       partialCodAdvance: 299,
       categories: mergedCats,
@@ -715,6 +723,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   });
 
   const [newCategoryInput, setNewCategoryInput] = useState("");
+  const [newPaymentMethod, setNewPaymentMethod] = useState("");
 
   function notify(msg) {
     setToast(msg);
@@ -836,10 +845,14 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               ? data.settings.policies
               : p.policies || readLocalPolicies();
           writeLocalPolicies(mergedPolicies);
+          const mergedPaymentMethods = Array.isArray(data.settings.paymentMethods)
+            ? data.settings.paymentMethods
+            : p.paymentMethods || [...DEFAULT_PAYMENT_METHODS];
           return {
             ...p,
             ...data.settings,
             contactItems: incomingContacts,
+            paymentMethods: mergedPaymentMethods,
             categories: mergedCats,
             pageAssignments: mergedAssignments,
             policies: mergedPolicies,
@@ -870,9 +883,38 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     }
   }
 
+  async function handleFshipSync() {
+    setSyncingFship(true);
+    try {
+      const res = await fetch(`${API}/admin/orders/sync-fship`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await syncAll(token);
+      notify(
+        res.ok
+          ? "Synced live order statuses from FShip."
+          : "Refreshed orders (connect FShip webhook at /api/webhooks/fship)."
+      );
+    } catch {
+      await syncAll(token);
+      notify("Refreshed orders.");
+    } finally {
+      setSyncingFship(false);
+    }
+  }
+
   useEffect(() => {
     if (token && !locked) syncAll(token);
   }, [token, locked]);
+
+  useEffect(() => {
+    if (!token || locked || activeNav !== "orders") return;
+    const interval = setInterval(() => {
+      syncAll(token);
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [token, locked, activeNav]);
 
   async function handleAdminLogin(e) {
     e.preventDefault();
@@ -1275,6 +1317,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               contactItems: Array.isArray(data.settings.contactItems)
                 ? data.settings.contactItems
                 : updated.contactItems,
+              paymentMethods: Array.isArray(data.settings.paymentMethods)
+                ? data.settings.paymentMethods
+                : updated.paymentMethods,
               categories:
                 Array.isArray(data.settings.categories) &&
                 data.settings.categories.length
@@ -1466,7 +1511,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     const term = orderSearch.toLowerCase();
     const matchSearch =
       !term ||
-      `${o.orderId} ${o.customer?.name} ${o.customer?.phone}`
+      `${o.orderId} ${o.customer?.name} ${o.customer?.phone} ${o.trackingNumber || ""}`
         .toLowerCase()
         .includes(term);
     return matchStatus && matchSearch;
@@ -1743,6 +1788,11 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       collections: [...ALL_COLLECTIONS],
       categories: [...availableCategories]
     };
+
+  const activePaymentMethods =
+    Array.isArray(settings.paymentMethods) && settings.paymentMethods.length
+      ? settings.paymentMethods
+      : DEFAULT_PAYMENT_METHODS;
 
   return (
     <div
@@ -2138,17 +2188,31 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  gap: "10px"
                 }}
               >
                 <div>
                   <h1 style={pageTitle}>ORDERS & FULFILLMENT</h1>
-                  <p style={pageSub}>Track transactions and update fulfillment status.</p>
+                  <p style={pageSub}>
+                    Auto-syncs every 15s and via FShip webhook (`/api/webhooks/fship`).
+                  </p>
                 </div>
-                <button type="button" onClick={() => syncAll()} style={topActionBtn}>
-                  <RefreshCw size={13} /> Refresh Orders
-                </button>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    disabled={syncingFship}
+                    onClick={handleFshipSync}
+                    style={primaryBlueBtn}
+                  >
+                    <RefreshCw size={13} /> {syncingFship ? "Syncing FShip..." : "Sync FShip"}
+                  </button>
+                  <button type="button" onClick={() => syncAll()} style={topActionBtn}>
+                    <RefreshCw size={13} /> Refresh Orders
+                  </button>
+                </div>
               </div>
               <div style={cardBox}>
                 <div
@@ -2182,7 +2246,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   )}
                 </div>
                 <input
-                  placeholder="Search orders by ID, name, or phone..."
+                  placeholder="Search orders by ID, name, phone, or AWB..."
                   value={orderSearch}
                   onChange={(e) => setOrderSearch(e.target.value)}
                   style={{ ...ctrlInput, marginBottom: "12px" }}
@@ -2216,6 +2280,12 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                             .join(", ")}{" "}
                           • {ord.paymentMethod}
                         </div>
+                        {(ord.trackingNumber || ord.courierName) && (
+                          <div style={{ fontSize: "11.5px", color: "#2563EB", marginTop: "4px" }}>
+                            FShip: {ord.courierName || "Courier"}
+                            {ord.trackingNumber ? ` • AWB: ${ord.trackingNumber}` : ""}
+                          </div>
+                        )}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                         <strong>{money(ord.total)}</strong>
@@ -3151,7 +3221,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   </button>
                 </div>
 
-                {/* Page Selector Pills */}
                 <div
                   style={{
                     display: "flex",
@@ -3204,7 +3273,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   })}
                 </div>
 
-                {/* Two-Column Add/Remove Lists for Selected Page */}
                 <div
                   style={{
                     display: "grid",
@@ -3212,7 +3280,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     gap: "16px"
                   }}
                 >
-                  {/* Collections on Selected Page */}
                   <div
                     style={{
                       border: "1px solid #E2E8F0",
@@ -3308,7 +3375,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     </div>
                   </div>
 
-                  {/* Categories on Selected Page */}
                   <div
                     style={{
                       border: "1px solid #E2E8F0",
@@ -3629,7 +3695,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
                     gap: "12px",
                     marginBottom: "12px"
                   }}
@@ -3669,22 +3735,62 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   </div>
                   <div>
                     <label style={fieldLabel}>CALZARE Logo Size (px)</label>
-                    <input
-                      type="number"
-                      min={14}
-                      max={64}
-                      value={homepage.navbar?.logoSizePx ?? 27}
-                      onChange={(e) =>
-                        setHomepage({
-                          ...homepage,
-                          navbar: {
-                            ...(homepage.navbar || {}),
-                            logoSizePx: Number(e.target.value) || 27
-                          }
-                        })
-                      }
-                      style={ctrlInput}
-                    />
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <button
+                        type="button"
+                        aria-label="Decrease CALZARE font size"
+                        onClick={() =>
+                          setHomepage((prev) => ({
+                            ...prev,
+                            navbar: {
+                              ...(prev.navbar || {}),
+                              logoSizePx: Math.max(
+                                14,
+                                (Number(prev.navbar?.logoSizePx) || 27) - 2
+                              )
+                            }
+                          }))
+                        }
+                        style={topActionBtn}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min={14}
+                        max={64}
+                        value={homepage.navbar?.logoSizePx ?? 27}
+                        onChange={(e) =>
+                          setHomepage({
+                            ...homepage,
+                            navbar: {
+                              ...(homepage.navbar || {}),
+                              logoSizePx: Number(e.target.value) || 27
+                            }
+                          })
+                        }
+                        style={{ ...ctrlInput, textAlign: "center" }}
+                      />
+                      <button
+                        type="button"
+                        aria-label="Increase CALZARE font size"
+                        onClick={() =>
+                          setHomepage((prev) => ({
+                            ...prev,
+                            navbar: {
+                              ...(prev.navbar || {}),
+                              logoSizePx: Math.min(
+                                64,
+                                (Number(prev.navbar?.logoSizePx) || 27) + 2
+                              )
+                            }
+                          }))
+                        }
+                        style={topActionBtn}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -3701,7 +3807,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 </div>
               </div>
 
-              {/* DEDICATED UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (SEPARATE PHOTO → PRODUCT PAGE) */}
+              {/* DEDICATED UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (PHOTO + PRODUCT PAGE URL) */}
               <div style={cardBox}>
                 <div
                   style={{
@@ -3715,10 +3821,10 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 >
                   <div>
                     <h3 style={{ ...sectionSubTitle, margin: 0 }}>
-                      UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (CUSTOM PHOTO → PRODUCT PAGE)
+                      UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (PHOTO → PRODUCT PAGE URL)
                     </h3>
                     <p style={pageSub}>
-                      Upload a separate homepage photo (different from the product page photo) and choose which product page opens on click.
+                      Upload a photo and choose a product or product page redirect URL for each slide.
                     </p>
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
@@ -3733,10 +3839,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                               ...(prev.affordableStore?.customSlides || []),
                               {
                                 id: `u999-${Date.now().toString().slice(-4)}`,
-                                title: "Everyday Pair",
-                                price: 999,
                                 image: "",
-                                productId: products[0]?.id || "c-005"
+                                productId: products[0]?.id || "c-005",
+                                redirectUrl: ""
                               }
                             ]
                           }
@@ -3785,7 +3890,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   <div>
                     <label style={fieldLabel}>Blue Card Heading</label>
                     <input
-                      value={homepage.affordableStore?.title || "Your day found its footing."}
+                      value={
+                        homepage.affordableStore?.title || "Your day\nfound its footing."
+                      }
                       onChange={(e) =>
                         setHomepage({
                           ...homepage,
@@ -3803,7 +3910,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <input
                       value={
                         homepage.affordableStore?.subtitle ||
-                        "Everyday Calzare, everyday price. Starting ₹999."
+                        "Everyday Calzare, everyday price.\nStarting ₹999"
                       }
                       onChange={(e) =>
                         setHomepage({
@@ -3837,7 +3944,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
 
                 {!(homepage.affordableStore?.customSlides || []).length ? (
                   <p style={pageSub}>
-                    No custom ₹999 slides added yet. Click <strong>+ Add ₹999 Slide</strong> to upload a separate homepage photo linked to a product page.
+                    No custom ₹999 slides added yet. Click <strong>+ Add ₹999 Slide</strong> to add a photo and product page URL.
                   </p>
                 ) : (
                   <div style={{ display: "grid", gap: "14px" }}>
@@ -3885,53 +3992,10 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                             gap: "10px"
                           }}
                         >
-                          <div>
-                            <label style={fieldLabel}>Homepage Slide Title</label>
-                            <input
-                              value={slide.title || ""}
-                              onChange={(e) =>
-                                setHomepage((prev) => ({
-                                  ...prev,
-                                  affordableStore: {
-                                    ...(prev.affordableStore || {}),
-                                    customSlides: prev.affordableStore.customSlides.map(
-                                      (it, i) =>
-                                        i === sIdx ? { ...it, title: e.target.value } : it
-                                    )
-                                  }
-                                }))
-                              }
-                              style={{ ...ctrlInput, background: "#FFFFFF" }}
-                            />
-                          </div>
-
-                          <div>
-                            <label style={fieldLabel}>Homepage Slide Price (₹)</label>
-                            <input
-                              type="number"
-                              value={slide.price ?? 999}
-                              onChange={(e) =>
-                                setHomepage((prev) => ({
-                                  ...prev,
-                                  affordableStore: {
-                                    ...(prev.affordableStore || {}),
-                                    customSlides: prev.affordableStore.customSlides.map(
-                                      (it, i) =>
-                                        i === sIdx
-                                          ? { ...it, price: Number(e.target.value) }
-                                          : it
-                                    )
-                                  }
-                                }))
-                              }
-                              style={{ ...ctrlInput, background: "#FFFFFF" }}
-                            />
-                          </div>
-
                           <div>
                             <label style={fieldLabel}>
                               Target Product Page (Redirects on Click)
@@ -3961,10 +4025,35 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                               ))}
                             </select>
                           </div>
+
+                          <div>
+                            <label style={fieldLabel}>
+                              Product Page Redirect URL (Optional)
+                            </label>
+                            <input
+                              placeholder="#product/c-005 or https://..."
+                              value={slide.redirectUrl || ""}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  affordableStore: {
+                                    ...(prev.affordableStore || {}),
+                                    customSlides: prev.affordableStore.customSlides.map(
+                                      (it, i) =>
+                                        i === sIdx
+                                          ? { ...it, redirectUrl: e.target.value }
+                                          : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
                         </div>
 
                         <DropZoneField
-                          label="Homepage Showcase Photo (Different from Product Page Photo)"
+                          label="Homepage Slide Photo"
                           uploadKey={`u999SlideImg-${sIdx}`}
                           uploadingKey={uploading}
                           value={slide.image || ""}
@@ -4435,7 +4524,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   />
                 </div>
 
-                {/* FOOTER CONTACT INFO (ADD / REMOVE / HIDE) */}
                 <div
                   style={{
                     borderTop: "1px solid #E2E8F0",
@@ -4615,7 +4703,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   )}
                 </div>
 
-                {/* FOOTER LINK COLUMNS */}
                 <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "14px" }}>
                   <div
                     style={{
@@ -6087,8 +6174,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>SETTINGS & SECURITY</h1>
                   <p style={pageSub}>
-                    Configure store details, add or remove contact info, and set shipping
-                    thresholds.
+                    Configure store details, payment methods, contact info, and shipping thresholds.
                   </p>
                 </div>
                 <button
@@ -6133,6 +6219,76 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       }
                       style={ctrlInput}
                     />
+                  </div>
+                </div>
+
+                {/* PAYMENT METHODS (ADD & REMOVE) */}
+                <div
+                  style={{
+                    borderTop: "1px solid #E2E8F0",
+                    paddingTop: "14px",
+                    marginBottom: "16px"
+                  }}
+                >
+                  <h3 style={sectionSubTitle}>PAYMENT METHODS (ADD / REMOVE)</h3>
+                  <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+                    <input
+                      placeholder="New payment method (e.g. UPI / Cards / NetBanking)"
+                      value={newPaymentMethod}
+                      onChange={(e) => setNewPaymentMethod(e.target.value)}
+                      style={ctrlInput}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const clean = newPaymentMethod.trim();
+                        if (!clean) return;
+                        if (!activePaymentMethods.includes(clean)) {
+                          setSettings((prev) => ({
+                            ...prev,
+                            paymentMethods: [...activePaymentMethods, clean]
+                          }));
+                        }
+                        setNewPaymentMethod("");
+                      }}
+                      style={primaryBlueBtn}
+                    >
+                      <Plus size={14} /> Add Payment Method
+                    </button>
+                  </div>
+
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    {activePaymentMethods.map((pm, idx) => (
+                      <div
+                        key={`${pm}-${idx}`}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "8px 12px",
+                          borderRadius: "8px",
+                          border: "1px solid #E2E8F0",
+                          background: "#F8FAFC",
+                          fontSize: "13px"
+                        }}
+                      >
+                        <span>{pm}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              paymentMethods: activePaymentMethods.filter(
+                                (_, i) => i !== idx
+                              )
+                            }))
+                          }
+                          style={{ ...topActionBtn, color: "#DC2626", padding: "5px 9px" }}
+                        >
+                          <Trash2 size={13} /> Remove
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
 

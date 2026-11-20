@@ -3,12 +3,8 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
-  Check,
-  Droplets,
   Film,
-  Headphones,
   Heart,
-  Minus,
   Play,
   RefreshCw,
   ShieldCheck,
@@ -52,83 +48,6 @@ const COLLECTIONS_STRIP = [
   }
 ];
 
-const VERIFIED_REVIEWS = [
-  {
-    id: "rev-1",
-    quote: '"WALKED 18,000 STEPS WITHOUT CALF FATIGUE"',
-    body: "Tested these across Bangalore monsoons and broken pavement. The dual-density microfoam absorbs every harsh impact without feeling mushy. Genuinely superior to standard EVA clogs.",
-    author: "Aarav Mehta",
-    meta: "Verified Owner: Apex Closed-Cell Clog",
-    location: "Bengaluru • Verified Buyer"
-  },
-  {
-    id: "rev-2",
-    quote: '"ARCHITECTURAL SHAPE MEETS ALL-DAY ARCH SUPPORT"',
-    body: "I wear these for 10-hour hospital shifts. The sculpted arch cradle is unmatched. My feet feel fresh when clocking off.",
-    author: "Priya Sundaram",
-    meta: "Verified Owner: Apex All-Terrain Mule",
-    location: "Mumbai • Verified Buyer"
-  },
-  {
-    id: "rev-3",
-    quote: '"100% WATERPROOF AND EFFORTLESS TO RINSE"',
-    body: "Got caught in a flash downpour. Rinsed them under tap water in 20 seconds and they looked brand new. Bold aesthetic, zero ordinary energy.",
-    author: "Rohan Kapoor",
-    meta: "Verified Owner: Urban Hydro Slide",
-    location: "Delhi • Verified Buyer"
-  }
-];
-
-const CALZARE_STANDARD_CARDS = [
-  {
-    id: "std-1",
-    title: "Fast Dispatch",
-    desc: "Shipped within 24–48 hours with live tracking across India.",
-    icon: Truck
-  },
-  {
-    id: "std-2",
-    title: "Easy 7-Day Swap",
-    desc: "Hassle-free UK size exchange if your fit needs adjusting.",
-    icon: RefreshCw
-  },
-  {
-    id: "std-3",
-    title: "100% Waterproof",
-    desc: "Closed-cell construction built for rain, heat, and daily rinse.",
-    icon: Droplets
-  },
-  {
-    id: "std-4",
-    title: "Direct Support",
-    desc: "Real sizing and order help whenever you need it.",
-    icon: Headphones
-  }
-];
-
-const COMPARISON_ROWS = [
-  {
-    feature: "Midsole & Arch Cushioning",
-    calzare: "Dual-density sculpted arch cradle",
-    others: "Flat single-layer foam that compresses fast"
-  },
-  {
-    feature: "Monsoon & Water Resistance",
-    calzare: "100% closed-cell waterproof & quick-rinse",
-    others: "Absorbs water or stays slippery when wet"
-  },
-  {
-    feature: "Break-In Period",
-    calzare: "Zero break-in comfort out of the box",
-    others: "Stiff straps or heel rub for the first week"
-  },
-  {
-    feature: "Size Exchange & Bundle Perks",
-    calzare: "7-day easy UK size swap + multi-pair savings",
-    others: "Limited exchange options & single-pair pricing"
-  }
-];
-
 export default function HomePage({
   homepage,
   products,
@@ -156,17 +75,7 @@ export default function HomePage({
   const [campaignVideoFailed, setCampaignVideoFailed] = useState(false);
   const [selectedSizes, setSelectedSizes] = useState({});
 
-  const under999Config = homepage?.affordableStore || {};
-  const maxBudgetPrice = Number(under999Config.maxPrice ?? 999);
-  const under999Products = (products || []).filter(
-    (p) =>
-      (p.status || "published") !== "draft" &&
-      Number(p.price) > 0 &&
-      Number(p.price) <= maxBudgetPrice
-  );
-
-  const displayedProducts =
-    category === "under999" ? under999Products : visibleProducts;
+  const displayedProducts = visibleProducts || [];
 
   const visibleCollectionCards = COLLECTIONS_STRIP.filter((col) =>
     Array.isArray(allowedCollections) ? allowedCollections.includes(col.key) : true
@@ -174,20 +83,11 @@ export default function HomePage({
 
   const categoryFilterPills = [
     { key: "all", label: "ALL PIECES" },
-    ...(under999Products.length > 0
-      ? [{ key: "under999", label: `UNDER ₹${maxBudgetPrice}` }]
-      : []),
     ...(Array.isArray(categories) ? categories : []).map((cat) => ({
       key: String(cat).toLowerCase(),
       label: String(cat).toUpperCase()
     }))
   ];
-
-  const handleSelectUnder999 = (e) => {
-    e?.preventDefault?.();
-    setCategory("under999");
-    document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-  };
 
   return (
     <>
@@ -214,9 +114,11 @@ export default function HomePage({
             <a className="light-link" href="#shop">
               DISCOVER THE COLLECTION <ArrowUpRight size={16} />
             </a>
-            <a className="light-link" href="#reels">
-              WATCH IN MOTION <Play size={14} />
-            </a>
+            {reels.length > 0 && (
+              <a className="light-link" href="#reels">
+                WATCH IN MOTION <Play size={14} />
+              </a>
+            )}
           </div>
         </div>
 
@@ -268,6 +170,7 @@ export default function HomePage({
             <button
               type="button"
               className="product-count"
+              style={{ background: "none", border: 0, cursor: "pointer" }}
               onClick={() => onNavigateCollection?.("all")}
             >
               EXPLORE ALL
@@ -302,35 +205,7 @@ export default function HomePage({
         </section>
       )}
 
-      {under999Section ? (
-        under999Section
-      ) : (
-        (under999Config.enabled || under999Products.length > 0) && (
-          <section className="under-999-banner section-pad" id="under-999">
-            <div className="under-999-card">
-              <div>
-                <p className="eyebrow light">
-                  {under999Config.badgeLabel || `/${maxBudgetPrice} DROP`}
-                </p>
-                <h3>
-                  {under999Config.title || `THE UNDER ₹${maxBudgetPrice} STORE`}
-                </h3>
-                <p>
-                  {under999Config.subtitle ||
-                    `Everyday comfort silhouettes at ₹${maxBudgetPrice} or less (${under999Products.length} styles available).`}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleSelectUnder999}
-                className="light-link"
-              >
-                {under999Config.ctaLabel || "EXPLORE DROP"} <ArrowUpRight size={15} />
-              </button>
-            </div>
-          </section>
-        )
-      )}
+      {under999Section}
 
       {homepage.featuredProduct?.enabled !== false && (
         <section className="exclusive-spotlight section-pad">
@@ -439,12 +314,8 @@ export default function HomePage({
                       loading="lazy"
                     />
                   )}
-                  {(product.badge || Number(product.price) <= maxBudgetPrice) && (
-                    <span className="product-badge">
-                      {Number(product.price) <= maxBudgetPrice
-                        ? `UNDER ₹${maxBudgetPrice}`
-                        : product.badge}
-                    </span>
+                  {product.badge && (
+                    <span className="product-badge">{product.badge}</span>
                   )}
 
                   {product.videoUrl && (
@@ -530,155 +401,70 @@ export default function HomePage({
         )}
       </section>
 
-      <section className="reels-section section-pad" id="reels">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">SHOPPABLE REELS</p>
-            <h2>
-              Calzare in <em>motion.</em>
-            </h2>
+      {reels.length > 0 && (
+        <section className="reels-section section-pad" id="reels">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">SHOPPABLE REELS</p>
+              <h2>
+                Calzare in <em>motion.</em>
+              </h2>
+            </div>
+            <span className="product-count">TAP ANY REEL TO SHOP</span>
           </div>
-          <span className="product-count">TAP ANY REEL TO SHOP</span>
-        </div>
 
-        <div className="reels-grid">
-          {reels.map((reel) => {
-            const linkedProduct =
-              products.find((p) => p.id === reel.productId) || products[0];
-            return (
-              <div className="reel-card" key={reel.id} onClick={() => onOpenReel(reel)}>
-                <video
-                  src={reel.videoUrl}
-                  poster={reel.poster || SAFE_IMAGE_FALLBACK}
-                  muted
-                  loop
-                  playsInline
-                  autoPlay
-                  preload="metadata"
-                />
-                <div className="reel-overlay">
-                  <span className="reel-tag">{reel.tag}</span>
-                  <div className="reel-bottom">
-                    <h3>{reel.title}</h3>
-                    {linkedProduct && (
-                      <div className="reel-product-chip">
-                        <img
-                          src={linkedProduct.image || SAFE_IMAGE_FALLBACK}
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                          }}
-                          alt={linkedProduct.name}
-                        />
-                        <div>
-                          <strong>{linkedProduct.name}</strong>
-                          <span>{money(linkedProduct.price)}</span>
-                        </div>
-                        <ArrowUpRight size={15} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="calzare-reviews-section" id="reviews">
-        <div className="calzare-reviews-header">
-          <div className="calzare-rating-pill">
-            <span className="calzare-stars" aria-hidden="true">
-              ★★★★★
-            </span>
-            <strong>5.0 / 5.0</strong>
-            <span>({VERIFIED_REVIEWS.length} Verified Buyer Reviews)</span>
-          </div>
-          <p className="calzare-reviews-sub">
-            Honest reviews from customers walking in real rain, heat, and city transit.
-          </p>
-        </div>
-
-        <div className="calzare-reviews-grid">
-          {VERIFIED_REVIEWS.map((rev) => (
-            <article className="calzare-review-card" key={rev.id}>
-              <div className="calzare-stars" aria-hidden="true">
-                ★★★★★
-              </div>
-              <h3 className="calzare-review-quote">{rev.quote}</h3>
-              <p className="calzare-review-body">{rev.body}</p>
-              <div className="calzare-review-divider" />
-              <div className="calzare-review-footer">
-                <div>
-                  <strong className="calzare-reviewer-name">{rev.author}</strong>
-                  <span className="calzare-reviewer-meta">{rev.meta}</span>
-                  <span className="calzare-reviewer-loc">{rev.location}</span>
-                </div>
-                <span className="calzare-verified-badge">✓ Verified</span>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <div className="calzare-standard-block">
-          <h2 className="calzare-standard-title">THE CALZARE STANDARD</h2>
-          <p className="calzare-standard-sub">Built with science. Tested with life.</p>
-
-          <div className="calzare-standard-grid">
-            {CALZARE_STANDARD_CARDS.map((item) => {
-              const IconComp = item.icon;
+          <div className="reels-grid">
+            {reels.map((reel) => {
+              const linkedProduct =
+                products.find((p) => p.id === reel.productId) || products[0];
               return (
-                <div className="calzare-standard-card" key={item.id}>
-                  <div className="calzare-standard-icon">
-                    <IconComp size={20} />
+                <div className="reel-card" key={reel.id} onClick={() => onOpenReel(reel)}>
+                  {reel.videoUrl ? (
+                    <video
+                      src={reel.videoUrl}
+                      poster={reel.poster || SAFE_IMAGE_FALLBACK}
+                      muted
+                      loop
+                      playsInline
+                      autoPlay
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img
+                      src={reel.poster || SAFE_IMAGE_FALLBACK}
+                      alt={reel.title}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  )}
+                  <div className="reel-overlay">
+                    <span className="reel-tag">{reel.tag}</span>
+                    <div className="reel-bottom">
+                      <h3>{reel.title}</h3>
+                      {linkedProduct && (
+                        <div className="reel-product-chip">
+                          <img
+                            src={linkedProduct.image || SAFE_IMAGE_FALLBACK}
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                            }}
+                            alt={linkedProduct.name}
+                          />
+                          <div>
+                            <strong>{linkedProduct.name}</strong>
+                            <span>{money(linkedProduct.price)}</span>
+                          </div>
+                          <ArrowUpRight size={15} />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <strong>{item.title}</strong>
-                  <p>{item.desc}</p>
                 </div>
               );
             })}
           </div>
-
-          <div style={{ marginTop: "32px", overflowX: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                background: "var(--surface)",
-                fontSize: "12.5px",
-                textAlign: "left"
-              }}
-            >
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                  <th style={{ padding: "14px 16px" }}>What Matters</th>
-                  <th style={{ padding: "14px 16px" }}>CALZARE</th>
-                  <th style={{ padding: "14px 16px", opacity: 0.7 }}>Standard Alternatives</th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARISON_ROWS.map((row) => (
-                  <tr key={row.feature} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "12px 16px" }}>
-                      <strong>{row.feature}</strong>
-                    </td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                        <Check size={14} /> {row.calzare}
-                      </span>
-                    </td>
-                    <td style={{ padding: "12px 16px", opacity: 0.7 }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                        <Minus size={14} /> {row.others}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="campaign">
         <div className="campaign-image">
@@ -772,9 +558,7 @@ export default function HomePage({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Your email address"
           />
-          <button type="submit">
-            SUBSCRIBE <ArrowUpRight size={15} />
-          </button>
+
         </form>
       </section>
     </>
