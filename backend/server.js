@@ -168,6 +168,47 @@ const homepageSchema = new mongoose.Schema(
       ]
     },
     sectionConfigs: { type: mongoose.Schema.Types.Mixed, default: {} },
+    affordableStore: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {
+        enabled: true,
+        maxPrice: 999,
+        badgeLabel: "/999 Store",
+        title: "THE UNDER ₹999 STORE",
+        subtitle:
+          "High performance foam shouldn't cost a week's wage. Premium daily comfort at honest prices.",
+        ctaLabel: "EXPLORE DROP",
+        image: ""
+      }
+    },
+    productPage: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {
+        offer1Badge: "10% OFF",
+        offer1Text: "Buy 2 Pairs",
+        offer2Badge: "15% OFF",
+        offer2Text: "Buy 3 Pairs",
+        standardTitle: "THE CALZARE STANDARD",
+        standardSubtitle: "Built with science. Tested with life.",
+        guarantees: [
+          { title: "Secure payment", subtitle: "UPI, cards & partial COD available" },
+          { title: "Delivery", subtitle: "Ships within 24–48 hours across India" },
+          { title: "Returns", subtitle: "7-day easy UK size exchange" },
+          { title: "Customer Service", subtitle: "Dedicated support for sizing & orders" }
+        ]
+      }
+    },
+    footer: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {
+        tagline: "We design and make every pair ourselves, then ship it straight to you.",
+        hours: "Monday to Friday, 10:00 AM to 6:00 PM.",
+        newsletterHeading: "Join the Calzare team",
+        newsletterCopy:
+          "Sign up for early access to drops and free shipping updates on new collections.",
+        copyright: "© 2026 Calzare. All rights reserved."
+      }
+    },
     pipVideo: {
       enabled: { type: Boolean, default: true },
       label: { type: String, default: "WATCH FIT & FLEX" },
@@ -526,10 +567,41 @@ app.get("/api/products", async (req, res) => {
   res.json({ products: await Product.find(filter).sort({ createdAt: 1 }).lean() });
 });
 
-app.get("/api/reviews", async (_req, res) => {
+app.get("/api/reviews", async (req, res) => {
+  const filter = { status: "approved" };
+  if (req.query.productId) {
+    filter.productId = String(req.query.productId);
+  }
   res.json({
-    reviews: await Review.find({ status: "approved" }).sort({ createdAt: -1 }).lean()
+    reviews: await Review.find(filter).sort({ createdAt: -1 }).lean()
   });
+});
+
+app.post("/api/reviews", async (req, res) => {
+  try {
+    const customerName = String(req.body.customerName || req.body.author || "").trim();
+    const comment = String(req.body.comment || req.body.body || "").trim();
+    if (!customerName || !comment) {
+      return res.status(400).json({ message: "Name and comment are required." });
+    }
+    const review = await Review.create({
+      productId: String(req.body.productId || "c-001"),
+      productName: String(req.body.productName || "CALZARE").trim(),
+      customerName,
+      customerEmail: String(req.body.customerEmail || "").trim(),
+      location: String(req.body.location || "India").trim(),
+      rating: Math.max(1, Math.min(5, Number(req.body.rating) || 5)),
+      headline: String(req.body.headline || req.body.quote || "VERIFIED REVIEW").trim(),
+      comment,
+      photoUrl: String(req.body.photoUrl || "").trim(),
+      verifiedBuyer: true,
+      featuredOnHomepage: true,
+      status: "approved"
+    });
+    res.status(201).json({ review });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 
 app.post("/api/coupons/validate", async (req, res) => {
@@ -785,13 +857,46 @@ app.delete("/api/admin/reels/:id", requireAdmin, async (req, res) => {
 });
 
 app.put("/api/admin/homepage", requireAdmin, async (req, res) => {
-  const homepage = await Homepage.findOneAndUpdate(
-    { singletonKey: "main" },
-    { $set: req.body },
-    { upsert: true, new: true }
-  );
-  await logAudit("UPDATE_HOMEPAGE_CMS", "Homepage Sections", req);
-  res.json({ homepage });
+  try {
+    const current = (await Homepage.findOne({ singletonKey: "main" }).lean()) || {};
+    const body = req.body?.homepage && typeof req.body.homepage === "object"
+      ? req.body.homepage
+      : req.body || {};
+
+    const merged = {
+      ...body,
+      affordableStore: {
+        ...(current.affordableStore || {}),
+        ...(body.affordableStore || {})
+      },
+      featuredProduct: {
+        ...(current.featuredProduct || {}),
+        ...(body.featuredProduct || {})
+      },
+      productPage: {
+        ...(current.productPage || {}),
+        ...(body.productPage || {})
+      },
+      footer: {
+        ...(current.footer || {}),
+        ...(body.footer || {})
+      },
+      pipVideo: {
+        ...(current.pipVideo || {}),
+        ...(body.pipVideo || {})
+      }
+    };
+
+    const homepage = await Homepage.findOneAndUpdate(
+      { singletonKey: "main" },
+      { $set: merged },
+      { upsert: true, new: true, lean: true }
+    );
+    await logAudit("UPDATE_HOMEPAGE_CMS", "Homepage / ProductPage / Footer", req);
+    res.json({ homepage });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 
 app.patch("/api/admin/orders/:orderId", requireAdmin, async (req, res) => {
@@ -860,13 +965,23 @@ app.delete("/api/admin/pages/:id", requireAdmin, async (req, res) => {
 });
 
 app.put("/api/admin/settings", requireAdmin, async (req, res) => {
-  const settings = await StoreSettings.findOneAndUpdate(
-    { singletonKey: "store_settings" },
-    { $set: req.body },
-    { upsert: true, new: true }
-  );
-  await logAudit("UPDATE_STORE_SETTINGS", "System Config", req);
-  res.json({ settings });
+  try {
+    const current =
+      (await StoreSettings.findOne({ singletonKey: "store_settings" }).lean()) || {};
+    const body = req.body?.settings && typeof req.body.settings === "object"
+      ? req.body.settings
+      : req.body || {};
+
+    const settings = await StoreSettings.findOneAndUpdate(
+      { singletonKey: "store_settings" },
+      { $set: { ...current, ...body } },
+      { upsert: true, new: true, lean: true }
+    );
+    await logAudit("UPDATE_STORE_SETTINGS", "System Config", req);
+    res.json({ settings });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
 });
 
 // --- CUSTOMER & ADMIN SINGLE LOGIN ---

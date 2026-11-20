@@ -33,6 +33,19 @@ import {
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
 const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
+const CATEGORIES_STORAGE_KEY = "calzare_custom_categories";
+const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
+
+const STOREFRONT_PAGES = [
+  { key: "home", label: "HOME PAGE" },
+  { key: "men", label: "MEN PAGE" },
+  { key: "women", label: "WOMEN PAGE" },
+  { key: "unisex", label: "UNISEX PAGE" },
+  { key: "kids", label: "KIDS PAGE" },
+  { key: "shop", label: "SHOP / ALL PAGE" }
+];
+
+const ALL_COLLECTIONS = ["men", "women", "unisex", "kids"];
 
 const FALLBACK_IMG =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
@@ -211,8 +224,15 @@ const DEFAULT_HOMEPAGE_CMS = {
   footer: {
     bgColor: "#0F172A",
     textColor: "#CBD5E1",
+    logo: "",
     tagline: "Architectural footwear built for motion.",
     copyright: "© 2026 CALZARE. All rights reserved.",
+    showContact: true,
+    hours: "Monday to Friday, 10:00 AM to 6:00 PM.",
+    contactItems: [
+      { type: "Email", label: "Support Email", value: "support@calzare.in" },
+      { type: "Phone", label: "Helpline", value: "+91 98765 43210" }
+    ],
     columns: [
       {
         title: "Shop",
@@ -346,8 +366,167 @@ const handleImgError = (e) => {
   e.currentTarget.src = FALLBACK_IMG;
 };
 
+function readLocalCategories() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CATEGORIES_STORAGE_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalCategories(cats) {
+  try {
+    localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(cats));
+  } catch (_) {}
+}
+
+function buildDefaultPageAssignments(allCats) {
+  return {
+    home: { collections: [...ALL_COLLECTIONS], categories: [...allCats] },
+    men: { collections: ["men", "unisex"], categories: [...allCats] },
+    women: { collections: ["women", "unisex"], categories: [...allCats] },
+    unisex: { collections: ["unisex"], categories: [...allCats] },
+    kids: { collections: ["kids"], categories: [...allCats] },
+    shop: { collections: [...ALL_COLLECTIONS], categories: [...allCats] }
+  };
+}
+
+function readLocalPageAssignments(allCats) {
+  const defaults = buildDefaultPageAssignments(allCats);
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(PAGE_ASSIGNMENTS_STORAGE_KEY) || "null"
+    );
+    if (parsed && typeof parsed === "object") {
+      return { ...defaults, ...parsed };
+    }
+  } catch (_) {}
+  return defaults;
+}
+
+function writeLocalPageAssignments(assignments) {
+  try {
+    localStorage.setItem(
+      PAGE_ASSIGNMENTS_STORAGE_KEY,
+      JSON.stringify(assignments)
+    );
+  } catch (_) {}
+}
+
+function DropZoneField({
+  label,
+  value,
+  uploadKey,
+  uploadingKey,
+  accept = "image/png,image/jpeg,image/webp,image/svg+xml",
+  maxBytes = 25 * 1024 * 1024,
+  onChange,
+  onUploadFile
+}) {
+  const [dragging, setDragging] = useState(false);
+  const isBusy = uploadingKey === uploadKey;
+  const isVideo = accept.includes("video");
+
+  const handleSelectedFile = (file) => {
+    if (!file) return;
+    if (file.size > maxBytes) {
+      alert(`File exceeds ${Math.round(maxBytes / (1024 * 1024))}MB limit.`);
+      return;
+    }
+    onUploadFile(file, uploadKey, onChange);
+  };
+
+  return (
+    <div style={{ display: "grid", gap: "6px" }}>
+      {label && <label style={fieldLabel}>{label}</label>}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragging(false);
+          const dropped = e.dataTransfer?.files?.[0];
+          handleSelectedFile(dropped);
+        }}
+        style={{
+          border: dragging ? "2px dashed #2563EB" : "1.5px dashed #CBD5E1",
+          background: dragging ? "#EFF6FF" : "#F8FAFC",
+          borderRadius: "10px",
+          padding: "14px",
+          textAlign: "center",
+          transition: "all 0.15s ease"
+        }}
+      >
+        <div style={{ fontSize: "12.5px", fontWeight: 600, color: "#0F172A" }}>
+          {isBusy
+            ? "Uploading file..."
+            : "Click to upload or drag image/file here"}
+        </div>
+        <div style={{ fontSize: "11px", color: "#64748B", marginTop: "2px" }}>
+          {isVideo
+            ? "MP4, WEBM or PNG, JPG, WEBP, SVG up to 25MB"
+            : "PNG, JPG, WEBP, SVG up to 25MB"}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            marginTop: "10px",
+            alignItems: "center"
+          }}
+        >
+          <input
+            placeholder="Paste URL or drag & drop above"
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            style={{ ...ctrlInput, background: "#FFFFFF" }}
+          />
+          <label style={{ ...primaryBlueBtn, whiteSpace: "nowrap" }}>
+            <Upload size={14} /> {isBusy ? "..." : "Upload"}
+            <input
+              type="file"
+              accept={accept}
+              hidden
+              disabled={isBusy}
+              onChange={(e) => handleSelectedFile(e.target.files?.[0])}
+            />
+          </label>
+        </div>
+
+        {value && !isVideo && (
+          <img
+            src={value}
+            alt={label || "Preview"}
+            onError={handleImgError}
+            style={{
+              width: "100%",
+              maxHeight: "120px",
+              objectFit: "cover",
+              borderRadius: "8px",
+              marginTop: "10px"
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPanel({ onExit, onStoreUpdated }) {
-  const [token, setToken] = useState(() => sessionStorage.getItem("calzare_admin_token") || "");
+  const [token, setToken] = useState(
+    () => sessionStorage.getItem("calzare_admin_token") || ""
+  );
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [locked, setLocked] = useState(false);
@@ -357,6 +536,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   const [toast, setToast] = useState("");
   const [uploading, setUploading] = useState("");
   const [timeframe, setTimeframe] = useState("30 Days");
+
+  // Page selector for per-page Collections & Categories Add/Remove
+  const [selectedAssignPage, setSelectedAssignPage] = useState("home");
 
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
@@ -373,29 +555,46 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   const [coupons, setCoupons] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [pages, setPages] = useState([]);
-  const [settings, setSettings] = useState({
-    storeName: "CALZARE",
-    supportEmail: "support@calzare.in",
-    supportPhone: "+91 98765 43210",
-    freeShippingThreshold: 2999,
-    partialCodAdvance: 299,
-    categories: ["sneakers", "formal", "slides"],
-    navigation: [
-      { label: "HOME", url: "#home" },
-      { label: "MEN", url: "#men" },
-      { label: "WOMEN", url: "#women" },
-      { label: "UNISEX", url: "#unisex" },
-      { label: "KIDS", url: "#kids" },
-      { label: "OUR STORY", url: "#story" }
-    ],
-    storySections: [
-      {
-        eyebrow: "OUR PHILOSOPHY",
-        heading: "Wear what moves you.",
-        body: "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention.",
-        image: ""
-      }
-    ]
+  const [settings, setSettings] = useState(() => {
+    const localCats = readLocalCategories();
+    const baseCats = ["sneakers", "formal", "slides"];
+    const mergedCats = Array.from(new Set([...baseCats, ...localCats]));
+    return {
+      storeName: "CALZARE",
+      supportEmail: "support@calzare.in",
+      supportPhone: "+91 98765 43210",
+      contactItems: [
+        { type: "Email", label: "Customer Support", value: "support@calzare.in" },
+        { type: "Phone", label: "Helpline", value: "+91 98765 43210" }
+      ],
+      freeShippingThreshold: 2999,
+      partialCodAdvance: 299,
+      categories: mergedCats,
+      pageAssignments: readLocalPageAssignments(mergedCats),
+      collectionImages: {
+        men: "",
+        women: "",
+        unisex: "",
+        kids: ""
+      },
+      categoryImages: {},
+      navigation: [
+        { label: "HOME", url: "#home" },
+        { label: "MEN", url: "#men" },
+        { label: "WOMEN", url: "#women" },
+        { label: "UNISEX", url: "#unisex" },
+        { label: "KIDS", url: "#kids" },
+        { label: "OUR STORY", url: "#story" }
+      ],
+      storySections: [
+        {
+          eyebrow: "OUR PHILOSOPHY",
+          heading: "Wear what moves you.",
+          body: "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention.",
+          image: ""
+        }
+      ]
+    };
   });
   const [users, setUsers] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
@@ -476,6 +675,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   function broadcastSync() {
     try {
       localStorage.setItem("calzare_store_sync", Date.now().toString());
+      window.dispatchEvent(new Event("calzare_store_updated"));
     } catch (_) {}
     onStoreUpdated?.();
   }
@@ -538,17 +738,66 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       setReviews(data.reviews || []);
       setPages(data.pages || []);
       if (data.settings) {
-        setSettings((p) => ({
-          ...p,
-          ...data.settings,
-          categories: data.settings.categories?.length
-            ? data.settings.categories
-            : p.categories,
-          navigation: data.settings.navigation?.length ? data.settings.navigation : p.navigation,
-          storySections: data.settings.storySections?.length
-            ? data.settings.storySections
-            : p.storySections
-        }));
+        setSettings((p) => {
+          const localCats = readLocalCategories();
+          const incomingContacts = Array.isArray(data.settings.contactItems)
+            ? data.settings.contactItems
+            : [
+                ...(data.settings.supportEmail
+                  ? [
+                      {
+                        type: "Email",
+                        label: "Customer Support",
+                        value: data.settings.supportEmail
+                      }
+                    ]
+                  : []),
+                ...(data.settings.supportPhone
+                  ? [
+                      {
+                        type: "Phone",
+                        label: "Helpline",
+                        value: data.settings.supportPhone
+                      }
+                    ]
+                  : [])
+              ];
+          const mergedCats = Array.from(
+            new Set([
+              ...(data.settings.categories?.length
+                ? data.settings.categories
+                : p.categories),
+              ...localCats
+            ])
+          );
+          const mergedAssignments = {
+            ...readLocalPageAssignments(mergedCats),
+            ...(p.pageAssignments || {}),
+            ...(data.settings.pageAssignments || {})
+          };
+          writeLocalPageAssignments(mergedAssignments);
+          return {
+            ...p,
+            ...data.settings,
+            contactItems: incomingContacts,
+            categories: mergedCats,
+            pageAssignments: mergedAssignments,
+            collectionImages: {
+              ...(p.collectionImages || {}),
+              ...(data.settings.collectionImages || {})
+            },
+            categoryImages: {
+              ...(p.categoryImages || {}),
+              ...(data.settings.categoryImages || {})
+            },
+            navigation: data.settings.navigation?.length
+              ? data.settings.navigation
+              : p.navigation,
+            storySections: data.settings.storySections?.length
+              ? data.settings.storySections
+              : p.storySections
+          };
+        });
       }
       setUsers(data.users || []);
       setSubscribers(data.subscribers || []);
@@ -602,6 +851,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Upload failed");
+      if (!data?.url) throw new Error("Upload response did not include a media URL");
       onUrl(data.url);
       notify("Media uploaded & linked.");
     } catch (err) {
@@ -651,15 +901,19 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
           : productForm.highlights
     };
 
-    const res = await fetch(`${API}/admin/products`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`${API}/admin/products`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to save product");
+      }
       notify(
         payload.status === "draft"
           ? "Product saved as draft."
@@ -669,6 +923,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       setProductForm(EMPTY_PRODUCT);
       await syncAll();
       broadcastSync();
+    } catch (err) {
+      notify(err.message || "Error saving product");
     }
   }
 
@@ -680,15 +936,16 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
         [sizeKey]: Math.max(0, Number(qty) || 0)
       }
     };
-    const res = await fetch(`${API}/admin/products`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(updatedProduct)
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`${API}/admin/products`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedProduct)
+      });
+      if (!res.ok) throw new Error("Failed to update stock");
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? updatedProduct : p))
       );
@@ -696,6 +953,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
         `Updated ${product.name} (${sizeKey}) stock to ${updatedProduct.stockBySize[sizeKey]}.`
       );
       broadcastSync();
+    } catch (err) {
+      notify(err.message || "Stock update failed");
     }
   }
 
@@ -740,17 +999,16 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
         },
         body: JSON.stringify(updatedHome)
       });
-      if (res.ok) {
-        setEditingSection(null);
-        notify("Homepage CMS updated live.");
-        broadcastSync();
-        return;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Backend rejected Homepage CMS update");
       }
-    } catch (_) {}
-
-    setEditingSection(null);
-    notify("Saved Homepage CMS & synced to storefront.");
-    broadcastSync();
+      setEditingSection(null);
+      notify("Homepage CMS updated live.");
+      broadcastSync();
+    } catch (err) {
+      notify(err.message || "Saved locally, but live API save failed");
+    }
   }
 
   async function handleSaveReel(e) {
@@ -905,19 +1163,80 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     }
   }
 
-  async function handleSaveSettings(updated = settings) {
-    const res = await fetch(`${API}/admin/settings`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(updated)
-    });
-    if (res.ok) {
+  async function handleSaveSettings(
+    updated = settings,
+    successMsg = "Store settings & configuration saved."
+  ) {
+    if (Array.isArray(updated.categories)) {
+      writeLocalCategories(updated.categories);
+    }
+    if (updated.pageAssignments && typeof updated.pageAssignments === "object") {
+      writeLocalPageAssignments(updated.pageAssignments);
+    }
+
+    if (!token) {
       setSettings(updated);
-      notify("Store settings & configuration saved.");
+      notify(`${successMsg} (Saved locally; sign in to sync with server)`);
       broadcastSync();
+      return true;
+    }
+
+    try {
+      const res = await fetch(`${API}/admin/settings`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(updated)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSettings(updated);
+        broadcastSync();
+        notify(
+          `${successMsg} (Saved locally; server returned: ${
+            data.message || `HTTP ${res.status}`
+          })`
+        );
+        return true;
+      }
+
+      const nextSettings =
+        data.settings && typeof data.settings === "object"
+          ? {
+              ...updated,
+              ...data.settings,
+              contactItems: Array.isArray(data.settings.contactItems)
+                ? data.settings.contactItems
+                : updated.contactItems,
+              categories:
+                Array.isArray(data.settings.categories) &&
+                data.settings.categories.length
+                  ? data.settings.categories
+                  : updated.categories,
+              pageAssignments:
+                data.settings.pageAssignments &&
+                typeof data.settings.pageAssignments === "object"
+                  ? { ...updated.pageAssignments, ...data.settings.pageAssignments }
+                  : updated.pageAssignments
+            }
+          : updated;
+
+      writeLocalCategories(nextSettings.categories || []);
+      if (nextSettings.pageAssignments) {
+        writeLocalPageAssignments(nextSettings.pageAssignments);
+      }
+      setSettings(nextSettings);
+      notify(successMsg);
+      broadcastSync();
+      return true;
+    } catch (err) {
+      setSettings(updated);
+      broadcastSync();
+      notify(`${successMsg} (Saved locally; network error: ${err.message || "offline"})`);
+      return true;
     }
   }
 
@@ -1097,6 +1416,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       ...(settings.categories?.length
         ? settings.categories
         : ["sneakers", "formal", "slides"]),
+      ...readLocalCategories(),
       ...products.map((p) => (p.category || "").toLowerCase()).filter(Boolean)
     ])
   );
@@ -1107,22 +1427,195 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     count: products.filter((p) => (p.category || "").toLowerCase() === cat).length
   }));
 
+  // Toggle Collection or Category visibility on a specific storefront page
+  async function handleTogglePageAssignment(pageKey, groupType, itemKey) {
+    const fallbackRule = buildDefaultPageAssignments(availableCategories)[pageKey] || {
+      collections: [...ALL_COLLECTIONS],
+      categories: [...availableCategories]
+    };
+    const currentPageRule =
+      settings.pageAssignments?.[pageKey] || fallbackRule;
+    const currentList = Array.isArray(currentPageRule[groupType])
+      ? currentPageRule[groupType]
+      : [];
+    const isCurrentlyShown = currentList.includes(itemKey);
+
+    const nextList = isCurrentlyShown
+      ? currentList.filter((k) => k !== itemKey)
+      : [...currentList, itemKey];
+
+    const updatedAssignments = {
+      ...(settings.pageAssignments || buildDefaultPageAssignments(availableCategories)),
+      [pageKey]: {
+        ...currentPageRule,
+        [groupType]: nextList
+      }
+    };
+
+    const updated = {
+      ...settings,
+      pageAssignments: updatedAssignments
+    };
+
+    writeLocalPageAssignments(updatedAssignments);
+    setSettings(updated);
+
+    await handleSaveSettings(
+      updated,
+      `${isCurrentlyShown ? "Removed" : "Added"} "${itemKey.toUpperCase()}" ${
+        isCurrentlyShown ? "from" : "to"
+      } ${pageKey.toUpperCase()} page.`
+    );
+  }
+
+  async function handleResetPageAssignments(pageKey) {
+    const defaultRule = buildDefaultPageAssignments(availableCategories)[pageKey] || {
+      collections: [...ALL_COLLECTIONS],
+      categories: [...availableCategories]
+    };
+    const updatedAssignments = {
+      ...(settings.pageAssignments || buildDefaultPageAssignments(availableCategories)),
+      [pageKey]: defaultRule
+    };
+    const updated = {
+      ...settings,
+      pageAssignments: updatedAssignments
+    };
+    writeLocalPageAssignments(updatedAssignments);
+    setSettings(updated);
+    await handleSaveSettings(
+      updated,
+      `Restored all collections & categories on ${pageKey.toUpperCase()} page.`
+    );
+  }
+
   async function handleAddCategory(e) {
-    e.preventDefault();
-    const clean = newCategoryInput.trim().toLowerCase();
-    if (!clean) return;
+    if (e?.preventDefault) e.preventDefault();
+    const clean = (newCategoryInput || "").trim().toLowerCase();
+    if (!clean) {
+      notify("Type a category name first.");
+      return;
+    }
     if (availableCategories.includes(clean)) {
       notify(`Category "${clean.toUpperCase()}" already exists.`);
       setNewCategoryInput("");
       return;
     }
+
+    const updatedCats = [...availableCategories, clean];
+    // Automatically make the new category visible across all pages by default
+    const currentAssignments =
+      settings.pageAssignments || buildDefaultPageAssignments(availableCategories);
+    const updatedAssignments = Object.fromEntries(
+      STOREFRONT_PAGES.map(({ key }) => {
+        const existing = currentAssignments[key] || {
+          collections: [...ALL_COLLECTIONS],
+          categories: [...availableCategories]
+        };
+        return [
+          key,
+          {
+            ...existing,
+            categories: Array.from(new Set([...(existing.categories || []), clean]))
+          }
+        ];
+      })
+    );
+
     const updated = {
       ...settings,
-      categories: [...availableCategories, clean]
+      categories: updatedCats,
+      pageAssignments: updatedAssignments
     };
+
     setNewCategoryInput("");
-    await handleSaveSettings(updated);
-    notify(`Added category "${clean.toUpperCase()}".`);
+    writeLocalCategories(updatedCats);
+    writeLocalPageAssignments(updatedAssignments);
+    setSettings(updated);
+
+    await handleSaveSettings(
+      updated,
+      `Added category "${clean.toUpperCase()}".`
+    );
+  }
+
+  async function handleRenameCategory(oldCatKey, rawNewName) {
+    const cleanNew = (rawNewName || "").trim().toLowerCase();
+    if (!cleanNew || cleanNew === oldCatKey) return;
+
+    if (availableCategories.includes(cleanNew)) {
+      notify(`Category "${cleanNew.toUpperCase()}" already exists.`);
+      return;
+    }
+
+    const updatedCats = availableCategories.map((c) =>
+      c === oldCatKey ? cleanNew : c
+    );
+    const prevCatImg = settings.categoryImages?.[oldCatKey] || "";
+    const nextCatImages = { ...(settings.categoryImages || {}) };
+    if (prevCatImg) {
+      nextCatImages[cleanNew] = prevCatImg;
+    }
+    delete nextCatImages[oldCatKey];
+
+    const currentAssignments =
+      settings.pageAssignments || buildDefaultPageAssignments(availableCategories);
+    const updatedAssignments = Object.fromEntries(
+      Object.entries(currentAssignments).map(([pgKey, rule]) => [
+        pgKey,
+        {
+          ...rule,
+          categories: (rule.categories || []).map((c) =>
+            c === oldCatKey ? cleanNew : c
+          )
+        }
+      ])
+    );
+
+    const updatedSettings = {
+      ...settings,
+      categories: updatedCats,
+      categoryImages: nextCatImages,
+      pageAssignments: updatedAssignments
+    };
+
+    writeLocalCategories(updatedCats);
+    writeLocalPageAssignments(updatedAssignments);
+    setSettings(updatedSettings);
+
+    const affectedProducts = products.filter(
+      (p) => (p.category || "").toLowerCase() === oldCatKey
+    );
+
+    if (affectedProducts.length) {
+      setProducts((prev) =>
+        prev.map((p) =>
+          (p.category || "").toLowerCase() === oldCatKey
+            ? { ...p, category: cleanNew }
+            : p
+        )
+      );
+
+      if (token) {
+        await Promise.all(
+          affectedProducts.map((prod) =>
+            fetch(`${API}/admin/products`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ ...prod, category: cleanNew })
+            }).catch(() => null)
+          )
+        );
+      }
+    }
+
+    await handleSaveSettings(
+      updatedSettings,
+      `Renamed "${oldCatKey.toUpperCase()}" to "${cleanNew.toUpperCase()}".`
+    );
   }
 
   async function handleRemoveCategory(catKey) {
@@ -1135,18 +1628,52 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       );
       return;
     }
+
+    const updatedCats = availableCategories.filter((c) => c !== catKey);
+    const nextCatImages = { ...(settings.categoryImages || {}) };
+    delete nextCatImages[catKey];
+
+    const currentAssignments =
+      settings.pageAssignments || buildDefaultPageAssignments(availableCategories);
+    const updatedAssignments = Object.fromEntries(
+      Object.entries(currentAssignments).map(([pgKey, rule]) => [
+        pgKey,
+        {
+          ...rule,
+          categories: (rule.categories || []).filter((c) => c !== catKey)
+        }
+      ])
+    );
+
     const updated = {
       ...settings,
-      categories: availableCategories.filter((c) => c !== catKey)
+      categories: updatedCats,
+      categoryImages: nextCatImages,
+      pageAssignments: updatedAssignments
     };
-    await handleSaveSettings(updated);
-    notify(`Removed category "${catKey.toUpperCase()}".`);
+
+    writeLocalCategories(updatedCats);
+    writeLocalPageAssignments(updatedAssignments);
+    setSettings(updated);
+
+    await handleSaveSettings(
+      updated,
+      `Removed category "${catKey.toUpperCase()}".`
+    );
   }
 
-  const collectionsSummary = ["men", "women", "unisex", "kids"].map((col) => ({
+  const collectionsSummary = ALL_COLLECTIONS.map((col) => ({
+    key: col,
     name: col.toUpperCase(),
     count: products.filter((p) => (p.collection || "unisex") === col).length
   }));
+
+  const currentPageAssignment =
+    settings.pageAssignments?.[selectedAssignPage] ||
+    buildDefaultPageAssignments(availableCategories)[selectedAssignPage] || {
+      collections: [...ALL_COLLECTIONS],
+      categories: [...availableCategories]
+    };
 
   return (
     <div
@@ -1906,56 +2433,23 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         gap: "12px"
                       }}
                     >
-                      <div>
-                        <label style={fieldLabel}>Product Photo (URL or Upload)</label>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <input
-                            value={productForm.image}
-                            onChange={(e) =>
-                              setProductForm({ ...productForm, image: e.target.value })
-                            }
-                            style={ctrlInput}
-                          />
-                          <label style={primaryBlueBtn}>
-                            <Upload size={14} /> Upload
-                            <input
-                              type="file"
-                              accept="image/*"
-                              hidden
-                              onChange={(e) =>
-                                uploadMedia(e.target.files?.[0], "pImg", (u) =>
-                                  setProductForm((p) => ({ ...p, image: u }))
-                                )
-                              }
-                            />
-                          </label>
-                        </div>
-                      </div>
-                      <div>
-                        <label style={fieldLabel}>Hover Video MP4 (URL or Upload)</label>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <input
-                            value={productForm.videoUrl}
-                            onChange={(e) =>
-                              setProductForm({ ...productForm, videoUrl: e.target.value })
-                            }
-                            style={ctrlInput}
-                          />
-                          <label style={primaryBlueBtn}>
-                            <Upload size={14} /> Upload MP4
-                            <input
-                              type="file"
-                              accept="video/mp4,video/webm"
-                              hidden
-                              onChange={(e) =>
-                                uploadMedia(e.target.files?.[0], "pVid", (u) =>
-                                  setProductForm((p) => ({ ...p, videoUrl: u }))
-                                )
-                              }
-                            />
-                          </label>
-                        </div>
-                      </div>
+                      <DropZoneField
+                        label="Product Photo (Drag & Drop or Upload)"
+                        uploadKey="pImg"
+                        uploadingKey={uploading}
+                        value={productForm.image}
+                        onUploadFile={uploadMedia}
+                        onChange={(u) => setProductForm((p) => ({ ...p, image: u }))}
+                      />
+                      <DropZoneField
+                        label="Hover Video MP4 (Drag & Drop or Upload)"
+                        uploadKey="pVid"
+                        uploadingKey={uploading}
+                        accept="video/mp4,video/webm"
+                        value={productForm.videoUrl}
+                        onUploadFile={uploadMedia}
+                        onChange={(u) => setProductForm((p) => ({ ...p, videoUrl: u }))}
+                      />
                     </div>
                   </div>
                 )}
@@ -2045,6 +2539,21 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                             })
                           }
                           style={ctrlInput}
+                        />
+                        <DropZoneField
+                          label="Chapter Editorial Photograph"
+                          uploadKey={`prodStoryImg-${i}`}
+                          uploadingKey={uploading}
+                          value={blk.image || ""}
+                          onUploadFile={uploadMedia}
+                          onChange={(url) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              storyBlocks: prev.storyBlocks.map((b, idx) =>
+                                idx === i ? { ...b, image: url } : b
+                              )
+                            }))
+                          }
                         />
                       </div>
                     ))}
@@ -2515,43 +3024,376 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
 
           {/* ==================== COLLECTIONS & CATS ==================== */}
           {activeNav === "collections" && (
-            <div style={{ display: "grid", gap: "16px" }}>
-              <div>
-                <h1 style={pageTitle}>COLLECTIONS & CATEGORIES</h1>
-                <p style={pageSub}>
-                  Add or remove footwear categories and review style counts across
-                  departments.
-                </p>
+            <div style={{ display: "grid", gap: "18px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "12px"
+                }}
+              >
+                <div>
+                  <h1 style={pageTitle}>COLLECTIONS & CATEGORIES</h1>
+                  <p style={pageSub}>
+                    Add or remove which Collections and Categories appear on each
+                    storefront page, and manage global banners.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSaveSettings(settings)}
+                  style={primaryBlueBtn}
+                >
+                  <Check size={14} /> Save Collections & Categories
+                </button>
               </div>
+
+              {/* 1. PER-PAGE ADD / REMOVE COLLECTIONS & CATEGORIES */}
+              <div style={cardBox}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "12px",
+                    marginBottom: "14px",
+                    paddingBottom: "12px",
+                    borderBottom: "1px solid #E2E8F0"
+                  }}
+                >
+                  <div>
+                    <h3 style={{ ...sectionSubTitle, margin: 0 }}>
+                      PER-PAGE VISIBILITY: ADD OR REMOVE COLLECTIONS & CATEGORIES
+                    </h3>
+                    <p style={pageSub}>
+                      Select any page below to choose which Collections and Categories are
+                      displayed or removed on that page.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleResetPageAssignments(selectedAssignPage)}
+                    style={topActionBtn}
+                  >
+                    <RefreshCw size={13} /> Reset {selectedAssignPage.toUpperCase()} Defaults
+                  </button>
+                </div>
+
+                {/* Page Selector Pills */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    flexWrap: "wrap",
+                    marginBottom: "16px"
+                  }}
+                >
+                  {STOREFRONT_PAGES.map((pg) => {
+                    const active = selectedAssignPage === pg.key;
+                    const pgRule =
+                      settings.pageAssignments?.[pg.key] ||
+                      buildDefaultPageAssignments(availableCategories)[pg.key];
+                    const totalShown =
+                      (pgRule?.collections?.length || 0) +
+                      (pgRule?.categories?.length || 0);
+                    return (
+                      <button
+                        key={pg.key}
+                        type="button"
+                        onClick={() => setSelectedAssignPage(pg.key)}
+                        style={{
+                          padding: "8px 14px",
+                          borderRadius: "8px",
+                          border: active ? "1px solid #2563EB" : "1px solid #CBD5E1",
+                          background: active ? "#2563EB" : "#FFFFFF",
+                          color: active ? "#FFFFFF" : "#0F172A",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px"
+                        }}
+                      >
+                        <span>{pg.label}</span>
+                        <span
+                          style={{
+                            fontSize: "10.5px",
+                            padding: "2px 7px",
+                            borderRadius: "999px",
+                            background: active ? "rgba(255,255,255,0.22)" : "#F1F5F9",
+                            color: active ? "#FFFFFF" : "#475569"
+                          }}
+                        >
+                          {totalShown} active
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Two-Column Add/Remove Lists for Selected Page */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                    gap: "16px"
+                  }}
+                >
+                  {/* Collections on Selected Page */}
+                  <div
+                    style={{
+                      border: "1px solid #E2E8F0",
+                      borderRadius: "10px",
+                      padding: "14px",
+                      background: "#F8FAFC"
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "10px"
+                      }}
+                    >
+                      <strong style={{ fontSize: "12px", color: "#0F172A" }}>
+                        COLLECTIONS ON {selectedAssignPage.toUpperCase()} PAGE
+                      </strong>
+                      <span style={{ fontSize: "11px", color: "#64748B" }}>
+                        {(currentPageAssignment.collections || []).length} /{" "}
+                        {ALL_COLLECTIONS.length} shown
+                      </span>
+                    </div>
+
+                    <div style={{ display: "grid", gap: "8px" }}>
+                      {ALL_COLLECTIONS.map((colKey) => {
+                        const isShown = (
+                          currentPageAssignment.collections || []
+                        ).includes(colKey);
+                        return (
+                          <div
+                            key={colKey}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "10px 12px",
+                              borderRadius: "8px",
+                              background: isShown ? "#FFFFFF" : "#FEF2F2",
+                              border: isShown
+                                ? "1px solid #E2E8F0"
+                                : "1px dashed #FCA5A5"
+                            }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: "13px" }}>
+                                {colKey.toUpperCase()}
+                              </strong>
+                              <span
+                                style={{
+                                  marginLeft: "8px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  color: isShown ? "#059669" : "#DC2626"
+                                }}
+                              >
+                                {isShown ? "• Visible on page" : "• Removed from page"}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleTogglePageAssignment(
+                                  selectedAssignPage,
+                                  "collections",
+                                  colKey
+                                )
+                              }
+                              style={
+                                isShown
+                                  ? {
+                                      ...topActionBtn,
+                                      color: "#DC2626",
+                                      padding: "5px 10px"
+                                    }
+                                  : { ...primaryBlueBtn, padding: "5px 10px" }
+                              }
+                            >
+                              {isShown ? (
+                                <>
+                                  <Trash2 size={12} /> Remove
+                                </>
+                              ) : (
+                                <>
+                                  <Plus size={12} /> Add
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Categories on Selected Page */}
+                  <div
+                    style={{
+                      border: "1px solid #E2E8F0",
+                      borderRadius: "10px",
+                      padding: "14px",
+                      background: "#F8FAFC"
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "10px"
+                      }}
+                    >
+                      <strong style={{ fontSize: "12px", color: "#0F172A" }}>
+                        CATEGORIES ON {selectedAssignPage.toUpperCase()} PAGE
+                      </strong>
+                      <span style={{ fontSize: "11px", color: "#64748B" }}>
+                        {(currentPageAssignment.categories || []).length} /{" "}
+                        {availableCategories.length} shown
+                      </span>
+                    </div>
+
+                    <div style={{ display: "grid", gap: "8px" }}>
+                      {availableCategories.map((catKey) => {
+                        const isShown = (
+                          currentPageAssignment.categories || []
+                        ).includes(catKey);
+                        return (
+                          <div
+                            key={catKey}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "10px 12px",
+                              borderRadius: "8px",
+                              background: isShown ? "#FFFFFF" : "#FEF2F2",
+                              border: isShown
+                                ? "1px solid #E2E8F0"
+                                : "1px dashed #FCA5A5"
+                            }}
+                          >
+                            <div>
+                              <strong style={{ fontSize: "13px" }}>
+                                {catKey.toUpperCase()}
+                              </strong>
+                              <span
+                                style={{
+                                  marginLeft: "8px",
+                                  fontSize: "11px",
+                                  fontWeight: 700,
+                                  color: isShown ? "#059669" : "#DC2626"
+                                }}
+                              >
+                                {isShown ? "• Visible on page" : "• Removed from page"}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleTogglePageAssignment(
+                                  selectedAssignPage,
+                                  "categories",
+                                  catKey
+                                )
+                              }
+                              style={
+                                isShown
+                                  ? {
+                                      ...topActionBtn,
+                                      color: "#DC2626",
+                                      padding: "5px 10px"
+                                    }
+                                  : { ...primaryBlueBtn, padding: "5px 10px" }
+                              }
+                            >
+                              {isShown ? (
+                                <>
+                                  <Trash2 size={12} /> Remove
+                                </>
+                              ) : (
+                                <>
+                                  <Plus size={12} /> Add
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. GLOBAL COLLECTIONS & CATEGORIES BANNERS */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
                   gap: "16px"
                 }}
               >
                 <div style={cardBox}>
-                  <h3 style={sectionSubTitle}>AUDIENCE COLLECTIONS</h3>
-                  {collectionsSummary.map((c) => (
-                    <div
-                      key={c.name}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        padding: "12px 0",
-                        borderBottom: "1px solid #E2E8F0"
-                      }}
-                    >
-                      <strong>{c.name}</strong>
-                      <span style={{ color: "#64748B", fontSize: "13px" }}>
-                        {c.count} {c.count === 1 ? "style" : "styles"}
-                      </span>
-                    </div>
-                  ))}
+                  <h3 style={sectionSubTitle}>AUDIENCE COLLECTIONS & BANNERS</h3>
+                  <div style={{ display: "grid", gap: "14px" }}>
+                    {collectionsSummary.map((c) => (
+                      <div
+                        key={c.key}
+                        style={{
+                          padding: "12px",
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "10px",
+                          display: "grid",
+                          gap: "8px"
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center"
+                          }}
+                        >
+                          <strong>{c.name}</strong>
+                          <span style={{ color: "#64748B", fontSize: "12.5px" }}>
+                            {c.count} {c.count === 1 ? "style" : "styles"}
+                          </span>
+                        </div>
+                        <DropZoneField
+                          label={`${c.name} Hero / Card Image`}
+                          uploadKey={`colImg-${c.key}`}
+                          uploadingKey={uploading}
+                          value={settings.collectionImages?.[c.key] || ""}
+                          onUploadFile={uploadMedia}
+                          onChange={(url) =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              collectionImages: {
+                                ...(prev.collectionImages || {}),
+                                [c.key]: url
+                              }
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div style={cardBox}>
-                  <h3 style={sectionSubTitle}>FOOTWEAR CATEGORIES</h3>
+                  <h3 style={sectionSubTitle}>FOOTWEAR CATEGORIES & BANNERS</h3>
                   <form
                     onSubmit={handleAddCategory}
                     style={{ display: "flex", gap: "8px", marginBottom: "14px" }}
@@ -2562,52 +3404,98 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       onChange={(e) => setNewCategoryInput(e.target.value)}
                       style={ctrlInput}
                     />
-                    <button type="submit" style={primaryBlueBtn}>
+                    <button
+                      type="button"
+                      onClick={handleAddCategory}
+                      style={primaryBlueBtn}
+                    >
                       <Plus size={14} /> Add
                     </button>
                   </form>
 
-                  {categoriesSummary.map((c) => (
-                    <div
-                      key={c.key}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "12px 0",
-                        borderBottom: "1px solid #E2E8F0"
-                      }}
-                    >
-                      <div>
-                        <strong>{c.name}</strong>
-                        <span
-                          style={{
-                            marginLeft: "10px",
-                            color: "#64748B",
-                            fontSize: "12.5px"
-                          }}
-                        >
-                          {c.count} {c.count === 1 ? "style" : "styles"}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCategory(c.key)}
-                        title={
-                          c.count > 0
-                            ? "Reassign products before deleting"
-                            : `Remove ${c.name}`
-                        }
+                  <div style={{ display: "grid", gap: "14px" }}>
+                    {categoriesSummary.map((c) => (
+                      <div
+                        key={c.key}
                         style={{
-                          ...topActionBtn,
-                          color: c.count > 0 ? "#94A3B8" : "#DC2626",
-                          padding: "5px 9px"
+                          padding: "12px",
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "10px",
+                          display: "grid",
+                          gap: "8px"
                         }}
                       >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  ))}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: "8px"
+                          }}
+                        >
+                          <div>
+                            <strong>{c.name}</strong>
+                            <span
+                              style={{
+                                marginLeft: "10px",
+                                color: "#64748B",
+                                fontSize: "12.5px"
+                              }}
+                            >
+                              {c.count} {c.count === 1 ? "style" : "styles"}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextName = window.prompt(
+                                  `Rename category "${c.name}" to:`,
+                                  c.key
+                                );
+                                if (nextName) handleRenameCategory(c.key, nextName);
+                              }}
+                              style={{ ...topActionBtn, padding: "5px 9px" }}
+                            >
+                              Rename
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCategory(c.key)}
+                              title={
+                                c.count > 0
+                                  ? "Reassign products before deleting"
+                                  : `Remove ${c.name}`
+                              }
+                              style={{
+                                ...topActionBtn,
+                                color: c.count > 0 ? "#94A3B8" : "#DC2626",
+                                padding: "5px 9px"
+                              }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                        <DropZoneField
+                          label={`${c.name} Category Image`}
+                          uploadKey={`catImg-${c.key}`}
+                          uploadingKey={uploading}
+                          value={settings.categoryImages?.[c.key] || ""}
+                          onUploadFile={uploadMedia}
+                          onChange={(url) =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              categoryImages: {
+                                ...(prev.categoryImages || {}),
+                                [c.key]: url
+                              }
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2651,7 +3539,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                     gap: "12px"
                   }}
                 >
@@ -2705,44 +3593,22 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       style={ctrlInput}
                     />
                   </div>
-                  <div>
-                    <label style={fieldLabel}>Featured Image (URL or Upload)</label>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        placeholder="https://..."
-                        value={homepage.featuredProduct?.image || ""}
-                        onChange={(e) =>
-                          setHomepage({
-                            ...homepage,
-                            featuredProduct: {
-                              ...(homepage.featuredProduct || {}),
-                              image: e.target.value
-                            }
-                          })
+                  <DropZoneField
+                    label="Featured Image (Drag & Drop or Upload)"
+                    uploadKey="cmsFeat"
+                    uploadingKey={uploading}
+                    value={homepage.featuredProduct?.image || ""}
+                    onUploadFile={uploadMedia}
+                    onChange={(url) =>
+                      setHomepage((h) => ({
+                        ...h,
+                        featuredProduct: {
+                          ...(h.featuredProduct || {}),
+                          image: url
                         }
-                        style={ctrlInput}
-                      />
-                      <label style={primaryBlueBtn}>
-                        <Upload size={14} />
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={(e) =>
-                            uploadMedia(e.target.files?.[0], "cmsFeat", (url) =>
-                              setHomepage((h) => ({
-                                ...h,
-                                featuredProduct: {
-                                  ...(h.featuredProduct || {}),
-                                  image: url
-                                }
-                              }))
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
+                      }))
+                    }
+                  />
                 </div>
               </div>
 
@@ -2960,110 +3826,61 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                     gap: "14px"
                   }}
                 >
-                  <div>
-                    <label style={fieldLabel}>Hero Photo (Homepage Hero)</label>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        placeholder="https://... or upload photo"
-                        value={homepage.heroImage || ""}
-                        onChange={(e) =>
-                          setHomepage({ ...homepage, heroImage: e.target.value })
+                  <DropZoneField
+                    label="Hero Photo (Homepage Hero)"
+                    uploadKey="cmsHero"
+                    uploadingKey={uploading}
+                    value={homepage.heroImage || ""}
+                    onUploadFile={uploadMedia}
+                    onChange={(url) =>
+                      setHomepage((h) => ({ ...h, heroImage: url }))
+                    }
+                  />
+                  <DropZoneField
+                    label="Under ₹999 Section Image"
+                    uploadKey="cms999"
+                    uploadingKey={uploading}
+                    value={homepage.affordableStore?.image || ""}
+                    onUploadFile={uploadMedia}
+                    onChange={(url) =>
+                      setHomepage((h) => ({
+                        ...h,
+                        affordableStore: {
+                          ...(h.affordableStore || {}),
+                          image: url
                         }
-                        style={ctrlInput}
-                      />
-                      <label style={primaryBlueBtn}>
-                        <Upload size={14} />{" "}
-                        {uploading === "cmsHero" ? "..." : "Upload"}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={(e) =>
-                            uploadMedia(e.target.files?.[0], "cmsHero", (url) =>
-                              setHomepage((h) => ({ ...h, heroImage: url }))
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                    {homepage.heroImage && (
-                      <img
-                        src={homepage.heroImage}
-                        alt="Hero"
-                        onError={handleImgError}
-                        style={{
-                          width: "100%",
-                          maxHeight: "120px",
-                          objectFit: "cover",
-                          borderRadius: "8px",
-                          marginTop: "8px"
-                        }}
-                      />
-                    )}
-                  </div>
-
-                  <div>
-                    <label style={fieldLabel}>Under ₹999 Section Image</label>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        placeholder="https://... or upload photo"
-                        value={homepage.affordableStore?.image || ""}
-                        onChange={(e) =>
-                          setHomepage({
-                            ...homepage,
-                            affordableStore: {
-                              ...(homepage.affordableStore || {}),
-                              image: e.target.value
-                            }
-                          })
-                        }
-                        style={ctrlInput}
-                      />
-                      <label style={primaryBlueBtn}>
-                        <Upload size={14} />{" "}
-                        {uploading === "cms999" ? "..." : "Upload"}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={(e) =>
-                            uploadMedia(e.target.files?.[0], "cms999", (url) =>
-                              setHomepage((h) => ({
-                                ...h,
-                                affordableStore: {
-                                  ...(h.affordableStore || {}),
-                                  image: url
-                                }
-                              }))
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                    {homepage.affordableStore?.image && (
-                      <img
-                        src={homepage.affordableStore.image}
-                        alt="Under 999"
-                        onError={handleImgError}
-                        style={{
-                          width: "100%",
-                          maxHeight: "120px",
-                          objectFit: "cover",
-                          borderRadius: "8px",
-                          marginTop: "8px"
-                        }}
-                      />
-                    )}
-                  </div>
+                      }))
+                    }
+                  />
                 </div>
               </div>
 
+              {/* FOOTER STYLING, LOGO, CONTACT INFO & NAVIGATION COLUMNS */}
               <div style={cardBox}>
-                <h3 style={sectionSubTitle}>FOOTER STYLING & COPY</h3>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "12px"
+                  }}
+                >
+                  <h3 style={{ ...sectionSubTitle, margin: 0 }}>
+                    FOOTER STYLING, LOGO, CONTACT INFO & COLUMNS
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveHomepage(homepage)}
+                    style={primaryBlueBtn}
+                  >
+                    <Check size={14} /> Save Footer
+                  </button>
+                </div>
+
                 <div
                   style={{
                     display: "grid",
@@ -3127,18 +3944,442 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     />
                   </div>
                 </div>
-                <div>
-                  <label style={fieldLabel}>Copyright Notice</label>
-                  <input
-                    value={homepage.footer?.copyright || ""}
-                    onChange={(e) =>
-                      setHomepage({
-                        ...homepage,
-                        footer: { ...(homepage.footer || {}), copyright: e.target.value }
-                      })
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: "12px",
+                    marginBottom: "16px"
+                  }}
+                >
+                  <div>
+                    <label style={fieldLabel}>Copyright Notice</label>
+                    <input
+                      value={homepage.footer?.copyright || ""}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          footer: { ...(homepage.footer || {}), copyright: e.target.value }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <DropZoneField
+                    label="Footer Brand Logo / Badge Image (Optional)"
+                    uploadKey="footerLogo"
+                    uploadingKey={uploading}
+                    value={homepage.footer?.logo || ""}
+                    onUploadFile={uploadMedia}
+                    onChange={(url) =>
+                      setHomepage((h) => ({
+                        ...h,
+                        footer: { ...(h.footer || {}), logo: url }
+                      }))
                     }
-                    style={ctrlInput}
                   />
+                </div>
+
+                {/* FOOTER CONTACT INFO (ADD / REMOVE / HIDE) */}
+                <div
+                  style={{
+                    borderTop: "1px solid #E2E8F0",
+                    paddingTop: "14px",
+                    marginBottom: "16px"
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                      marginBottom: "10px"
+                    }}
+                  >
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
+                      FOOTER CONTACT INFO
+                    </span>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setHomepage((prev) => ({
+                            ...prev,
+                            footer: {
+                              ...(prev.footer || {}),
+                              showContact: prev.footer?.showContact === false
+                            }
+                          }))
+                        }
+                        style={topActionBtn}
+                      >
+                        {homepage.footer?.showContact === false ? (
+                          <>
+                            <Eye size={13} /> Show Contact Block
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff size={13} /> Hide Contact Block
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setHomepage((prev) => ({
+                            ...prev,
+                            footer: {
+                              ...(prev.footer || {}),
+                              showContact: true,
+                              contactItems: [
+                                ...(prev.footer?.contactItems || []),
+                                { type: "Phone", label: "Support", value: "" }
+                              ]
+                            }
+                          }))
+                        }
+                        style={topActionBtn}
+                      >
+                        <Plus size={13} /> Add Footer Contact
+                      </button>
+                      {(homepage.footer?.contactItems || []).length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              footer: {
+                                ...(prev.footer || {}),
+                                contactItems: []
+                              }
+                            }))
+                          }
+                          style={{ ...topActionBtn, color: "#DC2626" }}
+                        >
+                          <Trash2 size={13} /> Remove All Contact Info
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {!(homepage.footer?.contactItems || []).length ? (
+                    <p style={{ ...pageSub, marginBottom: "8px" }}>
+                      No contact info in footer. Click "+ Add Footer Contact" to add an
+                      email, phone, WhatsApp, or address.
+                    </p>
+                  ) : (
+                    (homepage.footer?.contactItems || []).map((cItem, cIdx) => (
+                      <div
+                        key={cIdx}
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "120px 1fr 1.5fr auto",
+                          gap: "8px",
+                          marginBottom: "8px"
+                        }}
+                      >
+                        <select
+                          value={cItem.type || "Email"}
+                          onChange={(e) =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              footer: {
+                                ...(prev.footer || {}),
+                                contactItems: prev.footer.contactItems.map((it, i) =>
+                                  i === cIdx ? { ...it, type: e.target.value } : it
+                                )
+                              }
+                            }))
+                          }
+                          style={ctrlInput}
+                        >
+                          <option value="Email">Email</option>
+                          <option value="Phone">Phone</option>
+                          <option value="WhatsApp">WhatsApp</option>
+                          <option value="Address">Address</option>
+                          <option value="Hours">Hours</option>
+                        </select>
+                        <input
+                          placeholder="Label (e.g. Support)"
+                          value={cItem.label || ""}
+                          onChange={(e) =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              footer: {
+                                ...(prev.footer || {}),
+                                contactItems: prev.footer.contactItems.map((it, i) =>
+                                  i === cIdx ? { ...it, label: e.target.value } : it
+                                )
+                              }
+                            }))
+                          }
+                          style={ctrlInput}
+                        />
+                        <input
+                          placeholder="Email, Phone, or Address"
+                          value={cItem.value || ""}
+                          onChange={(e) =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              footer: {
+                                ...(prev.footer || {}),
+                                contactItems: prev.footer.contactItems.map((it, i) =>
+                                  i === cIdx ? { ...it, value: e.target.value } : it
+                                )
+                              }
+                            }))
+                          }
+                          style={ctrlInput}
+                        />
+                        <button
+                          type="button"
+                          title="Remove Contact Entry"
+                          onClick={() =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              footer: {
+                                ...(prev.footer || {}),
+                                contactItems: prev.footer.contactItems.filter(
+                                  (_, i) => i !== cIdx
+                                )
+                              }
+                            }))
+                          }
+                          style={{
+                            ...topActionBtn,
+                            color: "#DC2626",
+                            padding: "6px 9px"
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* FOOTER LINK COLUMNS */}
+                <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "14px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "10px"
+                    }}
+                  >
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
+                      FOOTER LINK COLUMNS
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setHomepage({
+                          ...homepage,
+                          footer: {
+                            ...(homepage.footer || {}),
+                            columns: [
+                              ...(homepage.footer?.columns || []),
+                              {
+                                title: "New Column",
+                                links: [{ label: "New Link", url: "#shop" }]
+                              }
+                            ]
+                          }
+                        })
+                      }
+                      style={topActionBtn}
+                    >
+                      <Plus size={13} /> Add Column
+                    </button>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                      gap: "12px"
+                    }}
+                  >
+                    {(homepage.footer?.columns || []).map((col, colIdx) => (
+                      <div
+                        key={colIdx}
+                        style={{
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "10px",
+                          padding: "12px",
+                          background: "#F8FAFC"
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+                          <input
+                            placeholder="Column Title (e.g. Shop)"
+                            value={col.title || ""}
+                            onChange={(e) =>
+                              setHomepage({
+                                ...homepage,
+                                footer: {
+                                  ...(homepage.footer || {}),
+                                  columns: homepage.footer.columns.map((c, i) =>
+                                    i === colIdx ? { ...c, title: e.target.value } : c
+                                  )
+                                }
+                              })
+                            }
+                            style={{ ...ctrlInput, fontWeight: 700, background: "#FFFFFF" }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setHomepage({
+                                ...homepage,
+                                footer: {
+                                  ...(homepage.footer || {}),
+                                  columns: homepage.footer.columns.filter(
+                                    (_, i) => i !== colIdx
+                                  )
+                                }
+                              })
+                            }
+                            title="Delete Column"
+                            style={{
+                              ...topActionBtn,
+                              color: "#DC2626",
+                              padding: "6px 9px"
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+
+                        {(col.links || []).map((lnk, lnkIdx) => (
+                          <div
+                            key={lnkIdx}
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr auto",
+                              gap: "6px",
+                              marginBottom: "6px"
+                            }}
+                          >
+                            <input
+                              placeholder="Label"
+                              value={lnk.label || ""}
+                              onChange={(e) =>
+                                setHomepage({
+                                  ...homepage,
+                                  footer: {
+                                    ...(homepage.footer || {}),
+                                    columns: homepage.footer.columns.map((c, i) =>
+                                      i === colIdx
+                                        ? {
+                                            ...c,
+                                            links: c.links.map((l, j) =>
+                                              j === lnkIdx
+                                                ? { ...l, label: e.target.value }
+                                                : l
+                                            )
+                                          }
+                                        : c
+                                    )
+                                  }
+                                })
+                              }
+                              style={{
+                                ...ctrlInput,
+                                padding: "6px 8px",
+                                background: "#FFFFFF"
+                              }}
+                            />
+                            <input
+                              placeholder="URL (#shop or /pages/...)"
+                              value={lnk.url || ""}
+                              onChange={(e) =>
+                                setHomepage({
+                                  ...homepage,
+                                  footer: {
+                                    ...(homepage.footer || {}),
+                                    columns: homepage.footer.columns.map((c, i) =>
+                                      i === colIdx
+                                        ? {
+                                            ...c,
+                                            links: c.links.map((l, j) =>
+                                              j === lnkIdx
+                                                ? { ...l, url: e.target.value }
+                                                : l
+                                            )
+                                          }
+                                        : c
+                                    )
+                                  }
+                                })
+                              }
+                              style={{
+                                ...ctrlInput,
+                                padding: "6px 8px",
+                                background: "#FFFFFF"
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setHomepage({
+                                  ...homepage,
+                                  footer: {
+                                    ...(homepage.footer || {}),
+                                    columns: homepage.footer.columns.map((c, i) =>
+                                      i === colIdx
+                                        ? {
+                                            ...c,
+                                            links: c.links.filter((_, j) => j !== lnkIdx)
+                                          }
+                                        : c
+                                    )
+                                  }
+                                })
+                              }
+                              style={{
+                                ...topActionBtn,
+                                color: "#DC2626",
+                                padding: "5px 7px"
+                              }}
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setHomepage({
+                              ...homepage,
+                              footer: {
+                                ...(homepage.footer || {}),
+                                columns: homepage.footer.columns.map((c, i) =>
+                                  i === colIdx
+                                    ? {
+                                        ...c,
+                                        links: [
+                                          ...(c.links || []),
+                                          { label: "Link", url: "#" }
+                                        ]
+                                      }
+                                    : c
+                                )
+                              }
+                            })
+                          }
+                          style={{ ...linkBtn, marginTop: "4px" }}
+                        >
+                          + Add Link
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -3286,56 +4527,31 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                           style={ctrlInput}
                         />
                       </div>
-                      <div>
-                        <label style={fieldLabel}>Section Image (URL or Upload)</label>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                          <input
-                            value={
-                              editingSection.key === "affordable_store"
-                                ? homepage.affordableStore?.image ||
-                                  editingSection.image ||
-                                  ""
-                                : editingSection.image || ""
-                            }
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setEditingSection({ ...editingSection, image: val });
-                              if (editingSection.key === "affordable_store") {
-                                setHomepage((h) => ({
-                                  ...h,
-                                  affordableStore: {
-                                    ...(h.affordableStore || {}),
-                                    image: val
-                                  }
-                                }));
+                      <DropZoneField
+                        label="Section Image (Drag & Drop or Upload)"
+                        uploadKey="secImg"
+                        uploadingKey={uploading}
+                        value={
+                          editingSection.key === "affordable_store"
+                            ? homepage.affordableStore?.image ||
+                              editingSection.image ||
+                              ""
+                            : editingSection.image || ""
+                        }
+                        onUploadFile={uploadMedia}
+                        onChange={(val) => {
+                          setEditingSection((s) => ({ ...s, image: val }));
+                          if (editingSection.key === "affordable_store") {
+                            setHomepage((h) => ({
+                              ...h,
+                              affordableStore: {
+                                ...(h.affordableStore || {}),
+                                image: val
                               }
-                            }}
-                            style={ctrlInput}
-                          />
-                          <label style={primaryBlueBtn}>
-                            <Upload size={14} /> Upload
-                            <input
-                              type="file"
-                              accept="image/*"
-                              hidden
-                              onChange={(e) =>
-                                uploadMedia(e.target.files?.[0], "secImg", (url) => {
-                                  setEditingSection((s) => ({ ...s, image: url }));
-                                  if (editingSection.key === "affordable_store") {
-                                    setHomepage((h) => ({
-                                      ...h,
-                                      affordableStore: {
-                                        ...(h.affordableStore || {}),
-                                        image: url
-                                      }
-                                    }));
-                                  }
-                                })
-                              }
-                            />
-                          </label>
-                        </div>
-                      </div>
+                            }));
+                          }
+                        }}
+                      />
                       <div
                         style={{
                           display: "flex",
@@ -3437,58 +4653,23 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     marginBottom: "12px"
                   }}
                 >
-                  <div>
-                    <label style={fieldLabel}>Video MP4 (URL or Upload)</label>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        placeholder="https://...mp4"
-                        value={reelForm.videoUrl}
-                        onChange={(e) =>
-                          setReelForm({ ...reelForm, videoUrl: e.target.value })
-                        }
-                        style={ctrlInput}
-                      />
-                      <label style={primaryBlueBtn}>
-                        <Upload size={14} /> MP4
-                        <input
-                          type="file"
-                          accept="video/mp4,video/webm"
-                          hidden
-                          onChange={(e) =>
-                            uploadMedia(e.target.files?.[0], "reelVid", (u) =>
-                              setReelForm((r) => ({ ...r, videoUrl: u }))
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
-                  <div>
-                    <label style={fieldLabel}>Cover Poster Image</label>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        placeholder="https://..."
-                        value={reelForm.poster}
-                        onChange={(e) =>
-                          setReelForm({ ...reelForm, poster: e.target.value })
-                        }
-                        style={ctrlInput}
-                      />
-                      <label style={primaryBlueBtn}>
-                        <Upload size={14} /> Cover
-                        <input
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={(e) =>
-                            uploadMedia(e.target.files?.[0], "reelImg", (u) =>
-                              setReelForm((r) => ({ ...r, poster: u }))
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                  </div>
+                  <DropZoneField
+                    label="Video MP4 (Drag & Drop or Upload)"
+                    uploadKey="reelVid"
+                    uploadingKey={uploading}
+                    accept="video/mp4,video/webm"
+                    value={reelForm.videoUrl}
+                    onUploadFile={uploadMedia}
+                    onChange={(u) => setReelForm((r) => ({ ...r, videoUrl: u }))}
+                  />
+                  <DropZoneField
+                    label="Cover Poster Image (Drag & Drop or Upload)"
+                    uploadKey="reelImg"
+                    uploadingKey={uploading}
+                    value={reelForm.poster}
+                    onUploadFile={uploadMedia}
+                    onChange={(u) => setReelForm((r) => ({ ...r, poster: u }))}
+                  />
                 </div>
                 <button type="submit" style={primaryBlueBtn}>
                   <Plus size={14} /> Publish Shoppable Reel
@@ -3559,25 +4740,71 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px"
                 }}
               >
                 <div>
                   <h1 style={pageTitle}>OUR STORY MANAGER</h1>
                   <p style={pageSub}>
-                    Edit brand philosophy blocks and editorial storytelling copy.
+                    Edit brand philosophy blocks, editorial storytelling copy, and section
+                    photography.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleSaveSettings(settings)}
-                  style={primaryBlueBtn}
-                >
-                  <Check size={14} /> Save Story
-                </button>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        storySections: [
+                          ...(prev.storySections || []),
+                          { eyebrow: "", heading: "", body: "", image: "" }
+                        ]
+                      }))
+                    }
+                    style={topActionBtn}
+                  >
+                    <Plus size={14} /> Add Story Section
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveSettings(settings)}
+                    style={primaryBlueBtn}
+                  >
+                    <Check size={14} /> Save Story
+                  </button>
+                </div>
               </div>
               {(settings.storySections || []).map((st, idx) => (
                 <div key={idx} style={cardBox}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "10px"
+                    }}
+                  >
+                    <strong style={{ fontSize: "12px", color: "#475569" }}>
+                      STORY SECTION #{idx + 1}
+                    </strong>
+                    {(settings.storySections || []).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSettings((prev) => ({
+                            ...prev,
+                            storySections: prev.storySections.filter((_, i) => i !== idx)
+                          }))
+                        }
+                        style={{ ...topActionBtn, color: "#DC2626", padding: "4px 8px" }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                   <div style={{ display: "grid", gap: "10px" }}>
                     <input
                       placeholder="Eyebrow"
@@ -3618,6 +4845,21 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         })
                       }
                       style={ctrlInput}
+                    />
+                    <DropZoneField
+                      label="Story Editorial Photograph"
+                      uploadKey={`storyImg-${idx}`}
+                      uploadingKey={uploading}
+                      value={st.image || ""}
+                      onUploadFile={uploadMedia}
+                      onChange={(url) =>
+                        setSettings((prev) => ({
+                          ...prev,
+                          storySections: prev.storySections.map((s, i) =>
+                            i === idx ? { ...s, image: url } : s
+                          )
+                        }))
+                      }
                     />
                   </div>
                 </div>
@@ -3725,29 +4967,16 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         }
                         style={ctrlInput}
                       />
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <input
-                          placeholder="Page Header Image URL"
-                          value={pageForm.image || ""}
-                          onChange={(e) =>
-                            setPageForm({ ...pageForm, image: e.target.value })
-                          }
-                          style={ctrlInput}
-                        />
-                        <label style={primaryBlueBtn}>
-                          <Upload size={14} /> Upload
-                          <input
-                            type="file"
-                            accept="image/*"
-                            hidden
-                            onChange={(e) =>
-                              uploadMedia(e.target.files?.[0], "pgImg", (url) =>
-                                setPageForm((p) => ({ ...p, image: url }))
-                              )
-                            }
-                          />
-                        </label>
-                      </div>
+                      <DropZoneField
+                        label="Page Header Image (Drag & Drop or Upload)"
+                        uploadKey="pgImg"
+                        uploadingKey={uploading}
+                        value={pageForm.image || ""}
+                        onUploadFile={uploadMedia}
+                        onChange={(url) =>
+                          setPageForm((p) => ({ ...p, image: url }))
+                        }
+                      />
                       <textarea
                         rows={4}
                         required
@@ -3922,6 +5151,16 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                           setReviewForm({ ...reviewForm, comment: e.target.value })
                         }
                         style={ctrlInput}
+                      />
+                      <DropZoneField
+                        label="Customer Photo (Optional)"
+                        uploadKey="revImg"
+                        uploadingKey={uploading}
+                        value={reviewForm.photoUrl || ""}
+                        onUploadFile={uploadMedia}
+                        onChange={(url) =>
+                          setReviewForm((r) => ({ ...r, photoUrl: url }))
+                        }
                       />
                       <button type="submit" style={primaryBlueBtn}>
                         Save Review
@@ -4255,7 +5494,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>SETTINGS & SECURITY</h1>
                   <p style={pageSub}>
-                    Configure store contact details and shipping thresholds.
+                    Configure store details, add or remove contact info, and set shipping
+                    thresholds.
                   </p>
                 </div>
                 <button
@@ -4266,13 +5506,15 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   <Check size={14} /> Save Settings
                 </button>
               </div>
+
               <div style={cardBox}>
+                <h3 style={sectionSubTitle}>STORE & SHIPPING SETTINGS</h3>
                 <div
                   style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
                     gap: "12px",
-                    marginBottom: "12px"
+                    marginBottom: "16px"
                   }}
                 >
                   <div>
@@ -4281,26 +5523,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       value={settings.storeName || ""}
                       onChange={(e) =>
                         setSettings({ ...settings, storeName: e.target.value })
-                      }
-                      style={ctrlInput}
-                    />
-                  </div>
-                  <div>
-                    <label style={fieldLabel}>Support Email</label>
-                    <input
-                      value={settings.supportEmail || ""}
-                      onChange={(e) =>
-                        setSettings({ ...settings, supportEmail: e.target.value })
-                      }
-                      style={ctrlInput}
-                    />
-                  </div>
-                  <div>
-                    <label style={fieldLabel}>Support Phone</label>
-                    <input
-                      value={settings.supportPhone || ""}
-                      onChange={(e) =>
-                        setSettings({ ...settings, supportPhone: e.target.value })
                       }
                       style={ctrlInput}
                     />
@@ -4319,6 +5541,163 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       style={ctrlInput}
                     />
                   </div>
+                </div>
+
+                {/* STORE CONTACT INFORMATION (ADD & REMOVE) */}
+                <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "14px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                      marginBottom: "10px"
+                    }}
+                  >
+                    <h3 style={{ ...sectionSubTitle, margin: 0 }}>
+                      STORE CONTACT INFORMATION
+                    </h3>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSettings((prev) => ({
+                            ...prev,
+                            contactItems: [
+                              ...(prev.contactItems || []),
+                              { type: "Phone", label: "Support", value: "" }
+                            ]
+                          }))
+                        }
+                        style={topActionBtn}
+                      >
+                        <Plus size={14} /> Add Contact Info
+                      </button>
+                      {(settings.contactItems || []).length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              contactItems: [],
+                              supportEmail: "",
+                              supportPhone: ""
+                            }))
+                          }
+                          style={{ ...topActionBtn, color: "#DC2626" }}
+                        >
+                          <Trash2 size={14} /> Remove All
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {!(settings.contactItems || []).length && (
+                    <p style={{ ...pageSub, marginBottom: "10px" }}>
+                      No contact info listed. Click "+ Add Contact Info" to add an email,
+                      phone, WhatsApp, or address.
+                    </p>
+                  )}
+
+                  {(settings.contactItems || []).map((item, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "130px 1fr 1.5fr auto",
+                        gap: "8px",
+                        marginBottom: "8px",
+                        alignItems: "center"
+                      }}
+                    >
+                      <select
+                        value={item.type || "Phone"}
+                        onChange={(e) =>
+                          setSettings((prev) => {
+                            const next = prev.contactItems.map((c, i) =>
+                              i === idx ? { ...c, type: e.target.value } : c
+                            );
+                            return {
+                              ...prev,
+                              contactItems: next,
+                              supportEmail:
+                                next.find((c) => c.type === "Email")?.value || "",
+                              supportPhone:
+                                next.find((c) => c.type === "Phone")?.value || ""
+                            };
+                          })
+                        }
+                        style={ctrlInput}
+                      >
+                        <option value="Email">Email</option>
+                        <option value="Phone">Phone</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Address">Address</option>
+                        <option value="Hours">Support Hours</option>
+                      </select>
+
+                      <input
+                        placeholder="Label (e.g. Sales, Returns, HQ)"
+                        value={item.label || ""}
+                        onChange={(e) =>
+                          setSettings((prev) => ({
+                            ...prev,
+                            contactItems: prev.contactItems.map((c, i) =>
+                              i === idx ? { ...c, label: e.target.value } : c
+                            )
+                          }))
+                        }
+                        style={ctrlInput}
+                      />
+
+                      <input
+                        placeholder="Value (e.g. +91 98765 43210 or care@calzare.in)"
+                        value={item.value || ""}
+                        onChange={(e) =>
+                          setSettings((prev) => {
+                            const next = prev.contactItems.map((c, i) =>
+                              i === idx ? { ...c, value: e.target.value } : c
+                            );
+                            return {
+                              ...prev,
+                              contactItems: next,
+                              supportEmail:
+                                next.find((c) => c.type === "Email")?.value || "",
+                              supportPhone:
+                                next.find((c) => c.type === "Phone")?.value || ""
+                            };
+                          })
+                        }
+                        style={ctrlInput}
+                      />
+
+                      <button
+                        type="button"
+                        title="Remove Contact Info"
+                        onClick={() =>
+                          setSettings((prev) => {
+                            const next = prev.contactItems.filter((_, i) => i !== idx);
+                            return {
+                              ...prev,
+                              contactItems: next,
+                              supportEmail:
+                                next.find((c) => c.type === "Email")?.value || "",
+                              supportPhone:
+                                next.find((c) => c.type === "Phone")?.value || ""
+                            };
+                          })
+                        }
+                        style={{
+                          ...topActionBtn,
+                          color: "#DC2626",
+                          padding: "8px 10px"
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
 

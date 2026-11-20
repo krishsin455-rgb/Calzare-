@@ -3,10 +3,12 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
+  Check,
   Droplets,
   Film,
   Headphones,
   Heart,
+  Minus,
   Play,
   RefreshCw,
   ShieldCheck,
@@ -16,6 +18,8 @@ import {
 
 const SAFE_IMAGE_FALLBACK =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
+
+const DEFAULT_SIZES = ["UK 7", "UK 8", "UK 9", "UK 10"];
 
 const COLLECTIONS_STRIP = [
   {
@@ -102,17 +106,43 @@ const CALZARE_STANDARD_CARDS = [
   }
 ];
 
+const COMPARISON_ROWS = [
+  {
+    feature: "Midsole & Arch Cushioning",
+    calzare: "Dual-density sculpted arch cradle",
+    others: "Flat single-layer foam that compresses fast"
+  },
+  {
+    feature: "Monsoon & Water Resistance",
+    calzare: "100% closed-cell waterproof & quick-rinse",
+    others: "Absorbs water or stays slippery when wet"
+  },
+  {
+    feature: "Break-In Period",
+    calzare: "Zero break-in comfort out of the box",
+    others: "Stiff straps or heel rub for the first week"
+  },
+  {
+    feature: "Size Exchange & Bundle Perks",
+    calzare: "7-day easy UK size swap + multi-pair savings",
+    others: "Limited exchange options & single-pair pricing"
+  }
+];
+
 export default function HomePage({
   homepage,
   products,
   visibleProducts,
   reels,
+  categories = ["sneakers", "formal", "slides"],
+  allowedCollections = ["men", "women", "unisex", "kids"],
   category,
   setCategory,
   favorites,
   onToggleFavorite,
   onOpenProductPage,
   onOpenQuickView,
+  onDirectAddToCart,
   onOpenReel,
   onFeaturedClick,
   onNavigateCollection,
@@ -124,14 +154,40 @@ export default function HomePage({
 }) {
   const [hoveredProductId, setHoveredProductId] = useState(null);
   const [campaignVideoFailed, setCampaignVideoFailed] = useState(false);
+  const [selectedSizes, setSelectedSizes] = useState({});
 
   const under999Config = homepage?.affordableStore || {};
+  const maxBudgetPrice = Number(under999Config.maxPrice ?? 999);
   const under999Products = (products || []).filter(
     (p) =>
       (p.status || "published") !== "draft" &&
       Number(p.price) > 0 &&
-      Number(p.price) <= Number(under999Config.maxPrice ?? 999)
+      Number(p.price) <= maxBudgetPrice
   );
+
+  const displayedProducts =
+    category === "under999" ? under999Products : visibleProducts;
+
+  const visibleCollectionCards = COLLECTIONS_STRIP.filter((col) =>
+    Array.isArray(allowedCollections) ? allowedCollections.includes(col.key) : true
+  );
+
+  const categoryFilterPills = [
+    { key: "all", label: "ALL PIECES" },
+    ...(under999Products.length > 0
+      ? [{ key: "under999", label: `UNDER ₹${maxBudgetPrice}` }]
+      : []),
+    ...(Array.isArray(categories) ? categories : []).map((cat) => ({
+      key: String(cat).toLowerCase(),
+      label: String(cat).toUpperCase()
+    }))
+  ];
+
+  const handleSelectUnder999 = (e) => {
+    e?.preventDefault?.();
+    setCategory("under999");
+    document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <>
@@ -200,43 +256,51 @@ export default function HomePage({
         </div>
       </section>
 
-      <section className="collections-strip section-pad">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">CURATED DEPARTMENTS</p>
-            <h2>
-              Shop by <em>collection.</em>
-            </h2>
-          </div>
-          <span className="product-count">EXPLORE ALL</span>
-        </div>
-
-        <div className="collection-cards-grid">
-          {COLLECTIONS_STRIP.map((col) => (
+      {visibleCollectionCards.length > 0 && (
+        <section className="collections-strip section-pad">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">CURATED DEPARTMENTS</p>
+              <h2>
+                Shop by <em>collection.</em>
+              </h2>
+            </div>
             <button
               type="button"
-              key={col.key}
-              className="collection-tile"
-              onClick={() => onNavigateCollection?.(col.key)}
+              className="product-count"
+              onClick={() => onNavigateCollection?.("all")}
             >
-              <img
-                src={col.image}
-                alt={col.label}
-                loading="lazy"
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                }}
-              />
-              <div className="collection-tile-scrim" />
-              <div className="collection-tile-copy">
-                <strong>{col.label}</strong>
-                <span>{col.subtitle}</span>
-              </div>
+              EXPLORE ALL
             </button>
-          ))}
-        </div>
-      </section>
+          </div>
+
+          <div className="collection-cards-grid">
+            {visibleCollectionCards.map((col) => (
+              <button
+                type="button"
+                key={col.key}
+                className="collection-tile"
+                onClick={() => onNavigateCollection?.(col.key)}
+              >
+                <img
+                  src={col.image}
+                  alt={col.label}
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                  }}
+                />
+                <div className="collection-tile-scrim" />
+                <div className="collection-tile-copy">
+                  <strong>{col.label}</strong>
+                  <span>{col.subtitle}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {under999Section ? (
         under999Section
@@ -245,16 +309,24 @@ export default function HomePage({
           <section className="under-999-banner section-pad" id="under-999">
             <div className="under-999-card">
               <div>
-                <p className="eyebrow light">{under999Config.badgeLabel || "/999 DROP"}</p>
-                <h3>{under999Config.title || "THE UNDER ₹999 STORE"}</h3>
+                <p className="eyebrow light">
+                  {under999Config.badgeLabel || `/${maxBudgetPrice} DROP`}
+                </p>
+                <h3>
+                  {under999Config.title || `THE UNDER ₹${maxBudgetPrice} STORE`}
+                </h3>
                 <p>
                   {under999Config.subtitle ||
-                    "Everyday comfort silhouettes at honest prices."}
+                    `Everyday comfort silhouettes at ₹${maxBudgetPrice} or less (${under999Products.length} styles available).`}
                 </p>
               </div>
-              <a href="#shop" className="light-link">
+              <button
+                type="button"
+                onClick={handleSelectUnder999}
+                className="light-link"
+              >
                 {under999Config.ctaLabel || "EXPLORE DROP"} <ArrowUpRight size={15} />
-              </a>
+              </button>
             </div>
           </section>
         )
@@ -310,111 +382,150 @@ export default function HomePage({
             </h2>
           </div>
           <span className="product-count">
-            {visibleProducts.length.toString().padStart(2, "0")} PRODUCTS
+            {displayedProducts.length.toString().padStart(2, "0")} PRODUCTS
           </span>
         </div>
 
         <div className="filters">
-          {["all", "sneakers", "formal", "slides"].map((item) => (
+          {categoryFilterPills.map((item) => (
             <button
-              key={item}
-              className={category === item ? "filter active" : "filter"}
-              onClick={() => setCategory(item)}
+              type="button"
+              key={item.key}
+              className={category === item.key ? "filter active" : "filter"}
+              onClick={() => setCategory(item.key)}
             >
-              {item === "all" ? "ALL PIECES" : item.toUpperCase()}
+              {item.label}
             </button>
           ))}
         </div>
 
         <div className="product-grid">
-          {visibleProducts.map((product) => (
-            <article
-              className="product-card"
-              key={product.id}
-              onMouseEnter={() => setHoveredProductId(product.id)}
-              onMouseLeave={() => setHoveredProductId(null)}
-            >
-              <div
-                className="product-image-wrap clickable"
-                onClick={() => onOpenProductPage(product)}
-              >
-                {hoveredProductId === product.id && product.videoUrl ? (
-                  <video
-                    src={product.videoUrl}
-                    poster={product.image || SAFE_IMAGE_FALLBACK}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    className="card-hover-video"
-                  />
-                ) : (
-                  <img
-                    src={product.image || SAFE_IMAGE_FALLBACK}
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                    }}
-                    alt={product.name}
-                    loading="lazy"
-                  />
-                )}
-                {product.badge && <span className="product-badge">{product.badge}</span>}
+          {displayedProducts.map((product) => {
+            const sizes =
+              Array.isArray(product.sizes) && product.sizes.length > 0
+                ? product.sizes
+                : DEFAULT_SIZES;
+            const activeSize = selectedSizes[product.id] || sizes[1] || sizes[0];
 
-                {product.videoUrl && (
+            return (
+              <article
+                className="product-card"
+                key={product.id}
+                onMouseEnter={() => setHoveredProductId(product.id)}
+                onMouseLeave={() => setHoveredProductId(null)}
+              >
+                <div
+                  className="product-image-wrap clickable"
+                  onClick={() => onOpenProductPage(product)}
+                >
+                  {hoveredProductId === product.id && product.videoUrl ? (
+                    <video
+                      src={product.videoUrl}
+                      poster={product.image || SAFE_IMAGE_FALLBACK}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="card-hover-video"
+                    />
+                  ) : (
+                    <img
+                      src={product.image || SAFE_IMAGE_FALLBACK}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                      }}
+                      alt={product.name}
+                      loading="lazy"
+                    />
+                  )}
+                  {(product.badge || Number(product.price) <= maxBudgetPrice) && (
+                    <span className="product-badge">
+                      {Number(product.price) <= maxBudgetPrice
+                        ? `UNDER ₹${maxBudgetPrice}`
+                        : product.badge}
+                    </span>
+                  )}
+
+                  {product.videoUrl && (
+                    <button
+                      type="button"
+                      className="video-pill"
+                      title="Watch product video"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenQuickView(product, true);
+                      }}
+                    >
+                      <Film size={12} /> VIDEO
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    className="video-pill"
-                    title="Watch product video"
+                    className={`favorite ${favorites.includes(product.id) ? "selected" : ""}`}
+                    aria-label="Add to wishlist"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onOpenQuickView(product, true);
+                      onToggleFavorite(product.id);
                     }}
                   >
-                    <Film size={12} /> VIDEO
+                    <Heart
+                      size={18}
+                      fill={favorites.includes(product.id) ? "currentColor" : "none"}
+                    />
                   </button>
-                )}
 
-                <button
-                  type="button"
-                  className={`favorite ${favorites.includes(product.id) ? "selected" : ""}`}
-                  aria-label="Add to wishlist"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleFavorite(product.id);
-                  }}
-                >
-                  <Heart
-                    size={18}
-                    fill={favorites.includes(product.id) ? "currentColor" : "none"}
-                  />
-                </button>
-
-                <button
-                  type="button"
-                  className="quick-add"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenQuickView(product, false);
-                  }}
-                >
-                  QUICK ADD <ArrowUpRight size={15} />
-                </button>
-              </div>
-
-              <div className="product-meta" onClick={() => onOpenProductPage(product)}>
-                <div>
-                  <h3>{product.name}</h3>
-                  <p>{product.color}</p>
+                  <button
+                    type="button"
+                    className="quick-add"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onDirectAddToCart) {
+                        onDirectAddToCart(product, activeSize);
+                      } else {
+                        onOpenQuickView(product, false);
+                      }
+                    }}
+                  >
+                    QUICK ADD ({activeSize}) <ArrowUpRight size={15} />
+                  </button>
                 </div>
-                <strong>{money(product.price)}</strong>
-              </div>
-              {product.oldPrice && <p className="old-price">{money(product.oldPrice)}</p>}
-            </article>
-          ))}
+
+                <div className="product-meta" onClick={() => onOpenProductPage(product)}>
+                  <div>
+                    <h3>{product.name}</h3>
+                    <p>{product.color}</p>
+                  </div>
+                  <strong>{money(product.price)}</strong>
+                </div>
+                {product.oldPrice && <p className="old-price">{money(product.oldPrice)}</p>}
+
+                <div
+                  className="card-size-row"
+                  style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {sizes.map((sz) => (
+                    <button
+                      type="button"
+                      key={sz}
+                      className={activeSize === sz ? "size-pill active" : "size-pill"}
+                      style={{ padding: "4px 8px", fontSize: "10px" }}
+                      onClick={() =>
+                        setSelectedSizes((prev) => ({ ...prev, [product.id]: sz }))
+                      }
+                    >
+                      {sz.replace("UK ", "")}
+                    </button>
+                  ))}
+                </div>
+              </article>
+            );
+          })}
         </div>
 
-        {!visibleProducts.length && (
+        {!displayedProducts.length && (
           <p className="empty-state">No pieces found. Try another category or search.</p>
         )}
       </section>
@@ -526,6 +637,45 @@ export default function HomePage({
                 </div>
               );
             })}
+          </div>
+
+          <div style={{ marginTop: "32px", overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                background: "var(--surface)",
+                fontSize: "12.5px",
+                textAlign: "left"
+              }}
+            >
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--line)" }}>
+                  <th style={{ padding: "14px 16px" }}>What Matters</th>
+                  <th style={{ padding: "14px 16px" }}>CALZARE</th>
+                  <th style={{ padding: "14px 16px", opacity: 0.7 }}>Standard Alternatives</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON_ROWS.map((row) => (
+                  <tr key={row.feature} style={{ borderBottom: "1px solid var(--line)" }}>
+                    <td style={{ padding: "12px 16px" }}>
+                      <strong>{row.feature}</strong>
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <Check size={14} /> {row.calzare}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 16px", opacity: 0.7 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <Minus size={14} /> {row.others}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </section>

@@ -2,18 +2,24 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Droplets,
   Film,
   Headphones,
   Heart,
   Maximize2,
   Minus,
+  Play,
   Plus,
   RefreshCw,
   ShieldCheck,
   Sparkles,
   Tag,
-  Truck
+  Truck,
+  Volume2,
+  VolumeX,
+  X
 } from "lucide-react";
 
 const SAFE_IMAGE_FALLBACK =
@@ -25,10 +31,39 @@ const BROKEN_IMAGE_IDS = [
 ];
 
 const DEFAULT_SIZES = ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"];
+const PRODUCT_REVIEWS_STORAGE_KEY = "calzare_product_reviews_v1";
 
-const VERIFIED_REVIEWS = [
+const DEFAULT_PRODUCT_SHORT_VIDEOS = [
+  {
+    id: "pdp-clip-1",
+    label: "15s Fit Check",
+    tag: "ON-FOOT FIT",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    poster: SAFE_IMAGE_FALLBACK
+  },
+  {
+    id: "pdp-clip-2",
+    label: "Sole Flex Test",
+    tag: "CUSHION & GRIP",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    poster: SAFE_IMAGE_FALLBACK
+  },
+  {
+    id: "pdp-clip-3",
+    label: "Street Styling",
+    tag: "DAILY LOOK",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+    poster: SAFE_IMAGE_FALLBACK
+  }
+];
+
+const DEFAULT_REVIEWS = [
   {
     id: "rev-1",
+    rating: 5,
     quote: '"WALKED 18,000 STEPS WITHOUT CALF FATIGUE"',
     body: "Tested these across Bangalore monsoons and broken pavement. The dual-density microfoam absorbs every harsh impact without feeling mushy. Genuinely superior to standard EVA clogs.",
     author: "Aarav Mehta",
@@ -37,6 +72,7 @@ const VERIFIED_REVIEWS = [
   },
   {
     id: "rev-2",
+    rating: 5,
     quote: '"ARCHITECTURAL SHAPE MEETS ALL-DAY ARCH SUPPORT"',
     body: "I wear these for 10-hour hospital shifts. The sculpted arch cradle is unmatched. My feet feel fresh when clocking off.",
     author: "Priya Sundaram",
@@ -45,6 +81,7 @@ const VERIFIED_REVIEWS = [
   },
   {
     id: "rev-3",
+    rating: 5,
     quote: '"100% WATERPROOF AND EFFORTLESS TO RINSE"',
     body: "Got caught in a flash downpour. Rinsed them under tap water in 20 seconds and they looked brand new. Bold aesthetic, zero ordinary energy.",
     author: "Rohan Kapoor",
@@ -93,8 +130,10 @@ function safeVideoSrc(url) {
 }
 
 export default function ProductPage({
+  homepage,
   product,
   products = [],
+  reels = [],
   favorites = [],
   onToggleFavorite,
   onAddToCart,
@@ -116,15 +155,113 @@ export default function ProductPage({
   const [footerEmail, setFooterEmail] = useState("");
   const [footerSubscribed, setFooterSubscribed] = useState(false);
 
+  // Short Video Player State inside Product Page
+  const [activeClipIndex, setActiveClipIndex] = useState(null);
+  const [clipMuted, setClipMuted] = useState(false);
+  const [failedClipIds, setFailedClipIds] = useState({});
+
+  // Interactive Product Reviews / Comments State
+  const [customReviewsByProduct, setCustomReviewsByProduct] = useState(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(PRODUCT_REVIEWS_STORAGE_KEY) || "null"
+      );
+      return saved && typeof saved === "object" ? saved : {};
+    } catch {
+      return {};
+    }
+  });
+  const [reviewFormOpen, setReviewFormOpen] = useState(false);
+  const [reviewDraft, setReviewDraft] = useState({
+    author: "",
+    location: "",
+    size: sizes.includes("UK 8") ? "UK 8" : sizes[0],
+    rating: 5,
+    quote: "",
+    body: ""
+  });
+
   useEffect(() => {
     const nextSizes = current?.sizes?.length ? current.sizes : DEFAULT_SIZES;
-    setSelectedSize(nextSizes.includes("UK 8") ? "UK 8" : nextSizes[0]);
+    const defaultSz = nextSizes.includes("UK 8") ? "UK 8" : nextSizes[0];
+    setSelectedSize(defaultSz);
     setQuantity(1);
     setShowVideo(false);
+    setActiveClipIndex(null);
+    setFailedClipIds({});
     setSelectedColorwayId(current?.id || current?._id || "");
+    setReviewDraft((prev) => ({ ...prev, size: defaultSz }));
   }, [current?.id, current?._id]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        PRODUCT_REVIEWS_STORAGE_KEY,
+        JSON.stringify(customReviewsByProduct)
+      );
+    } catch {}
+  }, [customReviewsByProduct]);
+
   const productId = current?.id || current?._id || "";
+
+  // Build Product-Specific Short Video Clips (uploaded product video + reels + demo clips)
+  const productShortClips = useMemo(() => {
+    if (!current) return [];
+    const posterImg = safeImgSrc(current.image);
+    const clips = [];
+
+    const mainProdVid = safeVideoSrc(current.videoUrl);
+    if (mainProdVid) {
+      clips.push({
+        id: `${productId}-main-clip`,
+        label: "Official Demo",
+        tag: "IN MOTION",
+        videoUrl: mainProdVid,
+        poster: posterImg
+      });
+    }
+
+    const matchingReels = (Array.isArray(reels) ? reels : []).filter(
+      (r) => r && safeVideoSrc(r.videoUrl)
+    );
+    matchingReels.forEach((r, idx) => {
+      clips.push({
+        id: r.id || `reel-clip-${idx}`,
+        label: r.title || `Clip ${idx + 1}`,
+        tag: r.tag || "SHORT PLAY",
+        videoUrl: safeVideoSrc(r.videoUrl),
+        poster: safeImgSrc(r.poster || posterImg)
+      });
+    });
+
+    if (clips.length === 0) {
+      DEFAULT_PRODUCT_SHORT_VIDEOS.forEach((demo, idx) => {
+        clips.push({
+          ...demo,
+          id: `${productId}-${demo.id}-${idx}`,
+          poster: posterImg
+        });
+      });
+    }
+
+    return clips.slice(0, 5);
+  }, [current, productId, reels]);
+
+  const productReviews = useMemo(() => {
+    const specific = Array.isArray(customReviewsByProduct[productId])
+      ? customReviewsByProduct[productId]
+      : [];
+    return [...specific, ...DEFAULT_REVIEWS];
+  }, [customReviewsByProduct, productId]);
+
+  const averageRating = useMemo(() => {
+    if (!productReviews.length) return "5.0";
+    const total = productReviews.reduce(
+      (sum, r) => sum + (Number(r.rating) || 5),
+      0
+    );
+    return (total / productReviews.length).toFixed(1);
+  }, [productReviews]);
 
   const colorOptions = useMemo(() => {
     if (!current) return [];
@@ -134,7 +271,10 @@ export default function ProductPage({
         p &&
         (p.category === current.category || p.collection === current.collection)
     );
-    const merged = [current, ...sameGroup.filter((p) => (p.id || p._id) !== productId)];
+    const merged = [
+      current,
+      ...sameGroup.filter((p) => (p.id || p._id) !== productId)
+    ];
     const seen = new Set();
     return merged
       .filter((item) => {
@@ -159,6 +299,7 @@ export default function ProductPage({
 
   const currentImage = safeImgSrc(current.image);
   const currentVideo = safeVideoSrc(current.videoUrl);
+  const pdpCfg = homepage?.productPage || {};
 
   const formatPrice =
     typeof money === "function"
@@ -200,6 +341,49 @@ export default function ProductPage({
     setFooterSubscribed(true);
     setFooterEmail("");
   }
+
+  function handlePostReview(e) {
+    e.preventDefault();
+    const author = reviewDraft.author.trim();
+    const body = reviewDraft.body.trim();
+    if (!author || !body) return;
+
+    const rawHeadline = reviewDraft.quote.trim() || `LOVED MY ${current.name}`;
+    const formattedQuote =
+      rawHeadline.startsWith('"') && rawHeadline.endsWith('"')
+        ? rawHeadline.toUpperCase()
+        : `"${rawHeadline.toUpperCase()}"`;
+
+    const newReview = {
+      id: `rev-${Date.now()}`,
+      rating: Number(reviewDraft.rating) || 5,
+      quote: formattedQuote,
+      body,
+      author,
+      meta: `Verified Owner: ${current.name} (${reviewDraft.size || selectedSize})`,
+      location: `${reviewDraft.location.trim() || "India"} • Just Now`
+    };
+
+    setCustomReviewsByProduct((prev) => ({
+      ...prev,
+      [productId]: [newReview, ...(prev[productId] || [])]
+    }));
+
+    setReviewDraft({
+      author: "",
+      location: "",
+      size: selectedSize,
+      rating: 5,
+      quote: "",
+      body: ""
+    });
+    setReviewFormOpen(false);
+  }
+
+  const activeClip =
+    activeClipIndex !== null && productShortClips[activeClipIndex]
+      ? productShortClips[activeClipIndex]
+      : null;
 
   return (
     <div className="pdp-page">
@@ -317,6 +501,160 @@ export default function ProductPage({
             )}
           </div>
 
+          {/* IN-PRODUCT SHORT VIDEOS (SHORT PLAY / STORY STRIP) */}
+          {productShortClips.length > 0 && (
+            <div style={{ marginBottom: "16px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: "8px"
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "10.5px",
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "var(--ink)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <Play size={11} fill="currentColor" /> SEE IT IN ACTION (SHORT PLAY)
+                </span>
+                <span style={{ fontSize: "11px", opacity: 0.65 }}>
+                  Tap to watch
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "stretch",
+                  gap: "10px",
+                  overflowX: "auto",
+                  paddingBottom: "4px",
+                  scrollbarWidth: "none"
+                }}
+              >
+                {productShortClips.map((clip, idx) => {
+                  const clipPoster = safeImgSrc(clip.poster || currentImage);
+                  const videoBroken = Boolean(failedClipIds[clip.id]);
+                  const isSelected = activeClipIndex === idx;
+
+                  return (
+                    <button
+                      key={clip.id}
+                      type="button"
+                      onClick={() => {
+                        setClipMuted(false);
+                        setActiveClipIndex(idx);
+                      }}
+                      style={{
+                        flex: "0 0 84px",
+                        height: "126px",
+                        borderRadius: "12px",
+                        border: isSelected
+                          ? "2px solid #2563EB"
+                          : "2px solid #0645B8",
+                        padding: "2px",
+                        background: "#0B0D12",
+                        position: "relative",
+                        overflow: "hidden",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {!videoBroken && clip.videoUrl ? (
+                        <video
+                          src={clip.videoUrl}
+                          poster={clipPoster}
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          onError={() =>
+                            setFailedClipIds((prev) => ({
+                              ...prev,
+                              [clip.id]: true
+                            }))
+                          }
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            borderRadius: "9px",
+                            display: "block"
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={clipPoster}
+                          alt={clip.label}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                          }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            borderRadius: "9px",
+                            display: "block"
+                          }}
+                        />
+                      )}
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: "2px",
+                          borderRadius: "9px",
+                          background:
+                            "linear-gradient(180deg, rgba(0,0,0,0.05) 35%, rgba(0,0,0,0.85) 100%)",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "6px 4px",
+                          color: "#FFFFFF"
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: "22px",
+                            height: "22px",
+                            borderRadius: "999px",
+                            background: "rgba(255,255,255,0.92)",
+                            color: "#0F172A",
+                            display: "grid",
+                            placeItems: "center",
+                            marginTop: "28px"
+                          }}
+                        >
+                          <Play size={10} fill="currentColor" />
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            textAlign: "center",
+                            letterSpacing: "0.03em"
+                          }}
+                        >
+                          {clip.label}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="pdp-offers-box">
             <div className="pdp-offers-head">
               <Tag size={14} />
@@ -325,12 +663,16 @@ export default function ProductPage({
             </div>
             <div className="pdp-offer-cards">
               <div className="pdp-offer-card blue">
-                <span className="pdp-offer-pill blue">10% OFF</span>
-                <span>Buy 2 Pairs</span>
+                <span className="pdp-offer-pill blue">
+                  {pdpCfg.offer1Badge || "10% OFF"}
+                </span>
+                <span>{pdpCfg.offer1Text || "Buy 2 Pairs"}</span>
               </div>
               <div className="pdp-offer-card green">
-                <span className="pdp-offer-pill green">15% OFF</span>
-                <span>Buy 3 Pairs</span>
+                <span className="pdp-offer-pill green">
+                  {pdpCfg.offer2Badge || "15% OFF"}
+                </span>
+                <span>{pdpCfg.offer2Text || "Buy 3 Pairs"}</span>
               </div>
             </div>
           </div>
@@ -338,7 +680,8 @@ export default function ProductPage({
           {current.color && (
             <div>
               <span className="size-label" style={{ marginBottom: "6px" }}>
-                Colors: <strong style={{ color: "var(--ink)" }}>{current.color}</strong>
+                Colors:{" "}
+                <strong style={{ color: "var(--ink)" }}>{current.color}</strong>
               </span>
               <div className="pdp-swatch-row">
                 {colorOptions.map((opt) => {
@@ -357,7 +700,10 @@ export default function ProductPage({
                         }
                       }}
                     >
-                      <img src={safeImgSrc(opt.image)} alt={opt.color || opt.name} />
+                      <img
+                        src={safeImgSrc(opt.image)}
+                        alt={opt.color || opt.name}
+                      />
                     </button>
                   );
                 })}
@@ -422,13 +768,19 @@ export default function ProductPage({
           </div>
 
           {current.description && (
-            <p className="pdp-desc" style={{ marginTop: "18px", marginBottom: 0 }}>
+            <p
+              className="pdp-desc"
+              style={{ marginTop: "18px", marginBottom: 0 }}
+            >
               {current.description}
             </p>
           )}
 
           {current.highlights?.length > 0 && (
-            <ul className="pdp-highlights" style={{ marginTop: "14px", marginBottom: 0 }}>
+            <ul
+              className="pdp-highlights"
+              style={{ marginTop: "14px", marginBottom: 0 }}
+            >
               {current.highlights.map((item, idx) => (
                 <li key={idx}>
                   <Check size={14} /> {item}
@@ -439,44 +791,474 @@ export default function ProductPage({
         </div>
       </div>
 
+      {/* FULL-SCREEN VERTICAL SHORT VIDEO MODAL (SHOPPABLE REEL PLAYER) */}
+      {activeClip && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setActiveClipIndex(null)}
+          style={{ zIndex: 120 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              width: "min(410px, 94vw)",
+              height: "min(730px, 90svh)",
+              borderRadius: "22px",
+              overflow: "hidden",
+              background: "#090B0E",
+              color: "#FFFFFF",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+              display: "flex",
+              flexDirection: "column"
+            }}
+          >
+            <img
+              src={safeImgSrc(activeClip.poster || currentImage)}
+              alt={activeClip.label}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+              }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover"
+              }}
+            />
+
+            {!failedClipIds[activeClip.id] && activeClip.videoUrl && (
+              <video
+                key={activeClip.id}
+                src={activeClip.videoUrl}
+                poster={safeImgSrc(activeClip.poster || currentImage)}
+                autoPlay
+                loop
+                muted={clipMuted}
+                playsInline
+                onError={() =>
+                  setFailedClipIds((prev) => ({
+                    ...prev,
+                    [activeClip.id]: true
+                  }))
+                }
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover"
+                }}
+              />
+            )}
+
+            {/* Top Progress Bars & Controls */}
+            <div
+              style={{
+                position: "relative",
+                zIndex: 3,
+                padding: "12px 14px",
+                background:
+                  "linear-gradient(180deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 100%)"
+              }}
+            >
+              <div style={{ display: "flex", gap: "5px", marginBottom: "10px" }}>
+                {productShortClips.map((c, idx) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    aria-label={`Play clip ${idx + 1}`}
+                    onClick={() => setActiveClipIndex(idx)}
+                    style={{
+                      flex: 1,
+                      height: "3px",
+                      borderRadius: "999px",
+                      border: 0,
+                      padding: 0,
+                      background:
+                        idx === activeClipIndex
+                          ? "#FFFFFF"
+                          : "rgba(255,255,255,0.35)",
+                      cursor: "pointer"
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px"
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    background: "rgba(255,255,255,0.18)",
+                    padding: "4px 10px",
+                    borderRadius: "999px"
+                  }}
+                >
+                  {activeClip.tag} • {activeClip.label}
+                </span>
+
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    type="button"
+                    aria-label={clipMuted ? "Unmute video" : "Mute video"}
+                    onClick={() => setClipMuted((m) => !m)}
+                    style={{
+                      width: "34px",
+                      height: "34px",
+                      borderRadius: "999px",
+                      border: 0,
+                      background: "rgba(0,0,0,0.5)",
+                      color: "#FFFFFF",
+                      display: "grid",
+                      placeItems: "center",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {clipMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Close video"
+                    onClick={() => setActiveClipIndex(null)}
+                    style={{
+                      width: "34px",
+                      height: "34px",
+                      borderRadius: "999px",
+                      border: 0,
+                      background: "rgba(0,0,0,0.5)",
+                      color: "#FFFFFF",
+                      display: "grid",
+                      placeItems: "center",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Prev / Next Clip Buttons */}
+            {productShortClips.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous video"
+                  onClick={() =>
+                    setActiveClipIndex(
+                      (prev) =>
+                        (prev - 1 + productShortClips.length) %
+                        productShortClips.length
+                    )
+                  }
+                  style={{
+                    position: "absolute",
+                    left: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 3,
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "999px",
+                    border: 0,
+                    background: "rgba(0,0,0,0.48)",
+                    color: "#FFFFFF",
+                    display: "grid",
+                    placeItems: "center",
+                    cursor: "pointer"
+                  }}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next video"
+                  onClick={() =>
+                    setActiveClipIndex(
+                      (prev) => (prev + 1) % productShortClips.length
+                    )
+                  }
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 3,
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "999px",
+                    border: 0,
+                    background: "rgba(0,0,0,0.48)",
+                    color: "#FFFFFF",
+                    display: "grid",
+                    placeItems: "center",
+                    cursor: "pointer"
+                  }}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </>
+            )}
+
+            {/* Bottom Shoppable Product Card inside Short Video */}
+            <div
+              style={{
+                marginTop: "auto",
+                position: "relative",
+                zIndex: 3,
+                padding: "16px",
+                background:
+                  "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.92) 35%)"
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.14)",
+                  backdropFilter: "blur(10px)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: "14px",
+                  padding: "12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <img
+                    src={currentImage}
+                    alt={current.name}
+                    style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "8px",
+                      objectFit: "cover"
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ display: "block", fontSize: "13.5px" }}>
+                      {current.name}
+                    </strong>
+                    <span style={{ fontSize: "12px", opacity: 0.85 }}>
+                      {formatPrice(priceNum)} • Size: {selectedSize}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {sizes.map((sz) => (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => setSelectedSize(sz)}
+                      style={{
+                        padding: "4px 9px",
+                        borderRadius: "999px",
+                        border: "1px solid rgba(255,255,255,0.35)",
+                        background:
+                          selectedSize === sz ? "#FFFFFF" : "transparent",
+                        color: selectedSize === sz ? "#0F172A" : "#FFFFFF",
+                        fontSize: "10.5px",
+                        fontWeight: 700,
+                        cursor: "pointer"
+                      }}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddToCart?.(current, selectedSize, true);
+                    setActiveClipIndex(null);
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "11px 16px",
+                    borderRadius: "999px",
+                    border: 0,
+                    background: "#FFFFFF",
+                    color: "#0F172A",
+                    fontSize: "11.5px",
+                    fontWeight: 800,
+                    letterSpacing: "0.1em",
+                    cursor: "pointer"
+                  }}
+                >
+                  ADD TO BAG — {formatPrice(priceNum)}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOMER REVIEWS & WRITE COMMENT SECTION */}
       <section className="calzare-reviews-section" id="product-reviews">
         <div className="calzare-reviews-header">
           <div className="calzare-rating-pill">
             <span className="calzare-stars" aria-hidden="true">
               ★★★★★
             </span>
-            <strong>5.0 / 5.0</strong>
-            <span>({VERIFIED_REVIEWS.length} Verified Buyer Reviews)</span>
+            <strong>{averageRating} / 5.0</strong>
+            <span>({productReviews.length} Customer Reviews)</span>
           </div>
           <p className="calzare-reviews-sub">
             Honest reviews from customers walking in real rain, heat, and city transit.
           </p>
+          <button
+            type="button"
+            className="filter active"
+            onClick={() => setReviewFormOpen((open) => !open)}
+          >
+            {reviewFormOpen ? "CLOSE COMMENT BOX" : "WRITE A REVIEW"}
+          </button>
         </div>
 
+        {reviewFormOpen && (
+          <form
+            onSubmit={handlePostReview}
+            style={{
+              background: "var(--surface, #f2f1eb)",
+              border: "1px solid var(--line, rgba(0,0,0,0.12))",
+              borderRadius: "14px",
+              padding: "20px",
+              margin: "0 auto 28px",
+              maxWidth: "780px",
+              display: "grid",
+              gap: "12px"
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
+                gap: "10px"
+              }}
+            >
+              <input
+                required
+                placeholder="Your Name *"
+                value={reviewDraft.author}
+                onChange={(e) =>
+                  setReviewDraft({ ...reviewDraft, author: e.target.value })
+                }
+              />
+              <input
+                placeholder="City (e.g., Bengaluru, Delhi)"
+                value={reviewDraft.location}
+                onChange={(e) =>
+                  setReviewDraft({ ...reviewDraft, location: e.target.value })
+                }
+              />
+              <select
+                value={reviewDraft.size}
+                onChange={(e) =>
+                  setReviewDraft({ ...reviewDraft, size: e.target.value })
+                }
+              >
+                {sizes.map((sz) => (
+                  <option key={sz} value={sz}>
+                    Size: {sz}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={reviewDraft.rating}
+                onChange={(e) =>
+                  setReviewDraft({
+                    ...reviewDraft,
+                    rating: Number(e.target.value)
+                  })
+                }
+              >
+                <option value={5}>★★★★★ (5 / 5)</option>
+                <option value={4}>★★★★☆ (4 / 5)</option>
+                <option value={3}>★★★☆☆ (3 / 5)</option>
+                <option value={2}>★★☆☆☆ (2 / 5)</option>
+                <option value={1}>★☆☆☆☆ (1 / 5)</option>
+              </select>
+            </div>
+
+            <input
+              placeholder={`Headline for ${current.name} (optional)`}
+              value={reviewDraft.quote}
+              onChange={(e) =>
+                setReviewDraft({ ...reviewDraft, quote: e.target.value })
+              }
+            />
+
+            <textarea
+              required
+              rows={3}
+              placeholder="Write your review about sizing, comfort, grip, or daily wear... *"
+              value={reviewDraft.body}
+              onChange={(e) =>
+                setReviewDraft({ ...reviewDraft, body: e.target.value })
+              }
+              style={{ resize: "vertical", padding: "10px 12px" }}
+            />
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button
+                type="button"
+                className="filter"
+                onClick={() => setReviewFormOpen(false)}
+              >
+                CANCEL
+              </button>
+              <button type="submit" className="filter active">
+                POST REVIEW
+              </button>
+            </div>
+          </form>
+        )}
+
         <div className="calzare-reviews-grid">
-          {VERIFIED_REVIEWS.map((rev) => (
-            <article className="calzare-review-card" key={rev.id}>
-              <div className="calzare-stars" aria-hidden="true">
-                ★★★★★
-              </div>
-              <h3 className="calzare-review-quote">{rev.quote}</h3>
-              <p className="calzare-review-body">{rev.body}</p>
-              <div className="calzare-review-divider" />
-              <div className="calzare-review-footer">
-                <div>
-                  <strong className="calzare-reviewer-name">{rev.author}</strong>
-                  <span className="calzare-reviewer-meta">{rev.meta}</span>
-                  <span className="calzare-reviewer-loc">{rev.location}</span>
+          {productReviews.map((rev) => {
+            const stars = Math.max(1, Math.min(5, Number(rev.rating) || 5));
+            return (
+              <article className="calzare-review-card" key={rev.id}>
+                <div className="calzare-stars" aria-hidden="true">
+                  {"★".repeat(stars)}
+                  {"☆".repeat(5 - stars)}
                 </div>
-                <span className="calzare-verified-badge">✓ Verified</span>
-              </div>
-            </article>
-          ))}
+                <h3 className="calzare-review-quote">{rev.quote}</h3>
+                <p className="calzare-review-body">{rev.body}</p>
+                <div className="calzare-review-divider" />
+                <div className="calzare-review-footer">
+                  <div>
+                    <strong className="calzare-reviewer-name">{rev.author}</strong>
+                    <span className="calzare-reviewer-meta">{rev.meta}</span>
+                    <span className="calzare-reviewer-loc">{rev.location}</span>
+                  </div>
+                  <span className="calzare-verified-badge">✓ Verified</span>
+                </div>
+              </article>
+            );
+          })}
         </div>
 
         <div className="calzare-standard-block">
-          <h2 className="calzare-standard-title">THE CALZARE STANDARD</h2>
-          <p className="calzare-standard-sub">Built with science. Tested with life.</p>
+          <h2 className="calzare-standard-title">
+            {pdpCfg.standardTitle || "THE CALZARE STANDARD"}
+          </h2>
+          <p className="calzare-standard-sub">
+            {pdpCfg.standardSubtitle || "Built with science. Tested with life."}
+          </p>
 
           <div className="calzare-standard-grid">
             {CALZARE_STANDARD_CARDS.map((item) => {
@@ -566,7 +1348,8 @@ export default function ProductPage({
         <div className="footer-grid-4">
           <div>
             <p className="footer-brand-blurb">
-              We design and make every pair ourselves, then ship it straight to you.
+              {homepage?.footer?.tagline ||
+                "We design and make every pair ourselves, then ship it straight to you."}
             </p>
             <p className="footer-connect-title">Connect with us</p>
             <a href="mailto:support@calzare.in" className="footer-contact-link">
@@ -575,12 +1358,21 @@ export default function ProductPage({
             <a href="tel:+919876543210" className="footer-contact-link">
               +91 98765 43210
             </a>
-            <p className="footer-hours">Monday to Friday, 10:00 AM to 6:00 PM.</p>
+            <p className="footer-hours">
+              {homepage?.footer?.hours || "Monday to Friday, 10:00 AM to 6:00 PM."}
+            </p>
             <div className="footer-social-row">
-              <button type="button" className="footer-social-btn" onClick={onGoBack}>
+              <button
+                type="button"
+                className="footer-social-btn"
+                onClick={onGoBack}
+              >
                 IG
               </button>
-              <a href="mailto:support@calzare.in" className="footer-social-btn">
+              <a
+                href="mailto:support@calzare.in"
+                className="footer-social-btn"
+              >
                 ✉
               </a>
             </div>
@@ -676,7 +1468,8 @@ export default function ProductPage({
           <div>
             <h4 className="footer-col-heading">Join the Calzare team</h4>
             <p className="footer-newsletter-copy">
-              Sign up for early access to drops and free shipping updates on new collections.
+              Sign up for early access to drops and free shipping updates on new
+              collections.
             </p>
             <form className="footer-newsletter-form" onSubmit={handleFooterSubmit}>
               <input
@@ -702,7 +1495,10 @@ export default function ProductPage({
         </div>
 
         <div className="footer-bottom-bar">
-          <span>© 2026 Calzare. All rights reserved.</span>
+          <span>
+            {homepage?.footer?.copyright ||
+              "© 2026 Calzare. All rights reserved."}
+          </span>
           <div className="footer-payment-badges">
             <span className="footer-pay-pill">razorpay</span>
           </div>

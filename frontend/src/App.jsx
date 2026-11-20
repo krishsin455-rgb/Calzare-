@@ -22,6 +22,7 @@ import {
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
 const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
+const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
 
 const SAFE_IMAGE_FALLBACK =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
@@ -32,6 +33,27 @@ const BROKEN_IMAGE_IDS = [
 ];
 
 const VALID_COLLECTIONS = ["men", "women", "unisex", "kids"];
+
+const DEFAULT_PAGE_ASSIGNMENTS = {
+  home: { collections: [...VALID_COLLECTIONS], categories: ["sneakers", "formal", "slides"] },
+  men: { collections: ["men", "unisex"], categories: ["sneakers", "formal", "slides"] },
+  women: { collections: ["women", "unisex"], categories: ["sneakers", "formal", "slides"] },
+  unisex: { collections: ["unisex"], categories: ["sneakers", "formal", "slides"] },
+  kids: { collections: ["kids"], categories: ["sneakers", "formal", "slides"] },
+  shop: { collections: [...VALID_COLLECTIONS], categories: ["sneakers", "formal", "slides"] }
+};
+
+function readLocalPageAssignments() {
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(PAGE_ASSIGNMENTS_STORAGE_KEY) || "null"
+    );
+    if (parsed && typeof parsed === "object") {
+      return { ...DEFAULT_PAGE_ASSIGNMENTS, ...parsed };
+    }
+  } catch (_) {}
+  return DEFAULT_PAGE_ASSIGNMENTS;
+}
 
 export function safeImg(url, fallback = SAFE_IMAGE_FALLBACK) {
   if (!url || typeof url !== "string" || !url.trim()) return fallback;
@@ -134,12 +156,12 @@ const FALLBACK_PRODUCTS = [
   },
   {
     id: "c-005",
-    name: "WEEKEND SLIDE",
+    name: "EVERYDAY SLIDE",
     category: "slides",
-    collection: "women",
-    price: 1499,
-    oldPrice: null,
-    badge: "",
+    collection: "unisex",
+    price: 799,
+    oldPrice: 1299,
+    badge: "EVERYDAY SLIDE",
     color: "Warm Taupe",
     sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
     highlights: [
@@ -147,7 +169,7 @@ const FALLBACK_PRODUCTS = [
       "Water-friendly matte strap",
       "Anti-slip tread"
     ],
-    description: "An easy slip-on essential for relaxed everyday plans.",
+    description: "An easy everyday slide priced under ₹999 for daily comfort.",
     image:
       "https://images.unsplash.com/photo-1603487742131-4160ec999306?auto=format&fit=crop&w=1000&q=85",
     videoUrl: ""
@@ -190,6 +212,26 @@ const FALLBACK_PRODUCTS = [
     description: "Built for playground sprints and everyday school runs.",
     image:
       "https://images.unsplash.com/photo-1514989940723-e8e51635b782?auto=format&fit=crop&w=1000&q=85",
+    videoUrl: ""
+  },
+  {
+    id: "c-008",
+    name: "CLOUD DAILY SLIDE",
+    category: "slides",
+    collection: "unisex",
+    price: 899,
+    oldPrice: 1399,
+    badge: "AT ₹999",
+    color: "Obsidian Matte",
+    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
+    highlights: [
+      "Closed-cell water-ready foam",
+      "Arch-contoured footbed",
+      "Lightweight all-day wear"
+    ],
+    description: "Everyday comfort priced under ₹999 with bundle-eligible savings.",
+    image:
+      "https://images.unsplash.com/photo-1603808033192-082d6919d3e1?auto=format&fit=crop&w=1000&q=85",
     videoUrl: ""
   }
 ];
@@ -269,6 +311,7 @@ const DEFAULT_SETTINGS = {
   supportPhone: "+91 98765 43210",
   freeShippingThreshold: 2999,
   categories: ["sneakers", "formal", "slides"],
+  pageAssignments: DEFAULT_PAGE_ASSIGNMENTS,
   navigation: [
     { label: "HOME", url: "#home" },
     { label: "MEN", url: "#men" },
@@ -379,6 +422,12 @@ function applyHomepagePayload(hp, setHomepage) {
           ...hp.affordableStore
         }
       : prev.affordableStore,
+    productPage: hp.productPage
+      ? {
+          ...prev.productPage,
+          ...hp.productPage
+        }
+      : prev.productPage,
     theme: hp.theme
       ? {
           ...prev.theme,
@@ -404,8 +453,12 @@ export function Under999StoreSection({
   homepage,
   products = [],
   onExploreDrop,
-  onSelectProduct
+  onSelectProduct,
+  onQuickAdd
 }) {
+  const [under999Idx, setUnder999Idx] = useState(0);
+  const [everydayIdx, setEverydayIdx] = useState(0);
+
   const config = homepage?.affordableStore || {};
   if (config.enabled === false || config.visible === false) return null;
 
@@ -415,10 +468,6 @@ export function Under999StoreSection({
     "High performance foam shouldn't cost a week's wage. Premium daily comfort at honest prices.";
   const badgeLabel = config.badgeLabel || "/999 Store";
   const ctaLabel = config.ctaLabel || "EXPLORE DROP";
-  const emptyHeading = config.emptyHeading || "NEW DROPS INCOMING";
-  const emptyText =
-    config.emptyText || "Everyday comfort silhouettes are currently being restocked.";
-  const emptyCtaLabel = config.emptyCtaLabel || "EXPLORE ALL STYLES";
   const bannerImage = safeImg(config.image, "");
 
   const accentColor =
@@ -426,171 +475,465 @@ export function Under999StoreSection({
     homepage?.navbar?.accentColor ||
     "#0645B8";
 
-  const maxPrice = Number(config.maxPrice ?? 999);
-  const under999Products = (Array.isArray(products) ? products : []).filter(
-    (p) =>
-      p &&
-      (p.status || "published") !== "draft" &&
-      Number(p.price) > 0 &&
-      Number(p.price) <= maxPrice
+  const publishedProducts = (Array.isArray(products) ? products : []).filter(
+    (p) => p && (p.status || "published") !== "draft"
   );
 
-  const itemCount = under999Products.length;
-  const desktopGridTemplate =
-    itemCount === 1
-      ? "minmax(240px, 340px)"
-      : itemCount === 2
-      ? "repeat(2, minmax(0, 1fr))"
-      : "repeat(auto-fit, minmax(220px, 1fr))";
+  const maxPrice = Number(config.maxPrice ?? 999);
+  const under999Products = publishedProducts.filter(
+    (p) => Number(p.price) > 0 && Number(p.price) <= maxPrice
+  );
+
+  const baseEverydayPool = (() => {
+    const slidesOnly = publishedProducts.filter((p) => {
+      const cat = String(p.category || "").toLowerCase();
+      const name = String(p.name || "").toLowerCase();
+      return cat === "slides" || cat === "slide" || name.includes("slide");
+    });
+    return slidesOnly.length > 0 ? slidesOnly : publishedProducts;
+  })();
+
+  const dayOfYear = Math.floor(Date.now() / 86400000);
+  const dailyOffset =
+    baseEverydayPool.length > 0 ? dayOfYear % baseEverydayPool.length : 0;
+  const everydayDailySlides =
+    baseEverydayPool.length > 0
+      ? [
+          ...baseEverydayPool.slice(dailyOffset),
+          ...baseEverydayPool.slice(0, dailyOffset)
+        ]
+      : [];
+
+  const total999 = under999Products.length;
+  const safe999Idx = total999 > 0 ? under999Idx % total999 : 0;
+
+  const totalEveryday = everydayDailySlides.length;
+  const safeEverydayIdx = totalEveryday > 0 ? everydayIdx % totalEveryday : 0;
 
   return (
-    <section id="under-999-store" style={under999Styles.wrapper}>
-      <div className="under999-split-grid" style={under999Styles.grid}>
+    <div style={under999Styles.stackWrapper}>
+      <section id="under-999-store" style={under999Styles.sectionBlock}>
         <div
           style={{
-            ...under999Styles.leftCard,
+            ...under999Styles.bannerCard,
             backgroundColor: accentColor,
             backgroundImage: bannerImage
-              ? `linear-gradient(180deg, rgba(6, 69, 184, 0.72) 0%, rgba(5, 46, 128, 0.88) 100%), url("${bannerImage}")`
-              : "linear-gradient(180deg, #0747BD 0%, #053694 100%)"
+              ? `linear-gradient(110deg, rgba(6, 69, 184, 0.88) 0%, rgba(5, 46, 128, 0.92) 100%), url("${bannerImage}")`
+              : "linear-gradient(110deg, #0747BD 0%, #053694 100%)"
           }}
         >
-          <div style={under999Styles.badge}>{badgeLabel}</div>
-
-          <div style={under999Styles.leftContent}>
-            <h2 style={under999Styles.leftTitle}>{title}</h2>
-            <p style={under999Styles.leftSubtitle}>{subtitle}</p>
-
-            <button
-              type="button"
-              onClick={onExploreDrop}
-              style={under999Styles.leftBtn}
-            >
-              {ctaLabel}
-            </button>
+          <div style={under999Styles.bannerTopRow}>
+            <span style={under999Styles.eyebrowTag}>HONEST EVERYDAY PRICING</span>
+            <span style={under999Styles.badge}>{badgeLabel}</span>
           </div>
-        </div>
 
-        <div style={under999Styles.rightPane}>
-          {itemCount > 0 ? (
-            <div
-              style={{
-                ...under999Styles.productGrid,
-                gridTemplateColumns: desktopGridTemplate
-              }}
-            >
-              {under999Products.map((item) => (
+          <div style={under999Styles.bannerBody}>
+            <div>
+              <h2 style={under999Styles.leftTitle}>{title}</h2>
+              <p style={under999Styles.leftSubtitle}>{subtitle}</p>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {total999 > 1 && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Previous under 999 slide"
+                    onClick={() =>
+                      setUnder999Idx((prev) => (prev - 1 + total999) % total999)
+                    }
+                    style={under999Styles.bannerArrowBtn}
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Next under 999 slide"
+                    onClick={() => setUnder999Idx((prev) => (prev + 1) % total999)}
+                    style={under999Styles.bannerArrowBtn}
+                  >
+                    →
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={onExploreDrop}
+                style={under999Styles.leftBtn}
+              >
+                {ctaLabel} ({total999})
+              </button>
+            </div>
+          </div>
+
+          {total999 > 0 && (
+            <div>
+              <div style={{ overflow: "hidden", width: "100%", borderRadius: "16px" }}>
                 <div
-                  key={item.id || item._id}
-                  onClick={() => onSelectProduct?.(item)}
-                  style={under999Styles.productCard}
+                  style={{
+                    display: "flex",
+                    transform: `translateX(-${safe999Idx * 100}%)`,
+                    transition: "transform 0.35s ease"
+                  }}
                 >
-                  <div style={under999Styles.productImgWrap}>
-                    <img
-                      src={safeImg(item.image)}
-                      alt={item.name}
-                      style={under999Styles.productImg}
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                  {under999Products.map((item, idx) => (
+                    <div
+                      key={item.id || item._id}
+                      style={{ minWidth: "100%", boxSizing: "border-box" }}
+                    >
+                      <div
+                        onClick={() => onSelectProduct?.(item)}
+                        style={under999Styles.featuredSlideCard}
+                      >
+                        <div style={under999Styles.featuredSlideImgWrap}>
+                          <img
+                            src={safeImg(item.image)}
+                            alt={item.name}
+                            style={under999Styles.productImg}
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                            }}
+                          />
+                        </div>
+
+                        <div style={under999Styles.featuredSlideCopy}>
+                          <span style={under999Styles.cardPill}>
+                            AT ₹{maxPrice} • SLIDE {idx + 1} OF {total999}
+                          </span>
+                          <h4
+                            style={{
+                              margin: "12px 0 6px",
+                              fontSize: "22px",
+                              fontWeight: 800,
+                              color: "#0F172A"
+                            }}
+                          >
+                            {item.name}
+                          </h4>
+                          {item.color && (
+                            <p style={{ margin: "0 0 8px", fontSize: "13px", color: "#64748B" }}>
+                              {item.color}
+                            </p>
+                          )}
+                          {item.description && (
+                            <p
+                              style={{
+                                margin: "0 0 16px",
+                                fontSize: "13.5px",
+                                lineHeight: 1.5,
+                                color: "#475569"
+                              }}
+                            >
+                              {item.description}
+                            </p>
+                          )}
+
+                          <div style={under999Styles.priceActionRow}>
+                            <div style={under999Styles.productPriceRow}>
+                              <span style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A" }}>
+                                ₹{Number(item.price).toLocaleString("en-IN")}
+                              </span>
+                              {item.oldPrice &&
+                                Number(item.oldPrice) > Number(item.price) && (
+                                  <span style={under999Styles.productOldPrice}>
+                                    ₹{Number(item.oldPrice).toLocaleString("en-IN")}
+                                  </span>
+                                )}
+                            </div>
+
+                            {onQuickAdd && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onQuickAdd(
+                                    item,
+                                    item.sizes?.[1] || item.sizes?.[0] || "UK 8"
+                                  );
+                                }}
+                                style={{
+                                  ...under999Styles.quickAddBtn,
+                                  padding: "10px 18px",
+                                  fontSize: "11px"
+                                }}
+                              >
+                                + ADD TO BAG
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {total999 > 1 && (
+                <div style={under999Styles.dotsRow}>
+                  {under999Products.map((p, idx) => (
+                    <button
+                      key={p.id || p._id || idx}
+                      type="button"
+                      aria-label={`Under 999 slide ${idx + 1}`}
+                      onClick={() => setUnder999Idx(idx)}
+                      style={{
+                        width: idx === safe999Idx ? "24px" : "8px",
+                        height: "8px",
+                        borderRadius: "999px",
+                        border: 0,
+                        padding: 0,
+                        background:
+                          idx === safe999Idx ? "#FFFFFF" : "rgba(255,255,255,0.4)",
+                        cursor: "pointer",
+                        transition: "all 0.25s ease"
                       }}
                     />
-                  </div>
-                  <div style={under999Styles.productMeta}>
-                    <div style={under999Styles.productName}>{item.name}</div>
-                    <div style={under999Styles.productPriceRow}>
-                      <span style={under999Styles.productPrice}>
-                        ₹{Number(item.price).toLocaleString("en-IN")}
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {totalEveryday > 0 && (
+        <section id="everyday-slide-section" style={under999Styles.sectionBlock}>
+          <div style={under999Styles.slideHeader}>
+            <div>
+              <p
+                style={{
+                  margin: "0 0 4px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "#64748B"
+                }}
+              >
+                DAILY ROTATION • UPDATED EVERY DAY
+              </p>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "26px",
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                  color: "#0F172A"
+                }}
+              >
+                Everyday Slide ({safeEverydayIdx + 1} / {totalEveryday})
+              </h3>
+            </div>
+
+            {totalEveryday > 1 && (
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEverydayIdx((prev) => (prev - 1 + totalEveryday) % totalEveryday)
+                  }
+                  aria-label="Previous everyday slide"
+                  style={under999Styles.arrowBtn}
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEverydayIdx((prev) => (prev + 1) % totalEveryday)}
+                  aria-label="Next everyday slide"
+                  style={under999Styles.arrowBtn}
+                >
+                  →
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div style={{ overflow: "hidden", width: "100%", borderRadius: "18px" }}>
+            <div
+              style={{
+                display: "flex",
+                transform: `translateX(-${safeEverydayIdx * 100}%)`,
+                transition: "transform 0.35s ease"
+              }}
+            >
+              {everydayDailySlides.map((item, idx) => (
+                <div
+                  key={item.id || item._id}
+                  style={{ minWidth: "100%", boxSizing: "border-box" }}
+                >
+                  <div
+                    onClick={() => onSelectProduct?.(item)}
+                    style={under999Styles.featuredSlideCard}
+                  >
+                    <div style={under999Styles.featuredSlideImgWrap}>
+                      <img
+                        src={safeImg(item.image)}
+                        alt={item.name}
+                        style={under999Styles.productImg}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                        }}
+                      />
+                    </div>
+
+                    <div style={under999Styles.featuredSlideCopy}>
+                      <span style={under999Styles.cardPill}>
+                        TODAY'S PICK #{idx + 1}
                       </span>
-                      {item.oldPrice && Number(item.oldPrice) > Number(item.price) && (
-                        <span style={under999Styles.productOldPrice}>
-                          ₹{Number(item.oldPrice).toLocaleString("en-IN")}
-                        </span>
+                      <h4
+                        style={{
+                          margin: "12px 0 6px",
+                          fontSize: "24px",
+                          fontWeight: 800,
+                          color: "#0F172A"
+                        }}
+                      >
+                        {item.name}
+                      </h4>
+                      {item.color && (
+                        <p style={{ margin: "0 0 8px", fontSize: "13px", color: "#64748B" }}>
+                          {item.color}
+                        </p>
                       )}
+                      {item.description && (
+                        <p
+                          style={{
+                            margin: "0 0 18px",
+                            fontSize: "14px",
+                            lineHeight: 1.55,
+                            color: "#475569"
+                          }}
+                        >
+                          {item.description}
+                        </p>
+                      )}
+
+                      <div style={under999Styles.priceActionRow}>
+                        <div style={under999Styles.productPriceRow}>
+                          <span style={{ fontSize: "20px", fontWeight: 800, color: "#0F172A" }}>
+                            ₹{Number(item.price).toLocaleString("en-IN")}
+                          </span>
+                          {item.oldPrice &&
+                            Number(item.oldPrice) > Number(item.price) && (
+                              <span style={under999Styles.productOldPrice}>
+                                ₹{Number(item.oldPrice).toLocaleString("en-IN")}
+                              </span>
+                            )}
+                        </div>
+
+                        {onQuickAdd && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onQuickAdd(
+                                item,
+                                item.sizes?.[1] || item.sizes?.[0] || "UK 8"
+                              );
+                            }}
+                            style={{
+                              ...under999Styles.quickAddBtn,
+                              padding: "10px 20px",
+                              fontSize: "11px"
+                            }}
+                          >
+                            + ADD TO BAG
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          ) : (
-            <div style={under999Styles.emptyCard}>
-              <div style={under999Styles.emptyIconCircle} aria-hidden="true">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#475569"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2 15c0-2 2.5-3.5 5-4l3-2c1.5-1 3.5-1 5 0l5 3.5c1.5 1 2 2 2 3.5v1.5H2V15z" />
-                  <path d="M2 18h20" />
-                </svg>
-              </div>
+          </div>
 
-              <h3 style={under999Styles.emptyTitle}>{emptyHeading}</h3>
-              <p style={under999Styles.emptySub}>{emptyText}</p>
-
-              <button
-                type="button"
-                onClick={onExploreDrop}
-                style={under999Styles.emptyBtn}
-              >
-                {emptyCtaLabel}
-              </button>
+          {totalEveryday > 1 && (
+            <div style={under999Styles.dotsRow}>
+              {everydayDailySlides.map((p, idx) => (
+                <button
+                  key={p.id || p._id || idx}
+                  type="button"
+                  aria-label={`Everyday slide ${idx + 1}`}
+                  onClick={() => setEverydayIdx(idx)}
+                  style={{
+                    width: idx === safeEverydayIdx ? "24px" : "8px",
+                    height: "8px",
+                    borderRadius: "999px",
+                    border: 0,
+                    padding: 0,
+                    background: idx === safeEverydayIdx ? "#0F172A" : "#CBD5E1",
+                    cursor: "pointer",
+                    transition: "all 0.25s ease"
+                  }}
+                />
+              ))}
             </div>
           )}
-        </div>
-      </div>
-    </section>
+        </section>
+      )}
+    </div>
   );
 }
 
 const under999Styles = {
-  wrapper: {
+  stackWrapper: {
     width: "100%",
     maxWidth: "1360px",
     margin: "0 auto",
-    padding: "48px 24px",
-    boxSizing: "border-box"
+    padding: "36px 24px",
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
+    gap: "36px"
   },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))",
-    gap: "28px",
-    alignItems: "center"
+  sectionBlock: {
+    width: "100%"
   },
-  leftCard: {
-    position: "relative",
-    minHeight: "540px",
+  bannerCard: {
     borderRadius: "20px",
-    padding: "28px",
+    padding: "32px",
     color: "#FFFFFF",
     backgroundSize: "cover",
     backgroundPosition: "center",
     display: "flex",
     flexDirection: "column",
-    justifyContent: "space-between",
+    gap: "24px",
     boxSizing: "border-box",
     overflow: "hidden"
   },
+  bannerTopRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "12px"
+  },
+  eyebrowTag: {
+    fontSize: "11px",
+    fontWeight: 700,
+    letterSpacing: "0.14em",
+    textTransform: "uppercase",
+    color: "rgba(255, 255, 255, 0.85)"
+  },
   badge: {
-    alignSelf: "flex-end",
     fontSize: "20px",
-    fontWeight: 500,
+    fontWeight: 600,
     letterSpacing: "-0.02em",
     color: "rgba(255, 255, 255, 0.96)"
   },
-  leftContent: {
+  bannerBody: {
     display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-start"
+    flexWrap: "wrap",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: "20px"
   },
   leftTitle: {
-    margin: "0 0 18px",
-    fontSize: "40px",
+    margin: "0 0 10px",
+    fontSize: "clamp(28px, 4vw, 42px)",
     lineHeight: 1.04,
     fontWeight: 800,
     letterSpacing: "-0.03em",
@@ -598,92 +941,62 @@ const under999Styles = {
     color: "#FFFFFF"
   },
   leftSubtitle: {
-    margin: "0 0 28px",
-    fontSize: "15.5px",
+    margin: 0,
+    fontSize: "15px",
     lineHeight: 1.55,
     color: "rgba(255, 255, 255, 0.9)",
-    maxWidth: "300px"
+    maxWidth: "540px"
+  },
+  bannerArrowBtn: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "999px",
+    border: "1px solid rgba(255, 255, 255, 0.45)",
+    background: "rgba(255, 255, 255, 0.14)",
+    color: "#FFFFFF",
+    fontWeight: 700,
+    cursor: "pointer"
   },
   leftBtn: {
-    background: "transparent",
-    color: "#FFFFFF",
-    border: "1px solid rgba(255, 255, 255, 0.45)",
-    borderRadius: "999px",
-    padding: "11px 22px",
-    fontSize: "11.5px",
-    fontWeight: 700,
-    letterSpacing: "0.14em",
-    textTransform: "uppercase",
-    cursor: "pointer"
-  },
-  rightPane: {
-    width: "100%",
-    display: "flex",
-    justifyContent: "center"
-  },
-  emptyCard: {
-    width: "100%",
-    maxWidth: "460px",
     background: "#FFFFFF",
-    border: "1px dashed #CBD5E1",
-    borderRadius: "16px",
-    padding: "36px 28px",
-    textAlign: "center",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    boxSizing: "border-box"
-  },
-  emptyIconCircle: {
-    width: "44px",
-    height: "44px",
-    borderRadius: "999px",
-    background: "#F1F5F9",
-    display: "grid",
-    placeItems: "center",
-    marginBottom: "14px"
-  },
-  emptyTitle: {
-    margin: "0 0 8px",
-    fontSize: "14.5px",
-    fontWeight: 800,
-    letterSpacing: "0.04em",
-    textTransform: "uppercase",
-    color: "#0F172A"
-  },
-  emptySub: {
-    margin: "0 0 20px",
-    fontSize: "13px",
-    lineHeight: 1.5,
-    color: "#64748B"
-  },
-  emptyBtn: {
-    background: "#0B0D12",
-    color: "#FFFFFF",
+    color: "#0645B8",
     border: 0,
     borderRadius: "999px",
-    padding: "11px 22px",
-    fontSize: "11px",
-    fontWeight: 700,
+    padding: "12px 24px",
+    fontSize: "11.5px",
+    fontWeight: 800,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
     cursor: "pointer"
   },
-  productGrid: {
-    width: "100%",
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: "18px"
+  slideHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: "16px",
+    gap: "12px"
   },
-  productCard: {
+  arrowBtn: {
+    width: "38px",
+    height: "38px",
+    borderRadius: "999px",
+    border: "1px solid #CBD5E1",
     background: "#FFFFFF",
-    border: "1px solid #E2E8F0",
-    borderRadius: "14px",
-    overflow: "hidden",
+    color: "#0F172A",
+    fontWeight: 700,
     cursor: "pointer"
   },
-  productImgWrap: {
-    height: "210px",
+  featuredSlideCard: {
+    background: "#FFFFFF",
+    border: "1px solid #E2E8F0",
+    borderRadius: "18px",
+    overflow: "hidden",
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    cursor: "pointer"
+  },
+  featuredSlideImgWrap: {
+    height: "300px",
     background: "#F8FAFC",
     overflow: "hidden"
   },
@@ -692,31 +1005,289 @@ const under999Styles = {
     height: "100%",
     objectFit: "cover"
   },
-  productMeta: {
-    padding: "12px 14px"
+  featuredSlideCopy: {
+    padding: "24px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "flex-start"
   },
-  productName: {
-    fontSize: "13.5px",
+  cardPill: {
+    display: "inline-block",
+    background: "#0F172A",
+    color: "#FFFFFF",
+    fontSize: "10px",
     fontWeight: 700,
-    color: "#0F172A",
-    marginBottom: "6px"
+    padding: "5px 10px",
+    borderRadius: "999px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase"
+  },
+  priceActionRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "10px",
+    width: "100%"
   },
   productPriceRow: {
     display: "flex",
     alignItems: "center",
     gap: "8px"
   },
-  productPrice: {
-    fontSize: "13px",
-    fontWeight: 700,
-    color: "#0F172A"
-  },
   productOldPrice: {
     fontSize: "12px",
     color: "#94A3B8",
     textDecoration: "line-through"
+  },
+  quickAddBtn: {
+    background: "#0B0D12",
+    color: "#FFFFFF",
+    border: 0,
+    borderRadius: "999px",
+    padding: "6px 12px",
+    fontSize: "10px",
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    cursor: "pointer"
+  },
+  dotsRow: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "8px",
+    marginTop: "14px"
   }
 };
+
+const DEFAULT_SHORT_VIDEOS = [
+  {
+    id: "reel-01",
+    title: "Morning Commute in Forma Court",
+    tag: "EVERYDAY WEAR",
+    productId: "c-001",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    poster:
+      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    id: "reel-02",
+    title: "Zero Break-In Comfort Test",
+    tag: "FLEX & CUSHION",
+    productId: "c-002",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    poster:
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80"
+  },
+  {
+    id: "reel-03",
+    title: "Everyday Slide On-Foot Check",
+    tag: "UNDER ₹999 SLIDE",
+    productId: "c-005",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+    poster:
+      "https://images.unsplash.com/photo-1603487742131-4160ec999306?auto=format&fit=crop&w=1000&q=85"
+  },
+  {
+    id: "reel-04",
+    title: "Built for the Long Walk Home",
+    tag: "CRAFT & DETAIL",
+    productId: "c-006",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoy.mp4",
+    poster:
+      "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=800&q=80"
+  }
+];
+
+export function ShortVideoReelsSection({
+  reels = [],
+  products = [],
+  onOpenReel,
+  onQuickAdd
+}) {
+  const list = Array.isArray(reels) && reels.length > 0 ? reels : DEFAULT_SHORT_VIDEOS;
+
+  return (
+    <section
+      id="short-videos"
+      className="section-pad"
+      style={{ maxWidth: "1360px", margin: "0 auto" }}
+    >
+      <div className="section-heading" style={{ marginBottom: "20px" }}>
+        <div>
+          <p className="eyebrow">SHORT PLAY • ON-FOOT CLIPS</p>
+          <h2>
+            Calzare <em>in Motion.</em>
+          </h2>
+        </div>
+      </div>
+
+      <div className="reels-grid">
+        {list.map((clip, idx) => {
+          const linkedProduct =
+            (Array.isArray(products) ? products : []).find(
+              (p) => (p.id || p._id) === clip.productId
+            ) || products[0];
+          const vidSrc = safeVid(clip.videoUrl);
+          const posterSrc = safeImg(clip.poster || linkedProduct?.image);
+
+          return (
+            <article
+              key={clip.id || clip._id || idx}
+              className="reel-card"
+              onClick={() =>
+                onOpenReel?.({
+                  ...clip,
+                  videoUrl: vidSrc,
+                  poster: posterSrc
+                })
+              }
+              style={{
+                position: "relative",
+                borderRadius: "16px",
+                overflow: "hidden",
+                background: "#111318",
+                color: "#FFFFFF",
+                cursor: "pointer"
+              }}
+            >
+              {vidSrc ? (
+                <video
+                  src={vidSrc}
+                  poster={posterSrc}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block"
+                  }}
+                />
+              ) : (
+                <img
+                  src={posterSrc}
+                  alt={clip.title}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    display: "block"
+                  }}
+                />
+              )}
+
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background:
+                    "linear-gradient(180deg, rgba(0,0,0,0.08) 40%, rgba(0,0,0,0.82) 100%)",
+                  padding: "14px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between"
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "8px"
+                  }}
+                >
+                  <span
+                    style={{
+                      background: "rgba(255,255,255,0.18)",
+                      backdropFilter: "blur(6px)",
+                      padding: "4px 9px",
+                      borderRadius: "999px",
+                      fontSize: "9.5px",
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase"
+                    }}
+                  >
+                    {clip.tag || "SHORT PLAY"}
+                  </span>
+
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "999px",
+                      background: "rgba(255,255,255,0.92)",
+                      color: "#0F172A",
+                      display: "grid",
+                      placeItems: "center"
+                    }}
+                  >
+                    <Play size={14} fill="currentColor" />
+                  </span>
+                </div>
+
+                <div>
+                  <strong style={{ display: "block", fontSize: "14px", lineHeight: 1.3 }}>
+                    {clip.title}
+                  </strong>
+                  {linkedProduct && (
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "8px",
+                        fontSize: "11.5px"
+                      }}
+                    >
+                      <span style={{ opacity: 0.88 }}>
+                        {linkedProduct.name} • {money(linkedProduct.price)}
+                      </span>
+                      {onQuickAdd && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onQuickAdd(
+                              linkedProduct,
+                              linkedProduct.sizes?.[2] ||
+                                linkedProduct.sizes?.[0] ||
+                                "UK 8"
+                            );
+                          }}
+                          style={{
+                            background: "#FFFFFF",
+                            color: "#0F172A",
+                            border: 0,
+                            borderRadius: "999px",
+                            padding: "5px 10px",
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            cursor: "pointer"
+                          }}
+                        >
+                          + ADD
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 function App() {
   const initialRoute = parseRouteState();
@@ -724,7 +1295,10 @@ function App() {
   const [products, setProducts] = useState(FALLBACK_PRODUCTS);
   const [reels, setReels] = useState(FALLBACK_REELS);
   const [homepage, setHomepage] = useState(DEFAULT_HOMEPAGE);
-  const [storeSettings, setStoreSettings] = useState(DEFAULT_SETTINGS);
+  const [storeSettings, setStoreSettings] = useState(() => ({
+    ...DEFAULT_SETTINGS,
+    pageAssignments: readLocalPageAssignments()
+  }));
   const [category, setCategory] = useState("all");
   const [collection, setCollection] = useState(initialRoute.collection);
   const [currentUser, setCurrentUser] = useState(() =>
@@ -758,7 +1332,6 @@ function App() {
 
   const [pipVisible, setPipVisible] = useState(true);
   const [pipMuted, setPipMuted] = useState(true);
-
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [infoModal, setInfoModal] = useState(null);
   const [orderConfirmed, setOrderConfirmed] = useState(null);
@@ -856,6 +1429,14 @@ function App() {
       }
     } catch {}
 
+    setStoreSettings((prev) => ({
+      ...prev,
+      pageAssignments: {
+        ...(prev.pageAssignments || DEFAULT_PAGE_ASSIGNMENTS),
+        ...readLocalPageAssignments()
+      }
+    }));
+
     fetch(`${API}/products`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -912,6 +1493,14 @@ function App() {
             ...prev,
             ...incoming,
             categories: incoming.categories?.length ? incoming.categories : prev.categories,
+            pageAssignments:
+              incoming.pageAssignments && typeof incoming.pageAssignments === "object"
+                ? {
+                    ...(prev.pageAssignments || DEFAULT_PAGE_ASSIGNMENTS),
+                    ...incoming.pageAssignments,
+                    ...readLocalPageAssignments()
+                  }
+                : prev.pageAssignments || readLocalPageAssignments(),
             navigation: incoming.navigation?.length ? incoming.navigation : prev.navigation
           }));
         }
@@ -923,7 +1512,11 @@ function App() {
     refreshStore();
 
     const onStorage = (e) => {
-      if (e.key === "calzare_store_sync" || e.key === HOMEPAGE_STORAGE_KEY) {
+      if (
+        e.key === "calzare_store_sync" ||
+        e.key === HOMEPAGE_STORAGE_KEY ||
+        e.key === PAGE_ASSIGNMENTS_STORAGE_KEY
+      ) {
         refreshStore();
       }
     };
@@ -941,8 +1534,14 @@ function App() {
     localStorage.setItem("calzare_cart_v2", JSON.stringify(cart));
   }, [cart]);
 
+  const activePageKey = collection !== "all" ? collection : "home";
+  const currentPageRule =
+    storeSettings.pageAssignments?.[activePageKey] ||
+    DEFAULT_PAGE_ASSIGNMENTS[activePageKey] ||
+    DEFAULT_PAGE_ASSIGNMENTS.home;
+
   const activeCategories = useMemo(() => {
-    return Array.from(
+    const allKnownCats = Array.from(
       new Set([
         ...(storeSettings.categories || ["sneakers", "formal", "slides"]).map((c) =>
           String(c).toLowerCase()
@@ -950,7 +1549,34 @@ function App() {
         ...products.map((p) => String(p.category || "").toLowerCase()).filter(Boolean)
       ])
     );
-  }, [storeSettings.categories, products]);
+
+    const assignedCats = Array.isArray(currentPageRule?.categories)
+      ? currentPageRule.categories.map((c) => String(c).toLowerCase())
+      : null;
+
+    if (!assignedCats) return allKnownCats;
+    return allKnownCats.filter((cat) => assignedCats.includes(cat));
+  }, [storeSettings.categories, products, currentPageRule]);
+
+  const activeCollectionsForPage = useMemo(() => {
+    const assignedCols = Array.isArray(currentPageRule?.collections)
+      ? currentPageRule.collections.map((c) => String(c).toLowerCase())
+      : VALID_COLLECTIONS;
+    return VALID_COLLECTIONS.filter((col) => assignedCols.includes(col));
+  }, [currentPageRule]);
+
+  // If the admin removes the currently selected category from this page, reset filter to "all"
+  useEffect(() => {
+    if (
+      category !== "all" &&
+      category !== "under999" &&
+      !activeCategories.includes(category.toLowerCase())
+    ) {
+      setCategory("all");
+    }
+  }, [category, activeCategories]);
+
+  const maxBudgetPrice = Number(homepage?.affordableStore?.maxPrice ?? 999);
 
   const visibleProducts = useMemo(() => {
     const list = Array.isArray(products) ? products : [];
@@ -959,15 +1585,25 @@ function App() {
     return list.filter((p) => {
       if (!p || (p.status || "published") === "draft") return false;
       const productCol = normalizeSlug(p.collection || p.gender || "unisex");
+      const productCat = String(p.category || "").toLowerCase();
+
       const matchesCollection = collection === "all" || productCol === collection;
+      const matchesPageCategories =
+        activeCategories.length === 0 ? true : activeCategories.includes(productCat);
+
       const matchesCategory =
-        category === "all" || String(p.category || "").toLowerCase() === category;
+        category === "all"
+          ? matchesPageCategories
+          : category === "under999"
+          ? Number(p.price) > 0 && Number(p.price) <= maxBudgetPrice
+          : productCat === category;
+
       const matchesSearch =
         !term || `${p.name} ${p.color} ${p.description}`.toLowerCase().includes(term);
 
       return matchesCollection && matchesCategory && matchesSearch;
     });
-  }, [products, collection, category, search]);
+  }, [products, collection, category, search, maxBudgetPrice, activeCategories]);
 
   const freeShipMin = Number(storeSettings.freeShippingThreshold ?? 2999);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -1268,14 +1904,14 @@ function App() {
       homepage={homepage}
       products={products}
       onExploreDrop={() => {
-        if (collection !== "all") {
-          scrollToCatalogSection();
-        } else {
-          navigateCollection("all");
-          scrollToCatalogSection();
-        }
+        setProductPageId(null);
+        setCollection("all");
+        setCategory("under999");
+        window.location.hash = "";
+        scrollToCatalogSection();
       }}
       onSelectProduct={(p) => openFullProductPage(p)}
+      onQuickAdd={(p, sz) => addToCart(p, sz, true)}
     />
   );
 
@@ -1396,6 +2032,7 @@ function App() {
       <main>
         {productPageId ? (
           <ProductPage
+            homepage={homepage}
             product={products.find((p) => p.id === productPageId) || products[0]}
             products={products}
             allProducts={products}
@@ -1416,7 +2053,13 @@ function App() {
         ) : collection !== "all" ? (
           <CollectionPage
             collection={collection}
-            products={products}
+            products={products.filter((p) =>
+              activeCategories.length === 0
+                ? true
+                : activeCategories.includes(String(p.category || "").toLowerCase())
+            )}
+            allowedCategories={activeCategories}
+            allowedCollections={activeCollectionsForPage}
             search={search}
             favorites={favorites}
             onToggleFavorite={(id) =>
@@ -1437,6 +2080,7 @@ function App() {
             visibleProducts={visibleProducts}
             reels={reels}
             categories={activeCategories}
+            allowedCollections={activeCollectionsForPage}
             category={category}
             setCategory={setCategory}
             favorites={favorites}
@@ -1447,6 +2091,7 @@ function App() {
             }
             onOpenProductPage={openFullProductPage}
             onOpenQuickView={openProductModal}
+            onDirectAddToCart={(product, sz) => addToCart(product, sz, true)}
             onOpenReel={openReelModal}
             onFeaturedClick={handleFeaturedClick}
             onNavigateCollection={navigateCollection}
@@ -1460,202 +2105,207 @@ function App() {
       </main>
 
       <footer className="site-footer-dark">
-  <div className="footer-grid-4">
-    <div>
-      <p className="footer-brand-blurb">
-        {homepage.footer?.tagline ||
-          "We design and make every pair ourselves, then ship it straight to you."}
-      </p>
-      <p className="footer-connect-title">Connect with us</p>
-      <a
-        href={`mailto:${storeSettings.supportEmail || "support@calzare.in"}`}
-        className="footer-contact-link"
-      >
-        {storeSettings.supportEmail || "support@calzare.in"}
-      </a>
-      <a
-        href={`tel:${(storeSettings.supportPhone || "+91 98765 43210").replace(/\s+/g, "")}`}
-        className="footer-contact-link"
-      >
-        {storeSettings.supportPhone || "+91 98765 43210"}
-      </a>
-      <p className="footer-hours">Monday to Friday, 10:00 AM to 6:00 PM.</p>
-      <div className="footer-social-row">
-        <a
-          href="#shop"
-          className="footer-social-btn"
-          aria-label="Instagram"
-          onClick={(e) => {
-            e.preventDefault();
-            navigateCollection("home");
-          }}
-        >
-          IG
-        </a>
-        <a
-          href={`mailto:${storeSettings.supportEmail || "support@calzare.in"}`}
-          className="footer-social-btn"
-          aria-label="Email"
-        >
-          ✉
-        </a>
-      </div>
-    </div>
+        <div className="footer-grid-4">
+          <div>
+            <p className="footer-brand-blurb">
+              {homepage.footer?.tagline ||
+                "We design and make every pair ourselves, then ship it straight to you."}
+            </p>
+            <p className="footer-connect-title">Connect with us</p>
+            <a
+              href={`mailto:${storeSettings.supportEmail || "support@calzare.in"}`}
+              className="footer-contact-link"
+            >
+              {storeSettings.supportEmail || "support@calzare.in"}
+            </a>
+            <a
+              href={`tel:${(storeSettings.supportPhone || "+91 98765 43210").replace(/\s+/g, "")}`}
+              className="footer-contact-link"
+            >
+              {storeSettings.supportPhone || "+91 98765 43210"}
+            </a>
+            <p className="footer-hours">
+              {homepage.footer?.hours || "Monday to Friday, 10:00 AM to 6:00 PM."}
+            </p>
+            <div className="footer-social-row">
+              <a
+                href="#shop"
+                className="footer-social-btn"
+                aria-label="Instagram"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateCollection("home");
+                }}
+              >
+                IG
+              </a>
+              <a
+                href={`mailto:${storeSettings.supportEmail || "support@calzare.in"}`}
+                className="footer-social-btn"
+                aria-label="Email"
+              >
+                ✉
+              </a>
+            </div>
+          </div>
 
-    <div>
-      <h4 className="footer-col-heading">Main Menu</h4>
-      <ul className="footer-col-list">
-        <li>
-          <a
-            href="#home"
-            onClick={(e) => {
-              e.preventDefault();
-              navigateCollection("home");
-            }}
-          >
-            Home
-          </a>
-        </li>
-        <li>
-          <a
-            href="#shop"
-            onClick={(e) => {
-              e.preventDefault();
-              navigateCollection("all");
-              scrollToCatalogSection();
-            }}
-          >
-            Shop
-          </a>
-        </li>
-        <li>
-          <a
-            href="#story"
-            onClick={(e) => {
-              e.preventDefault();
-              navigateCollection("story");
-            }}
-          >
-            About Us
-          </a>
-        </li>
-        <li>
-          <a
-            href="#contact"
-            onClick={(e) => {
-              e.preventDefault();
-              setInfoModal("contact");
-            }}
-          >
-            Contact Us
-          </a>
-        </li>
-      </ul>
-    </div>
+          <div>
+            <h4 className="footer-col-heading">Main Menu</h4>
+            <ul className="footer-col-list">
+              <li>
+                <a
+                  href="#home"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateCollection("home");
+                  }}
+                >
+                  Home
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#shop"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateCollection("all");
+                    scrollToCatalogSection();
+                  }}
+                >
+                  Shop
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#story"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateCollection("story");
+                  }}
+                >
+                  About Us
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setInfoModal("contact");
+                  }}
+                >
+                  Contact Us
+                </a>
+              </li>
+            </ul>
+          </div>
 
-    <div>
-      <h4 className="footer-col-heading">Useful Links</h4>
-      <ul className="footer-col-list">
-        <li>
-          <a
-            href="#men"
-            onClick={(e) => {
-              e.preventDefault();
-              navigateCollection("men");
-            }}
-          >
-            Men
-          </a>
-        </li>
-        <li>
-          <a
-            href="#women"
-            onClick={(e) => {
-              e.preventDefault();
-              navigateCollection("women");
-            }}
-          >
-            Women
-          </a>
-        </li>
-        <li>
-          <a
-            href="#policy"
-            onClick={(e) => {
-              e.preventDefault();
-              setInfoModal("policy");
-            }}
-          >
-            Shipping & Exchange
-          </a>
-        </li>
-        <li>
-          <a
-            href="#policy"
-            onClick={(e) => {
-              e.preventDefault();
-              setInfoModal("policy");
-            }}
-          >
-            Privacy Policy
-          </a>
-        </li>
-      </ul>
-    </div>
+          <div>
+            <h4 className="footer-col-heading">Useful Links</h4>
+            <ul className="footer-col-list">
+              <li>
+                <a
+                  href="#men"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateCollection("men");
+                  }}
+                >
+                  Men
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#women"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateCollection("women");
+                  }}
+                >
+                  Women
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#policy"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setInfoModal("policy");
+                  }}
+                >
+                  Shipping & Exchange
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#policy"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setInfoModal("policy");
+                  }}
+                >
+                  Privacy Policy
+                </a>
+              </li>
+            </ul>
+          </div>
 
-    <div>
-      <h4 className="footer-col-heading">
-        Join the {(storeSettings.storeName || "Calzare")} team
-      </h4>
-      <p className="footer-newsletter-copy">
-        Sign up for early access to drops and free shipping updates on new collections.
-      </p>
-      <form className="footer-newsletter-form" onSubmit={subscribe}>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Enter your email..."
-          className="footer-newsletter-input"
-        />
-        <button type="submit" className="footer-newsletter-submit">
-          Sign Up
-        </button>
-      </form>
-      <p className="footer-privacy-note">
-        By entering the e-mail you accept the{" "}
-        <a
-          href="#policy"
-          onClick={(e) => {
-            e.preventDefault();
-            setInfoModal("policy");
-          }}
-        >
-          privacy policy
-        </a>
-        .
-      </p>
-    </div>
-  </div>
+          <div>
+            <h4 className="footer-col-heading">
+              {homepage.footer?.newsletterHeading ||
+                `Join the ${storeSettings.storeName || "Calzare"} team`}
+            </h4>
+            <p className="footer-newsletter-copy">
+              {homepage.footer?.newsletterCopy ||
+                "Sign up for early access to drops and free shipping updates on new collections."}
+            </p>
+            <form className="footer-newsletter-form" onSubmit={subscribe}>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email..."
+                className="footer-newsletter-input"
+              />
+              <button type="submit" className="footer-newsletter-submit">
+                Sign Up
+              </button>
+            </form>
+            <p className="footer-privacy-note">
+              By entering the e-mail you accept the{" "}
+              <a
+                href="#policy"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setInfoModal("policy");
+                }}
+              >
+                privacy policy
+              </a>
+              .
+            </p>
+          </div>
+        </div>
 
-  <div className="footer-watermark-wordmark" aria-hidden="true">
-    {(storeSettings.storeName || "Calzare")}
-  </div>
+        <div className="footer-watermark-wordmark" aria-hidden="true">
+          {storeSettings.storeName || "Calzare"}
+        </div>
 
-  <div className="footer-bottom-bar">
-    <span>
-      {homepage.footer?.copyright ||
-        `© 2026 ${storeSettings.storeName || "Calzare"}. All rights reserved.`}
-    </span>
-    <div className="footer-payment-badges">
-      <span className="footer-pay-pill">VISA</span>
-      <span className="footer-pay-pill">MASTERCARD</span>
-      <span className="footer-pay-pill">RuPay</span>
-      <span className="footer-pay-pill">UPI</span>
-    </div>
-  </div>
-</footer>
+        <div className="footer-bottom-bar">
+          <span>
+            {homepage.footer?.copyright ||
+              `© 2026 ${storeSettings.storeName || "Calzare"}. All rights reserved.`}
+          </span>
+          <div className="footer-payment-badges">
+            <span className="footer-pay-pill">VISA</span>
+            <span className="footer-pay-pill">MASTERCARD</span>
+            <span className="footer-pay-pill">RuPay</span>
+            <span className="footer-pay-pill">UPI</span>
+          </div>
+        </div>
+      </footer>
+
       {pipVisible && homepage.pipVideo?.enabled && pipVideoUrl && (
         <div className="pip-widget">
           <video
