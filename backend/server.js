@@ -463,6 +463,7 @@ async function seedInitialData() {
         id: "c-001",
         sku: "CLZ-FRM-001",
         name: "FORMA COURT",
+        slug: "forma-court",
         category: "sneakers",
         collection: "unisex",
         price: 3499,
@@ -485,6 +486,7 @@ async function seedInitialData() {
         id: "c-002",
         sku: "CLZ-MNO-002",
         name: "MONO RUNNER",
+        slug: "mono-runner",
         category: "sneakers",
         collection: "unisex",
         price: 4299,
@@ -785,12 +787,41 @@ app.post("/api/admin/upload", requireAdmin, upload.single("file"), async (req, r
 
 app.post("/api/admin/products", requireAdmin, async (req, res) => {
   try {
+    const currentProduct = await Product.findOne({
+      id: req.body.id
+    }).select("name slug").lean();
+
+    const slugInput = String(
+      req.body.slug ||
+      currentProduct?.slug ||
+      req.body.name ||
+      currentProduct?.name ||
+      ""
+    ).trim();
+
+    const slug = slugInput
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    if (!slug) {
+      return res.status(400).json({
+        message: "A product name or slug is required."
+      });
+    }
+
     const product = await Product.findOneAndUpdate(
       { id: req.body.id },
-      { $set: req.body },
+      { $set: { ...req.body, slug } },
       { upsert: true, new: true }
     );
-    await logAudit("UPSERT_PRODUCT", `${product.name} (${product.status})`, req);
+
+    await logAudit(
+      "UPSERT_PRODUCT",
+      `${product.name} (${product.status})`,
+      req
+    );
+
     res.json({ product });
   } catch (err) {
     res.status(400).json({ message: err.message });
