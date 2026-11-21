@@ -18,16 +18,8 @@ const MONGO_URI =
 const adminSessions = new Set();
 
 app.use(cors({ origin: true, credentials: true }));
-<<<<<<< HEAD
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }
-});
-=======
->>>>>>> 9226bc3 (Deploy CALZARE storefront, API config, and Razorpay webhook setup)
 
 // --- SCHEMAS ---
 const productSchema = new mongoose.Schema(
@@ -829,8 +821,7 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
       return res.status(400).json({ message: "Invalid payment amount." });
     }
 
-<<<<<<< HEAD
-=======
+HEAD
     const items = Array.isArray(req.body.items) ? req.body.items : [];
     const lineItems = items.map((item, idx) => {
       const unitPaise = Math.max(100, Math.round((Number(item.price) || 0) * 100));
@@ -852,23 +843,11 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
       };
     });
 
->>>>>>> 9226bc3 (Deploy CALZARE storefront, API config, and Razorpay webhook setup)
     const rzp = new Razorpay({
       key_id: keyId,
       key_secret: keySecret
     });
 
-<<<<<<< HEAD
-    const rzpOrder = await rzp.orders.create({
-      amount,
-      currency: "INR",
-      receipt: `rcpt_${Date.now()}`,
-      notes: {
-        couponCode: String(req.body?.couponCode || "")
-      }
-    });
-
-=======
     const orderPayload = {
       amount,
       currency: "INR",
@@ -885,7 +864,6 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
     };
 
     const rzpOrder = await rzp.orders.create(orderPayload);
->>>>>>> 9226bc3 (Deploy CALZARE storefront, API config, and Razorpay webhook setup)
     res.json({
       keyId,
       order_id: rzpOrder.id,
