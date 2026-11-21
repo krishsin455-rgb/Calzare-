@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Menu, Search, ShoppingBag, User, X } from "lucide-react";
+import { Heart, Menu, Search, ShoppingBag, User, X } from "lucide-react";
+
+function toTitleCase(text) {
+  return String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
 
 export default function Header({
   homepage,
@@ -13,20 +20,30 @@ export default function Header({
   search,
   setSearch,
   cartCount = 0,
+  wishlistCount = 0,
+  onOpenWishlist,
   setCartOpen,
   currentUser,
   openAccountModal,
   navigateCollection,
   openTrackOrderPage
 }) {
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768
+  );
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const mobileCfg = homepage?.mobileUI || {};
   const navCfg = homepage?.navbar || {};
-  const isMobile = typeof window !== "undefined" && window.innerWidth <= 768;
 
   const logoSize = isMobile
-    ? Number(mobileCfg.logoSizePx) || 17
+    ? Number(mobileCfg.logoSizePx) || 18
     : Number(navCfg.logoSizePx) || 22;
 
   useEffect(() => {
@@ -38,7 +55,7 @@ export default function Header({
 
   function handleNavClick(e, item) {
     e.preventDefault();
-    setMenuOpen(false);
+    setMenuOpen?.(false);
     const raw = String(item.url || item.label || "").trim();
     if (raw.toLowerCase().includes("track")) {
       openTrackOrderPage?.();
@@ -52,21 +69,47 @@ export default function Header({
       <header
         className="header"
         style={{
-          background: navCfg.bgColor || "var(--paper)",
-          color: navCfg.textColor || "var(--ink)",
-          height: isMobile ? `${Number(mobileCfg.navHeightPx) || 58}px` : undefined
+          background: navCfg.bgColor || "#ffffff",
+          color: navCfg.textColor || "#111111",
+          minHeight: isMobile ? `${Number(mobileCfg.navHeightPx) || 58}px` : "68px",
+          padding: isMobile ? "0 16px" : "0 40px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "none",
+          boxShadow: "none",
+          position: "relative",
+          zIndex: 40
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
-          <button
-            type="button"
-            className="icon-button mobile-menu"
-            aria-label="Open menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen(true)}
-          >
-            <Menu size={19} />
-          </button>
+        {/* Left: Mobile Menu + Brand Wordmark */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            border: "none"
+          }}
+        >
+          {isMobile && (
+            <button
+              type="button"
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen?.(true)}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "inherit",
+                padding: "4px",
+                display: "grid",
+                placeItems: "center",
+                cursor: "pointer"
+              }}
+            >
+              <Menu size={20} />
+            </button>
+          )}
 
           <a
             href="#home"
@@ -77,104 +120,244 @@ export default function Header({
             }}
             style={{
               fontSize: `${logoSize}px`,
+              fontWeight: 700,
               letterSpacing: isMobile
-                ? `${mobileCfg.logoTracking ?? 2.4}px`
-                : "3.5px"
+                ? `${mobileCfg.logoTracking ?? 2.2}px`
+                : "3px",
+              textDecoration: "none",
+              color: "inherit",
+              border: "none",
+              display: "inline-flex",
+              alignItems: "baseline",
+              whiteSpace: "nowrap"
             }}
           >
             {storeSettings?.storeName || "CALZARE"}
-            <sup style={{ fontSize: "0.5em", marginLeft: "1px" }}>®</sup>
+            <sup style={{ fontSize: "0.45em", marginLeft: "2px", fontWeight: 500 }}>
+              ®
+            </sup>
           </a>
         </div>
 
-        {/* Desktop Links */}
-        <nav className="header-links" aria-label="Main navigation">
-          {navItems.map((item, idx) => {
-            const label = String(item.label || "").toUpperCase();
-            const isActive =
-              (label === "HOME" &&
-                collection === "all" &&
-                !storyPageOpen &&
-                !trackPageOpen) ||
-              (label === "OUR STORY" && storyPageOpen) ||
-              (label === "TRACK ORDER" && trackPageOpen) ||
-              label.toLowerCase() === String(collection || "").toLowerCase();
+        {/* Center: Clean Title Case Desktop Navigation */}
+        {!isMobile && (
+          <nav
+            aria-label="Main navigation"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "28px",
+              flex: "1 1 auto",
+              margin: "0 24px"
+            }}
+          >
+            {navItems.map((item, idx) => {
+              const rawLabel = String(item.label || "").trim();
+              const labelUpper = rawLabel.toUpperCase();
+              const displayLabel = toTitleCase(rawLabel);
+              const isActive =
+                (labelUpper === "HOME" &&
+                  collection === "all" &&
+                  !storyPageOpen &&
+                  !trackPageOpen) ||
+                ((labelUpper === "OUR STORY" || labelUpper === "OUR. STORY") &&
+                  storyPageOpen) ||
+                (labelUpper === "TRACK ORDER" && trackPageOpen) ||
+                labelUpper.toLowerCase() === String(collection || "").toLowerCase();
 
-            return (
-              <a
-                key={`${label}-${idx}`}
-                href={item.url || "#"}
-                onClick={(e) => handleNavClick(e, item)}
-                style={{ fontWeight: isActive ? 700 : 400 }}
-              >
-                {label}
-              </a>
-            );
-          })}
-        </nav>
+              return (
+                <a
+                  key={`${labelUpper}-${idx}`}
+                  href={item.url || "#"}
+                  onClick={(e) => handleNavClick(e, item)}
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: isActive ? 600 : 500,
+                    letterSpacing: "0.01em",
+                    textDecoration: isActive ? "underline" : "none",
+                    textUnderlineOffset: "6px",
+                    color: "inherit",
+                    border: "none",
+                    padding: "4px 0",
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  {displayLabel}
+                </a>
+              );
+            })}
+          </nav>
+        )}
 
-        <div className="header-actions">
-          {/* Desktop Search Box */}
-          <div className="search-box desktop-search-only">
-            <Search size={14} />
-            <input
-              type="search"
-              placeholder="Search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          {/* Mobile Search Toggle */}
+        {/* Right: Minimalist Icon Row (Search, Account, Wishlist, Bag) */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: isMobile ? "14px" : "18px",
+            border: "none"
+          }}
+        >
           <button
             type="button"
-            className="icon-button mobile-only-btn"
-            aria-label="Search"
-            onClick={() => setMobileSearchOpen((prev) => !prev)}
+            aria-label="Toggle search"
+            onClick={() => setSearchOpen((prev) => !prev)}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "inherit",
+              padding: "4px",
+              display: "grid",
+              placeItems: "center",
+              cursor: "pointer"
+            }}
           >
-            <Search size={17} />
+            {searchOpen ? <X size={18} /> : <Search size={18} strokeWidth={1.8} />}
           </button>
 
           <button
             type="button"
-            className="icon-button"
-            aria-label="Shopping bag"
-            onClick={() => setCartOpen(true)}
-          >
-            <ShoppingBag size={17} />
-            <span className="count">{cartCount}</span>
-          </button>
-
-          <button
-            type="button"
-            className="icon-button"
             aria-label="Account"
             onClick={openAccountModal}
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "inherit",
+              padding: "4px",
+              display: "grid",
+              placeItems: "center",
+              cursor: "pointer"
+            }}
+            title={currentUser ? currentUser.name : "Account"}
           >
-            <User size={17} />
-            <span className="desktop-sign-label">
-              {currentUser ? currentUser.name.split(" ")[0].toUpperCase() : "SIGN"}
+            <User size={18} strokeWidth={1.8} />
+          </button>
+
+          <button
+            type="button"
+            aria-label="Saved items"
+            onClick={() => {
+              if (onOpenWishlist) {
+                onOpenWishlist();
+              } else {
+                navigateCollection?.("all");
+              }
+            }}
+            style={{
+              position: "relative",
+              border: "none",
+              background: "transparent",
+              color: "inherit",
+              padding: "4px",
+              display: "grid",
+              placeItems: "center",
+              cursor: "pointer"
+            }}
+          >
+            <Heart size={18} strokeWidth={1.8} />
+            {wishlistCount > 0 && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "-3px",
+                  right: "-5px",
+                  minWidth: "15px",
+                  height: "15px",
+                  borderRadius: "999px",
+                  background: "#dc2626",
+                  color: "#ffffff",
+                  fontSize: "9.5px",
+                  fontWeight: 700,
+                  lineHeight: "15px",
+                  textAlign: "center",
+                  padding: "0 3px"
+                }}
+              >
+                {wishlistCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            aria-label="Shopping bag"
+            onClick={() => setCartOpen?.(true)}
+            style={{
+              position: "relative",
+              border: "none",
+              background: "transparent",
+              color: "inherit",
+              padding: "4px",
+              display: "grid",
+              placeItems: "center",
+              cursor: "pointer"
+            }}
+          >
+            <ShoppingBag size={18} strokeWidth={1.8} />
+            <span
+              style={{
+                position: "absolute",
+                top: "-3px",
+                right: "-6px",
+                minWidth: "15px",
+                height: "15px",
+                borderRadius: "999px",
+                background: "#dc2626",
+                color: "#ffffff",
+                fontSize: "9.5px",
+                fontWeight: 700,
+                lineHeight: "15px",
+                textAlign: "center",
+                padding: "0 3px"
+              }}
+            >
+              {cartCount}
             </span>
           </button>
         </div>
       </header>
 
-      {/* Expandable Mobile Search Bar */}
-      {mobileSearchOpen && (
-        <div className="mobile-search-dropdown">
-          <Search size={15} />
+      {/* Clean Expandable Search Bar */}
+      {searchOpen && (
+        <div
+          style={{
+            background: "#ffffff",
+            borderBottom: "1px solid #ecebe6",
+            padding: isMobile ? "10px 16px" : "12px 40px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px"
+          }}
+        >
+          <Search size={16} strokeWidth={1.8} />
           <input
             type="search"
             autoFocus
             placeholder="Search sneakers, slides, loafers..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch?.(e.target.value)}
+            style={{
+              flex: 1,
+              border: "none",
+              outline: "none",
+              background: "transparent",
+              fontSize: "14px",
+              color: "#111111"
+            }}
           />
           {search && (
             <button
               type="button"
-              onClick={() => setSearch("")}
-              style={{ border: 0, background: "none", cursor: "pointer" }}
+              aria-label="Clear search"
+              onClick={() => setSearch?.("")}
+              style={{
+                border: "none",
+                background: "transparent",
+                color: "#555555",
+                cursor: "pointer",
+                padding: "4px"
+              }}
             >
               <X size={15} />
             </button>
@@ -186,7 +369,7 @@ export default function Header({
       {menuOpen && (
         <div
           className="mobile-nav-backdrop"
-          onClick={() => setMenuOpen(false)}
+          onClick={() => setMenuOpen?.(false)}
           role="presentation"
         >
           <aside
@@ -200,11 +383,11 @@ export default function Header({
               </strong>
               <button
                 type="button"
-                onClick={() => setMenuOpen(false)}
+                onClick={() => setMenuOpen?.(false)}
                 aria-label="Close menu"
                 style={{
-                  border: 0,
-                  background: "none",
+                  border: "none",
+                  background: "transparent",
                   padding: "6px",
                   cursor: "pointer"
                 }}
@@ -220,7 +403,7 @@ export default function Header({
                   href={item.url || "#"}
                   onClick={(e) => handleNavClick(e, item)}
                 >
-                  {String(item.label || "").toUpperCase()}
+                  {toTitleCase(item.label)}
                 </a>
               ))}
             </div>
@@ -230,11 +413,11 @@ export default function Header({
                 type="button"
                 className="primary-cta-btn"
                 onClick={() => {
-                  setMenuOpen(false);
+                  setMenuOpen?.(false);
                   openAccountModal?.();
                 }}
               >
-                {currentUser ? `ACCOUNT (${currentUser.name})` : "SIGN IN / REGISTER"}
+                {currentUser ? `Account (${currentUser.name})` : "Sign In / Register"}
               </button>
             </div>
           </aside>
