@@ -435,6 +435,18 @@ const EMPTY_REVIEW = {
   status: "approved"
 };
 
+const EMPTY_COUPON = {
+  code: "",
+  description: "",
+  discountType: "percentage",
+  discountValue: 15,
+  minOrderValue: 999,
+  maxDiscountCap: 500,
+  usageLimit: 500,
+  expiryDate: "",
+  active: true
+};
+
 const handleImgError = (e) => {
   e.currentTarget.onerror = null;
   e.currentTarget.src = FALLBACK_IMG;
@@ -619,6 +631,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   const [authError, setAuthError] = useState("");
   const [activeNav, setActiveNav] = useState("dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 900
+  );
   const [toast, setToast] = useState("");
   const [uploading, setUploading] = useState("");
   const [syncingFship, setSyncingFship] = useState(false);
@@ -701,17 +716,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   });
 
   const [couponModal, setCouponModal] = useState(false);
-  const [couponForm, setCouponForm] = useState({
-    code: "",
-    description: "",
-    discountType: "percentage",
-    discountValue: 15,
-    minOrderValue: 999,
-    maxDiscountCap: 500,
-    usageLimit: 500,
-    expiryDate: "",
-    active: true
-  });
+  const [couponForm, setCouponForm] = useState(EMPTY_COUPON);
 
   const [reviewModal, setReviewModal] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState(null);
@@ -731,6 +736,16 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
 
   const [newCategoryInput, setNewCategoryInput] = useState("");
   const [newPaymentMethod, setNewPaymentMethod] = useState("");
+
+  useEffect(() => {
+    const onResize = () => {
+      const mobile = window.innerWidth <= 900;
+      setIsMobile(mobile);
+      if (!mobile) setMobileNavOpen(false);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   function notify(msg) {
     setToast(msg);
@@ -956,9 +971,30 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   async function uploadMedia(file, key, onUrl) {
     if (!file) return;
     setUploading(key);
-    const fd = new FormData();
-    fd.append("file", file);
     try {
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+      if (cloudName && uploadPreset) {
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("upload_preset", uploadPreset);
+        const resourceType = file.type.startsWith("video/") ? "video" : "image";
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+          { method: "POST", body: fd }
+        );
+        const data = await res.json();
+        if (!res.ok || !data.secure_url) {
+          throw new Error(data.error?.message || "Cloudinary upload failed");
+        }
+        onUrl(data.secure_url);
+        notify("Uploaded directly to Cloudinary.");
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append("file", file);
       const res = await fetch(`${API}/admin/upload`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -970,7 +1006,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       onUrl(data.url);
       notify("Media uploaded & linked.");
     } catch (err) {
-      notify(err.message);
+      notify(err.message || "Upload failed");
     } finally {
       setUploading("");
     }
@@ -1168,37 +1204,55 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
 
   async function handleSaveCoupon(e) {
     e.preventDefault();
-    const res = await fetch(`${API}/admin/coupons`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        ...couponForm,
-        code: couponForm.code.trim().toUpperCase(),
-        discountValue: Number(couponForm.discountValue),
-        minOrderValue: Number(couponForm.minOrderValue),
-        maxDiscountCap: Number(couponForm.maxDiscountCap),
-        usageLimit: Number(couponForm.usageLimit)
-      })
-    });
-    if (res.ok) {
-      notify(`Coupon ${couponForm.code.toUpperCase()} activated.`);
+    const cleanCode = couponForm.code.trim().toUpperCase();
+    if (!cleanCode) return notify("Please enter a coupon code.");
+
+    try {
+      const res = await fetch(`${API}/admin/coupons`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...couponForm,
+          code: cleanCode,
+          discountValue: Number(couponForm.discountValue) || 0,
+          minOrderValue: Number(couponForm.minOrderValue) || 0,
+          maxDiscountCap: Number(couponForm.maxDiscountCap) || 0,
+          usageLimit: Number(couponForm.usageLimit) || 500
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Failed to save coupon (HTTP ${res.status})`);
+      }
+      notify(`Coupon ${cleanCode} activated.`);
       setCouponModal(false);
+      setCouponForm(EMPTY_COUPON);
       await syncAll();
       broadcastSync();
+    } catch (err) {
+      notify(err.message || "Could not save coupon.");
     }
   }
 
   async function handleDeleteCoupon(id) {
-    await fetch(`${API}/admin/coupons/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    notify("Coupon removed.");
-    await syncAll();
-    broadcastSync();
+    try {
+      const res = await fetch(`${API}/admin/coupons/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Could not remove coupon.");
+      }
+      notify("Coupon removed.");
+      await syncAll();
+      broadcastSync();
+    } catch (err) {
+      notify(err.message || "Failed to delete coupon.");
+    }
   }
 
   async function handleSaveReview(e) {
@@ -1825,19 +1879,33 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
         fontFamily: "Inter, system-ui, sans-serif"
       }}
     >
+      {isMobile && mobileNavOpen && (
+        <div
+          onClick={() => setMobileNavOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.55)",
+            zIndex: 55
+          }}
+        />
+      )}
+
       {/* SIDEBAR */}
       <aside
         style={{
           width: "250px",
           background: "#0F172A",
           color: "#94A3B8",
-          display: "flex",
+          display: isMobile && !mobileNavOpen ? "none" : "flex",
           flexDirection: "column",
           flexShrink: 0,
-          position: "sticky",
+          position: isMobile ? "fixed" : "sticky",
+          left: 0,
           top: 0,
           height: "100vh",
-          overflowY: "auto"
+          overflowY: "auto",
+          zIndex: isMobile ? 60 : 1
         }}
       >
         <div
@@ -1846,39 +1914,57 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             borderBottom: "1px solid #1E293B",
             display: "flex",
             alignItems: "center",
+            justifyContent: "space-between",
             gap: "10px"
           }}
         >
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              borderRadius: "8px",
-              background: "#2563EB",
-              color: "#fff",
-              display: "grid",
-              placeItems: "center",
-              fontWeight: 800,
-              fontSize: "14px"
-            }}
-          >
-            C
-          </div>
-          <div>
-            <strong
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div
               style={{
-                display: "block",
-                color: "#F8FAFC",
-                fontSize: "14px",
-                letterSpacing: "1px"
+                width: "32px",
+                height: "32px",
+                borderRadius: "8px",
+                background: "#2563EB",
+                color: "#fff",
+                display: "grid",
+                placeItems: "center",
+                fontWeight: 800,
+                fontSize: "14px"
               }}
             >
-              CALZARE
-            </strong>
-            <span style={{ fontSize: "10px", letterSpacing: "1.5px", color: "#64748B" }}>
-              CONTROL CENTER
-            </span>
+              C
+            </div>
+            <div>
+              <strong
+                style={{
+                  display: "block",
+                  color: "#F8FAFC",
+                  fontSize: "14px",
+                  letterSpacing: "1px"
+                }}
+              >
+                CALZARE
+              </strong>
+              <span style={{ fontSize: "10px", letterSpacing: "1.5px", color: "#64748B" }}>
+                CONTROL CENTER
+              </span>
+            </div>
           </div>
+
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(false)}
+              style={{
+                background: "none",
+                border: 0,
+                color: "#94A3B8",
+                cursor: "pointer"
+              }}
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
 
         <div style={{ padding: "14px 10px", flex: 1 }}>
@@ -1962,10 +2048,19 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
           >
             <button
               type="button"
-              onClick={() => setMobileNavOpen(!mobileNavOpen)}
-              style={{ display: "none", background: "none", border: 0 }}
+              onClick={() => setMobileNavOpen((open) => !open)}
+              style={{
+                display: isMobile ? "inline-flex" : "none",
+                alignItems: "center",
+                background: "none",
+                border: "1px solid #CBD5E1",
+                borderRadius: "6px",
+                padding: "5px 7px",
+                cursor: "pointer",
+                color: "#0F172A"
+              }}
             >
-              <Menu size={18} />
+              {mobileNavOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <span>Control Center</span>
             <span>›</span>
@@ -2042,7 +2137,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
 
         <main
           style={{
-            padding: "24px",
+            padding: isMobile ? "16px" : "24px",
             maxWidth: "1400px",
             width: "100%",
             boxSizing: "border-box",
@@ -2340,7 +2435,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px"
                 }}
               >
                 <div>
@@ -2429,7 +2526,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px"
                 }}
               >
                 <div>
@@ -2490,7 +2589,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                         gap: "12px"
                       }}
                     >
@@ -2535,7 +2634,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                         gap: "12px"
                       }}
                     >
@@ -2589,7 +2688,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
                         gap: "12px"
                       }}
                     >
@@ -2620,7 +2719,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                         gap: "12px"
                       }}
                     >
@@ -2745,7 +2844,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                         gap: "12px"
                       }}
                     >
@@ -2804,7 +2903,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       <h3 style={{ ...sectionSubTitle, margin: 0 }}>
                         GROUP 6: SIZE CHART & MEASUREMENT GUIDE
                       </h3>
-                      <div style={{ display: "flex", gap: "8px" }}>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                         <button
                           type="button"
                           onClick={() =>
@@ -2846,61 +2945,63 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         </button>
                       </div>
                     </div>
-                    <table
-                      style={{
-                        width: "100%",
-                        borderCollapse: "collapse",
-                        fontSize: "12.5px"
-                      }}
-                    >
-                      <thead>
-                        <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
-                          <th style={{ padding: "8px" }}>UK / INDIA</th>
-                          <th style={{ padding: "8px" }}>EU SIZE</th>
-                          <th style={{ padding: "8px" }}>US SIZE</th>
-                          <th style={{ padding: "8px" }}>FOOT LENGTH</th>
-                          <th style={{ padding: "8px" }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeSizeRows.map((row, idx) => (
-                          <tr key={idx} style={{ borderBottom: "1px solid #E2E8F0" }}>
-                            {["uk", "eu", "us", "cm"].map((f) => (
-                              <td key={f} style={{ padding: "6px" }}>
-                                <input
-                                  value={row[f] || ""}
-                                  onChange={(e) =>
+                    <div style={{ overflowX: "auto" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: "12.5px"
+                        }}
+                      >
+                        <thead>
+                          <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                            <th style={{ padding: "8px" }}>UK / INDIA</th>
+                            <th style={{ padding: "8px" }}>EU SIZE</th>
+                            <th style={{ padding: "8px" }}>US SIZE</th>
+                            <th style={{ padding: "8px" }}>FOOT LENGTH</th>
+                            <th style={{ padding: "8px" }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activeSizeRows.map((row, idx) => (
+                            <tr key={idx} style={{ borderBottom: "1px solid #E2E8F0" }}>
+                              {["uk", "eu", "us", "cm"].map((f) => (
+                                <td key={f} style={{ padding: "6px" }}>
+                                  <input
+                                    value={row[f] || ""}
+                                    onChange={(e) =>
+                                      setProductForm({
+                                        ...productForm,
+                                        sizeChartRows: activeSizeRows.map((r, i) =>
+                                          i === idx ? { ...r, [f]: e.target.value } : r
+                                        )
+                                      })
+                                    }
+                                    style={ctrlInput}
+                                  />
+                                </td>
+                              ))}
+                              <td style={{ padding: "6px" }}>
+                                <button
+                                  type="button"
+                                  onClick={() =>
                                     setProductForm({
                                       ...productForm,
-                                      sizeChartRows: activeSizeRows.map((r, i) =>
-                                        i === idx ? { ...r, [f]: e.target.value } : r
+                                      sizeChartRows: activeSizeRows.filter(
+                                        (_, i) => i !== idx
                                       )
                                     })
                                   }
-                                  style={ctrlInput}
-                                />
+                                  style={{ ...topActionBtn, color: "#DC2626" }}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
                               </td>
-                            ))}
-                            <td style={{ padding: "6px" }}>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setProductForm({
-                                    ...productForm,
-                                    sizeChartRows: activeSizeRows.filter(
-                                      (_, i) => i !== idx
-                                    )
-                                  })
-                                }
-                                style={{ ...topActionBtn, color: "#DC2626" }}
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
 
@@ -2912,7 +3013,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                         gap: "12px"
                       }}
                     >
@@ -2998,7 +3099,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
                         gap: "12px"
                       }}
                     >
@@ -3296,7 +3397,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                     gap: "16px"
                   }}
                 >
@@ -3495,7 +3596,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
                   gap: "16px"
                 }}
               >
@@ -4041,7 +4142,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 </div>
               </div>
 
-              {/* DEDICATED UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (DEDICATED SLIDE PHOTOS ONLY) */}
+              {/* DEDICATED UNDER ₹999 HOMEPAGE SHOWCASE SLIDES */}
               <div style={cardBox}>
                 <div
                   style={{
@@ -4662,7 +4763,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "120px 120px 1fr",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
                     gap: "12px",
                     marginBottom: "12px"
                   }}
@@ -4779,7 +4880,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     <span style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>
                       FOOTER CONTACT INFO
                     </span>
-                    <div style={{ display: "flex", gap: "8px" }}>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                       <button
                         type="button"
                         onClick={() =>
@@ -5460,7 +5561,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                     gap: "12px",
                     marginBottom: "12px"
                   }}
@@ -5505,7 +5606,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
                     gap: "12px",
                     marginBottom: "12px"
                   }}
@@ -5950,7 +6051,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== CUSTOMER REVIEWS (ADD / EDIT / REMOVE) ==================== */}
+          {/* ==================== CUSTOMER REVIEWS ==================== */}
           {activeNav === "reviews" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -6182,7 +6283,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px"
                 }}
               >
                 <div>
@@ -6328,7 +6431,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                   gap: "16px"
                 }}
               >
@@ -6399,7 +6502,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px"
                 }}
               >
                 <div>
@@ -6484,14 +6589,16 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== SETTINGS & SECURITY (PAYMENT METHODS + PARTIAL COD) ==================== */}
+          {/* ==================== SETTINGS & SECURITY ==================== */}
           {activeNav === "settings" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px"
                 }}
               >
                 <div>
@@ -6560,7 +6667,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   </div>
                 </div>
 
-                {/* PAYMENT METHODS (ADD / EDIT / REMOVE) */}
+                {/* PAYMENT METHODS */}
                 <div
                   style={{
                     borderTop: "1px solid #E2E8F0",
@@ -6642,7 +6749,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   </div>
                 </div>
 
-                {/* STORE CONTACT INFORMATION (ADD & REMOVE) */}
+                {/* STORE CONTACT INFORMATION */}
                 <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "14px" }}>
                   <div
                     style={{

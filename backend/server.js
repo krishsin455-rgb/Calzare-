@@ -3,16 +3,10 @@ import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 import crypto from "crypto";
 import Razorpay from "razorpay";
-import { fileURLToPath } from "url";
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 5003;
@@ -23,26 +17,15 @@ const MONGO_URI =
 
 const adminSessions = new Set();
 
-const uploadsDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(uploadsDir, { acceptRanges: true, maxAge: "7d" }));
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname || "").toLowerCase() || ".mp4";
-    const safeBase = path
-      .basename(file.originalname || "media", ext)
-      .replace(/[^a-z0-9-_]/gi, "_")
-      .slice(0, 40);
-    cb(null, `${Date.now()}-${safeBase}${ext}`);
-  }
+// Memory storage only: never writes uploaded files to your Mac or Render disk
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }
 });
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // --- SCHEMAS ---
 const productSchema = new mongoose.Schema(
@@ -133,6 +116,8 @@ const reelSchema = new mongoose.Schema(
 const homepageSchema = new mongoose.Schema(
   {
     singletonKey: { type: String, default: "main", unique: true },
+    reelsEnabled: { type: Boolean, default: true },
+    productReelsEnabled: { type: Boolean, default: true },
     heroVideoUrl: { type: String, default: "" },
     heroImage: { type: String, default: "" },
     heroMobileImage: { type: String, default: "" },
@@ -151,6 +136,9 @@ const homepageSchema = new mongoose.Schema(
       default: "100% WATERPROOF FOAM, 280G ULTRA-LIGHT, CLOUDFOOTBED TECH"
     },
     campaignVideoUrl: { type: String, default: "" },
+    mobileUI: { type: mongoose.Schema.Types.Mixed, default: {} },
+    theme: { type: mongoose.Schema.Types.Mixed, default: {} },
+    navbar: { type: mongoose.Schema.Types.Mixed, default: {} },
     sections: {
       type: Array,
       default: [
@@ -178,7 +166,8 @@ const homepageSchema = new mongoose.Schema(
         subtitle:
           "High performance foam shouldn't cost a week's wage. Premium daily comfort at honest prices.",
         ctaLabel: "EXPLORE DROP",
-        image: ""
+        image: "",
+        customSlides: []
       }
     },
     productPage: {
@@ -262,6 +251,8 @@ const orderSchema = new mongoose.Schema(
     items: [{ id: String, name: String, size: String, price: Number, quantity: Number }],
     subtotal: Number,
     discount: Number,
+    couponCode: { type: String, default: null },
+    couponDiscount: { type: Number, default: 0 },
     total: Number,
     paymentMethod: String,
     paymentStatus: { type: String, default: "Pending" },
@@ -283,8 +274,8 @@ const couponSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     discountType: { type: String, default: "percentage" },
     discountValue: { type: Number, required: true },
-    minOrderValue: { type: Number, default: 999 },
-    maxDiscountCap: { type: Number, default: 500 },
+    minOrderValue: { type: Number, default: 0 },
+    maxDiscountCap: { type: Number, default: 0 },
     usageLimit: { type: Number, default: 500 },
     usedCount: { type: Number, default: 0 },
     expiryDate: { type: String, default: "" },
@@ -318,6 +309,7 @@ const cmsPageSchema = new mongoose.Schema(
     category: { type: String, default: "POLICY" },
     excerpt: { type: String, default: "" },
     content: { type: String, default: "" },
+    image: { type: String, default: "" },
     seoTitle: { type: String, default: "" },
     seoDescription: { type: String, default: "" },
     published: { type: Boolean, default: true }
@@ -335,13 +327,20 @@ const settingsSchema = new mongoose.Schema(
     tagline: { type: String, default: "Architectural footwear built for motion." },
     supportEmail: { type: String, default: "support@calzare.in" },
     supportPhone: { type: String, default: "+91 98765 43210" },
+    contactItems: { type: Array, default: [] },
+    paymentMethods: { type: [String], default: [] },
     businessAddress: { type: String, default: "12th Main Road, Indiranagar, Bengaluru" },
     freeShippingThreshold: { type: Number, default: 2999 },
     standardShippingFee: { type: Number, default: 149 },
+    partialCodAdvance: { type: Number, default: 299 },
     codAdvanceFee: { type: Number, default: 299 },
     codEnabled: { type: Boolean, default: true },
     razorpayKeyPublic: { type: String, default: process.env.RAZORPAY_KEY_ID || "" },
     categories: { type: [String], default: ["sneakers", "formal", "slides"] },
+    pageAssignments: { type: mongoose.Schema.Types.Mixed, default: {} },
+    policies: { type: Array, default: [] },
+    collectionImages: { type: mongoose.Schema.Types.Mixed, default: {} },
+    categoryImages: { type: mongoose.Schema.Types.Mixed, default: {} },
     navigation: {
       type: Array,
       default: [
@@ -631,12 +630,42 @@ app.post("/api/reviews", async (req, res) => {
 });
 
 app.post("/api/coupons/validate", async (req, res) => {
-  const code = String(req.body.code || "").trim().toUpperCase();
-  const coupon = await Coupon.findOne({ code, active: true }).lean();
-  if (!coupon) {
-    return res.status(404).json({ message: "Invalid or expired coupon code." });
+  try {
+    const code = String(req.body.code || "").trim().toUpperCase();
+    const subtotal = Number(req.body.subtotal || 0);
+    if (!code) {
+      return res.status(400).json({ message: "Please enter a coupon code." });
+    }
+
+    const coupon = await Coupon.findOne({ code, active: true }).lean();
+    if (!coupon) {
+      return res.status(404).json({ message: "Invalid or expired coupon code." });
+    }
+
+    if (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) {
+      return res.status(400).json({ message: "This coupon has expired." });
+    }
+
+    if (coupon.usageLimit > 0 && (coupon.usedCount || 0) >= coupon.usageLimit) {
+      return res.status(400).json({ message: "This coupon has reached its usage limit." });
+    }
+
+    if (subtotal > 0 && subtotal < Number(coupon.minOrderValue || 0)) {
+      return res.status(400).json({
+        message: `Minimum order of ₹${coupon.minOrderValue} required for ${coupon.code}.`
+      });
+    }
+
+    res.json({
+      coupon: {
+        ...coupon,
+        type: coupon.discountType === "percentage" ? "percent" : "flat",
+        value: Number(coupon.discountValue || 0)
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Coupon validation failed." });
   }
-  res.json({ coupon });
 });
 
 // --- RAZORPAY & ORDERS ---
@@ -645,13 +674,17 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
     if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
       return res
         .status(400)
-        .json({ message: "Razorpay keys not configured in backend/.env." });
+        .json({ message: "Razorpay keys not configured in backend environment." });
+    }
+    const amountInRupees = Number(req.body.amountInRupees || 0);
+    if (!amountInRupees || amountInRupees <= 0) {
+      return res.status(400).json({ message: "Invalid payment amount." });
     }
     const rzp = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
       key_secret: process.env.RAZORPAY_KEY_SECRET
     });
-    const amountInPaise = Math.round(Number(req.body.amountInRupees || 299) * 100);
+    const amountInPaise = Math.round(amountInRupees * 100);
     const rzpOrder = await rzp.orders.create({
       amount: amountInPaise,
       currency: "INR",
@@ -664,7 +697,7 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
       currency: rzpOrder.currency
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message || "Razorpay order creation failed." });
   }
 });
 
@@ -676,13 +709,20 @@ app.post("/api/payments/razorpay/verify", async (req, res) => {
       razorpay_signature,
       orderPayload
     } = req.body;
+
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(400).json({ message: "Razorpay secret not configured." });
+    }
+
     const expected = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
+
     if (expected !== razorpay_signature) {
       return res.status(400).json({ message: "Invalid payment signature." });
     }
+
     const isPartial = (orderPayload.paymentMethod || "").includes("Partial COD");
     const paidNow = isPartial ? 299 : Number(orderPayload.total || 0);
     const newOrder = await Order.create({
@@ -695,9 +735,17 @@ app.post("/api/payments/razorpay/verify", async (req, res) => {
       razorpayPaymentId: razorpay_payment_id,
       status: "Confirmed"
     });
+
+    if (orderPayload.couponCode) {
+      await Coupon.updateOne(
+        { code: String(orderPayload.couponCode).toUpperCase() },
+        { $inc: { usedCount: 1 } }
+      ).catch(() => {});
+    }
+
     res.json({ order: newOrder });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message || "Payment verification failed." });
   }
 });
 
@@ -711,6 +759,14 @@ app.post("/api/orders", async (req, res) => {
       balanceDueOnDelivery: Number(req.body.total || 0),
       status: "Confirmed"
     });
+
+    if (req.body.couponCode) {
+      await Coupon.updateOne(
+        { code: String(req.body.couponCode).toUpperCase() },
+        { $inc: { usedCount: 1 } }
+      ).catch(() => {});
+    }
+
     res.json({ order: newOrder });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -773,14 +829,48 @@ app.get("/api/admin/overview", requireAdmin, async (req, res) => {
   });
 });
 
+// Cloud-only upload: forwards to Cloudinary from memory (never saves to local Mac/Render disk)
 app.post("/api/admin/upload", requireAdmin, upload.single("file"), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ message: "No media file received." });
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No media file received." });
+    }
+
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
+
+    if (cloudName && uploadPreset) {
+      const resourceType = req.file.mimetype.startsWith("video/") ? "video" : "image";
+      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      const formBody = new URLSearchParams();
+      formBody.append("file", base64);
+      formBody.append("upload_preset", uploadPreset);
+
+      const cloudRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+        { method: "POST", body: formBody }
+      );
+      const cloudData = await cloudRes.json();
+      if (!cloudRes.ok || !cloudData.secure_url) {
+        throw new Error(cloudData.error?.message || "Cloudinary upload failed.");
+      }
+      await logAudit("UPLOAD_MEDIA_CLOUD", req.file.originalname, req);
+      return res.json({ url: cloudData.secure_url, filename: req.file.originalname });
+    }
+
+    if (req.file.mimetype.startsWith("image/") && req.file.size <= 2 * 1024 * 1024) {
+      const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      await logAudit("UPLOAD_MEDIA_INLINE", req.file.originalname, req);
+      return res.json({ url: dataUrl, filename: req.file.originalname });
+    }
+
+    return res.status(400).json({
+      message:
+        "Configure CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET in Render env to upload large images or videos without local disk storage."
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || "Media upload failed." });
   }
-  const protocol = req.headers["x-forwarded-proto"] || req.protocol;
-  const fileUrl = `${protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-  await logAudit("UPLOAD_MEDIA", req.file.filename, req);
-  res.json({ url: fileUrl, filename: req.file.filename });
 });
 
 app.post("/api/admin/products", requireAdmin, async (req, res) => {
@@ -885,9 +975,10 @@ app.delete("/api/admin/reels/:id", requireAdmin, async (req, res) => {
 app.put("/api/admin/homepage", requireAdmin, async (req, res) => {
   try {
     const current = (await Homepage.findOne({ singletonKey: "main" }).lean()) || {};
-    const body = req.body?.homepage && typeof req.body.homepage === "object"
-      ? req.body.homepage
-      : req.body || {};
+    const body =
+      req.body?.homepage && typeof req.body.homepage === "object"
+        ? req.body.homepage
+        : req.body || {};
 
     const merged = {
       ...body,
@@ -1078,9 +1169,7 @@ app.post("/api/admin/orders/sync-fship", requireAdmin, async (req, res) => {
           await Order.updateOne({ _id: ord._id }, { $set: patch });
           updatedCount += 1;
         }
-      } catch {
-        // Continue syncing remaining orders if one lookup fails
-      }
+      } catch {}
     }
 
     await logAudit("FSHIP_MANUAL_SYNC", `Updated ${updatedCount} order(s)`, req);
@@ -1092,18 +1181,45 @@ app.post("/api/admin/orders/sync-fship", requireAdmin, async (req, res) => {
 });
 
 app.post("/api/admin/coupons", requireAdmin, async (req, res) => {
-  const coupon = await Coupon.findOneAndUpdate(
-    { code: req.body.code.toUpperCase() },
-    { $set: req.body },
-    { upsert: true, new: true }
-  );
-  await logAudit("CREATE_COUPON", coupon.code, req);
-  res.json({ coupon });
+  try {
+    const code = String(req.body.code || "").trim().toUpperCase();
+    if (!code) {
+      return res.status(400).json({ message: "Coupon code is required." });
+    }
+    const payload = {
+      ...req.body,
+      code,
+      discountValue: Number(req.body.discountValue || 0),
+      minOrderValue: Number(req.body.minOrderValue || 0),
+      maxDiscountCap: Number(req.body.maxDiscountCap || 0),
+      usageLimit: Number(req.body.usageLimit || 500),
+      active: req.body.active !== false
+    };
+    const coupon = await Coupon.findOneAndUpdate(
+      { code },
+      { $set: payload },
+      { upsert: true, new: true }
+    );
+    await logAudit("CREATE_COUPON", coupon.code, req);
+    res.json({ coupon });
+  } catch (err) {
+    res.status(400).json({ message: err.message || "Could not save coupon." });
+  }
 });
 
 app.delete("/api/admin/coupons/:id", requireAdmin, async (req, res) => {
-  await Coupon.deleteOne({ _id: req.params.id });
-  res.json({ ok: true });
+  try {
+    const raw = String(req.params.id || "").trim();
+    if (mongoose.Types.ObjectId.isValid(raw)) {
+      await Coupon.deleteOne({ _id: raw });
+    } else {
+      await Coupon.deleteOne({ code: raw.toUpperCase() });
+    }
+    await logAudit("DELETE_COUPON", raw, req);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ message: err.message || "Could not delete coupon." });
+  }
 });
 
 app.post("/api/admin/reviews", requireAdmin, async (req, res) => {
@@ -1146,9 +1262,10 @@ app.put("/api/admin/settings", requireAdmin, async (req, res) => {
   try {
     const current =
       (await StoreSettings.findOne({ singletonKey: "store_settings" }).lean()) || {};
-    const body = req.body?.settings && typeof req.body.settings === "object"
-      ? req.body.settings
-      : req.body || {};
+    const body =
+      req.body?.settings && typeof req.body.settings === "object"
+        ? req.body.settings
+        : req.body || {};
 
     const settings = await StoreSettings.findOneAndUpdate(
       { singletonKey: "store_settings" },

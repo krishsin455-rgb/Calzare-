@@ -56,14 +56,38 @@ function readLocalPageAssignments() {
 
 export function safeImg(url, fallback = SAFE_IMAGE_FALLBACK) {
   if (!url || typeof url !== "string" || !url.trim()) return fallback;
-  if (BROKEN_IMAGE_IDS.some((id) => url.includes(id))) return fallback;
-  return url;
+  const clean = url.trim();
+  const isLocalHostOnProd =
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    clean.includes("localhost");
+
+  if (
+    clean.startsWith("file://") ||
+    clean.startsWith("/Users/") ||
+    isLocalHostOnProd ||
+    BROKEN_IMAGE_IDS.some((id) => clean.includes(id))
+  ) {
+    return fallback;
+  }
+  return clean;
 }
 
 export function safeVid(url) {
   if (!url || typeof url !== "string" || !url.trim()) return "";
   if (url.includes("assets.mixkit.co")) return "";
   return url;
+}
+
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) return resolve(true);
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
 }
 
 const money = (value) =>
@@ -612,7 +636,6 @@ export function StorySection({ homepage, storeSettings, onExploreShop, onGoHome 
   );
 }
 
-// Under ₹999 Store: uses ONLY custom slide photos uploaded for ₹999 slides (never product photos)
 export function Under999StoreSection({
   homepage,
   products = [],
@@ -670,7 +693,7 @@ export function Under999StoreSection({
       return {
         key: s.id || `custom-999-${i}`,
         alt: s.title || linkedProd?.name || `Calzare ₹${maxPrice} Slide ${i + 1}`,
-        slideImage: s.image.trim(),
+        slideImage: safeImg(s.image.trim()),
         targetProduct: linkedProd,
         redirectUrl: String(s.redirectUrl || "").trim()
       };
@@ -1122,6 +1145,10 @@ export function ShortVideoReelsSection({
                 <img
                   src={posterSrc}
                   alt={clip.title}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                  }}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -1297,6 +1324,19 @@ function App() {
     pincode: "",
     paymentMethod: "Partial COD (₹299 Advance)"
   });
+
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState("");
+
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [prevTier, setPrevTier] = useState(0);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 3500);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const canManageReviews = Boolean(
     currentUser?.role === "admin" || sessionStorage.getItem("calzare_admin_token")
@@ -1619,8 +1659,30 @@ function App() {
 
   const discountRate = cartCount >= 3 ? 0.15 : cartCount >= 2 ? 0.1 : 0;
   const discountAmount = Math.round(cartSubtotal * discountRate);
+  const afterBundleTotal = Math.max(0, cartSubtotal - discountAmount);
+
+  useEffect(() => {
+    const currentTier = cartCount >= 3 ? 2 : cartCount >= 2 ? 1 : 0;
+    if (currentTier > prevTier) {
+      setShowConfetti(true);
+      const t = setTimeout(() => setShowConfetti(false), 2200);
+      setPrevTier(currentTier);
+      return () => clearTimeout(t);
+    }
+    setPrevTier(currentTier);
+  }, [cartCount, prevTier]);
+
+  const couponDiscount = appliedCoupon
+    ? appliedCoupon.type === "percent"
+      ? Math.round(afterBundleTotal * (Number(appliedCoupon.value) / 100))
+      : Math.min(Number(appliedCoupon.value) || 0, afterBundleTotal)
+    : 0;
+
   const shippingFee = cartSubtotal >= freeShipMin || cartSubtotal === 0 ? 0 : 149;
-  const cartFinalTotal = Math.max(0, cartSubtotal - discountAmount + shippingFee);
+  const cartFinalTotal = Math.max(
+    0,
+    cartSubtotal - discountAmount - couponDiscount + shippingFee
+  );
 
   const tierProgress = useMemo(() => {
     if (cartCount === 0) {
@@ -1640,8 +1702,28 @@ function App() {
 
   const upsellProducts = useMemo(() => {
     const inBagIds = new Set(cart.map((c) => c.id));
-    return products.filter((p) => !inBagIds.has(p.id)).slice(0, 3);
+    return products.filter((p) => !inBagIds.has(p.id)).slice(0, 4);
   }, [products, cart]);
+
+  async function handleApplyCoupon() {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) return;
+    setCouponError("");
+    try {
+      const res = await fetch(`${API}/coupons/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, subtotal: cartSubtotal })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Invalid or expired coupon.");
+      setAppliedCoupon(data.coupon || data);
+      setNotice(`Coupon ${code} applied!`);
+    } catch (err) {
+      setAppliedCoupon(null);
+      setCouponError(err.message || "Could not validate coupon.");
+    }
+  }
 
   function openProductModal(product, startWithVideo = false) {
     const vid = safeVid(product.videoUrl);
@@ -1820,7 +1902,9 @@ function App() {
         quantity
       })),
       subtotal: cartSubtotal,
-      discount: discountAmount,
+      discount: discountAmount + couponDiscount,
+      couponCode: appliedCoupon?.code || null,
+      couponDiscount,
       total: cartFinalTotal,
       paymentMethod: checkoutForm.paymentMethod
     };
@@ -1837,6 +1921,8 @@ function App() {
         recordLocalOrder(data.order);
         setOrderConfirmed(data.order);
         setCart([]);
+        setAppliedCoupon(null);
+        setCouponInput("");
       } catch (err) {
         setNotice(err.message || "Could not place COD order.");
       }
@@ -1848,6 +1934,11 @@ function App() {
       : cartFinalTotal;
 
     try {
+      const sdkReady = await loadRazorpayScript();
+      if (!sdkReady || !window.Razorpay) {
+        throw new Error("Razorpay SDK failed to load. Check your internet connection.");
+      }
+
       const createRes = await fetch(`${API}/payments/razorpay/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1856,10 +1947,6 @@ function App() {
       const rzpData = await createRes.json();
       if (!createRes.ok) {
         throw new Error(rzpData.message || "Razorpay initialization failed");
-      }
-
-      if (!window.Razorpay) {
-        throw new Error("Razorpay SDK failed to load. Check your internet connection.");
       }
 
       const options = {
@@ -1890,6 +1977,8 @@ function App() {
             recordLocalOrder(verified.order);
             setOrderConfirmed(verified.order);
             setCart([]);
+            setAppliedCoupon(null);
+            setCouponInput("");
           } else {
             setNotice(verified.message || "Payment verification failed.");
           }
@@ -2532,7 +2621,14 @@ function App() {
               <p className="eyebrow">{activeReel.tag}</p>
               <h3>{activeReel.title}</h3>
               <div className="reel-featured-box">
-                <img src={safeImg(activeReelProduct.image)} alt={activeReelProduct.name} />
+                <img
+                  src={safeImg(activeReelProduct.image)}
+                  alt={activeReelProduct.name}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                  }}
+                />
                 <div>
                   <strong>{activeReelProduct.name}</strong>
                   <p>{activeReelProduct.color}</p>
@@ -2580,13 +2676,53 @@ function App() {
 
       {cartOpen && (
         <div className="drawer-backdrop" onClick={() => setCartOpen(false)}>
-          <aside className="cart-drawer" onClick={(e) => e.stopPropagation()}>
+          <aside
+            className="cart-drawer"
+            style={{ position: "relative" }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="drawer-head">
               <h2>YOUR BAG ({cartCount})</h2>
               <button className="icon-button" onClick={() => setCartOpen(false)}>
                 <X />
               </button>
             </div>
+
+            {showConfetti && (
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  pointerEvents: "none",
+                  overflow: "hidden",
+                  zIndex: 25
+                }}
+              >
+                {Array.from({ length: 24 }).map((_, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      position: "absolute",
+                      top: "-10px",
+                      left: `${(i * 4.2) % 98}%`,
+                      width: "8px",
+                      height: "8px",
+                      borderRadius: i % 2 === 0 ? "50%" : "2px",
+                      background: ["#2563EB", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"][i % 5],
+                      animation: `calzareConfettiFall ${1.1 + (i % 5) * 0.2}s ease-out forwards`,
+                      animationDelay: `${(i % 6) * 0.06}s`
+                    }}
+                  />
+                ))}
+                <style>{`
+                  @keyframes calzareConfettiFall {
+                    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+                    100% { transform: translateY(420px) rotate(360deg); opacity: 0; }
+                  }
+                `}</style>
+              </div>
+            )}
 
             <div className="offer-bar-box">
               <p>{tierProgress.text}</p>
@@ -2603,37 +2739,164 @@ function App() {
             {cart.length ? (
               <>
                 <div className="cart-items">
-                  {cart.map((item) => (
-                    <div className="cart-item" key={item.cartKey}>
-                      <img src={safeImg(item.image)} alt={item.name} />
-                      <div className="cart-item-info">
-                        <h3>{item.name}</h3>
-                        <span className="cart-size-tag">SIZE: {item.size}</span>
-                        <p>{money(item.price)}</p>
-                        <div className="quantity">
-                          <button onClick={() => changeQuantity(item.cartKey, -1)}>−</button>
-                          <span>{item.quantity}</span>
-                          <button onClick={() => changeQuantity(item.cartKey, 1)}>+</button>
+                  {cart.map((item) => {
+                    const unitDiscounted =
+                      discountRate > 0
+                        ? Math.round(item.price * (1 - discountRate))
+                        : item.price;
+
+                    return (
+                      <div className="cart-item" key={item.cartKey}>
+                        <img
+                          src={safeImg(item.image)}
+                          alt={item.name}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                          }}
+                        />
+                        <div className="cart-item-info">
+                          <h3>{item.name}</h3>
+                          <span className="cart-size-tag">SIZE: {item.size}</span>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              flexWrap: "wrap",
+                              margin: "4px 0"
+                            }}
+                          >
+                            <strong style={{ fontSize: "14px" }}>
+                              {money(unitDiscounted)}
+                            </strong>
+                            {discountRate > 0 && (
+                              <>
+                                <span
+                                  style={{
+                                    fontSize: "12px",
+                                    textDecoration: "line-through",
+                                    opacity: 0.55
+                                  }}
+                                >
+                                  {money(item.price)}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: "10px",
+                                    fontWeight: 700,
+                                    background: "#DCFCE7",
+                                    color: "#166534",
+                                    padding: "2px 6px",
+                                    borderRadius: "999px"
+                                  }}
+                                >
+                                  {Math.round(discountRate * 100)}% OFF
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          <div className="quantity">
+                            <button onClick={() => changeQuantity(item.cartKey, -1)}>−</button>
+                            <span>{item.quantity}</span>
+                            <button onClick={() => changeQuantity(item.cartKey, 1)}>+</button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {upsellProducts.length > 0 && (
-                    <div className="cart-upsells">
-                      <span className="upsell-title">COMPLETE THE ROTATION</span>
-                      {upsellProducts.map((u) => (
-                        <div className="upsell-row" key={u.id}>
-                          <img src={safeImg(u.image)} alt={u.name} />
-                          <div>
-                            <strong>{u.name}</strong>
-                            <span>{money(u.price)}</span>
+                    <div
+                      style={{
+                        marginTop: "16px",
+                        paddingTop: "14px",
+                        borderTop: "1px solid var(--line)"
+                      }}
+                    >
+                      <span
+                        className="upsell-title"
+                        style={{
+                          display: "block",
+                          marginBottom: "10px",
+                          fontSize: "10.5px",
+                          fontWeight: 700
+                        }}
+                      >
+                        COMPLETE THE ROTATION (UNLOCK EXTRA SAVINGS)
+                      </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "10px",
+                          overflowX: "auto",
+                          paddingBottom: "6px",
+                          scrollbarWidth: "none"
+                        }}
+                      >
+                        {upsellProducts.map((u) => (
+                          <div
+                            key={u.id}
+                            style={{
+                              flex: "0 0 135px",
+                              border: "1px solid var(--line, #e2e8f0)",
+                              borderRadius: "10px",
+                              padding: "8px",
+                              background: "#FFFFFF",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "6px"
+                            }}
+                          >
+                            <img
+                              src={safeImg(u.image)}
+                              alt={u.name}
+                              onError={(e) => {
+                                e.currentTarget.onerror = null;
+                                e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                              }}
+                              style={{
+                                width: "100%",
+                                height: "84px",
+                                objectFit: "cover",
+                                borderRadius: "6px"
+                              }}
+                            />
+                            <strong
+                              style={{
+                                fontSize: "11px",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis"
+                              }}
+                            >
+                              {u.name}
+                            </strong>
+                            <span style={{ fontSize: "11.5px", fontWeight: 600 }}>
+                              {money(u.price)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                addToCart(u, u.sizes?.[2] || u.sizes?.[0] || "UK 8", false)
+                              }
+                              style={{
+                                marginTop: "auto",
+                                padding: "6px 8px",
+                                borderRadius: "999px",
+                                border: "1px solid var(--ink, #1e211d)",
+                                background: "var(--ink, #1e211d)",
+                                color: "#FFFFFF",
+                                fontSize: "10px",
+                                fontWeight: 700,
+                                cursor: "pointer"
+                              }}
+                            >
+                              + ADD
+                            </button>
                           </div>
-                          <button type="button" onClick={() => addToCart(u, "UK 8", false)}>
-                            + ADD
-                          </button>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2659,6 +2922,12 @@ function App() {
                     <div className="summary-line discount">
                       <span>BUNDLE SAVINGS ({Math.round(discountRate * 100)}%)</span>
                       <span>−{money(discountAmount)}</span>
+                    </div>
+                  )}
+                  {couponDiscount > 0 && appliedCoupon && (
+                    <div className="summary-line discount">
+                      <span>COUPON ({appliedCoupon.code})</span>
+                      <span>−{money(couponDiscount)}</span>
                     </div>
                   )}
                   <div className="summary-line">
@@ -2777,6 +3046,30 @@ function App() {
                   <option>UPI / Cards / NetBanking</option>
                   <option>Cash on Delivery</option>
                 </select>
+
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input
+                    placeholder="Coupon Code (optional)"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                  />
+                  <button
+                    type="button"
+                    className="size-pill"
+                    onClick={handleApplyCoupon}
+                    style={{ whiteSpace: "nowrap", padding: "0 14px" }}
+                  >
+                    APPLY
+                  </button>
+                </div>
+                {couponError && (
+                  <p style={{ color: "#9f2d2d", fontSize: "11.5px", margin: 0 }}>{couponError}</p>
+                )}
+                {appliedCoupon && (
+                  <p style={{ color: "#166534", fontSize: "11.5px", margin: 0 }}>
+                    ✓ {appliedCoupon.code} applied (−{money(couponDiscount)})
+                  </p>
+                )}
 
                 <button type="submit" className="primary-cta-btn">
                   PLACE ORDER — {money(cartFinalTotal)} <ArrowUpRight size={16} />

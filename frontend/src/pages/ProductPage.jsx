@@ -122,8 +122,21 @@ const CALZARE_STANDARD_CARDS = [
 
 function safeImgSrc(url) {
   if (!url || typeof url !== "string" || !url.trim()) return SAFE_IMAGE_FALLBACK;
-  if (BROKEN_IMAGE_IDS.some((id) => url.includes(id))) return SAFE_IMAGE_FALLBACK;
-  return url;
+  const clean = url.trim();
+  const isLocalHostOnProd =
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    clean.includes("localhost");
+
+  if (
+    clean.startsWith("file://") ||
+    clean.startsWith("/Users/") ||
+    isLocalHostOnProd ||
+    BROKEN_IMAGE_IDS.some((id) => clean.includes(id))
+  ) {
+    return SAFE_IMAGE_FALLBACK;
+  }
+  return clean;
 }
 
 function safeVideoSrc(url) {
@@ -166,7 +179,10 @@ export default function ProductPage({
         id: v.id || v._id || `${productId}-var-${idx}`,
         label: v.label || v.name || v.color || `Variant ${idx + 1}`,
         color: v.color || v.label || v.name || current.color || "Standard",
-        price: v.price !== undefined && v.price !== null ? Number(v.price) : Number(current.price) || 0,
+        price:
+          v.price !== undefined && v.price !== null
+            ? Number(v.price)
+            : Number(current.price) || 0,
         oldPrice:
           v.oldPrice !== undefined && v.oldPrice !== null
             ? Number(v.oldPrice)
@@ -182,6 +198,16 @@ export default function ProductPage({
   }, [current, productId]);
 
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+  const [activeInfoTab, setActiveInfoTab] = useState("description");
+  const [isMobileView, setIsMobileView] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768
+  );
+
+  useEffect(() => {
+    const onResize = () => setIsMobileView(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const activeVariant =
     variantList.length > 0
@@ -200,8 +226,6 @@ export default function ProductPage({
   const [quantity, setQuantity] = useState(1);
   const [showVideo, setShowVideo] = useState(false);
   const [selectedColorwayId, setSelectedColorwayId] = useState(productId);
-  const [footerEmail, setFooterEmail] = useState("");
-  const [footerSubscribed, setFooterSubscribed] = useState(false);
 
   // Short Video Player State inside Product Page
   const [activeClipIndex, setActiveClipIndex] = useState(null);
@@ -243,9 +267,7 @@ export default function ProductPage({
           location: `${r.location || "India"} • Verified Buyer`
         }))
       );
-    } catch {
-      // Keep fallback reviews if offline
-    }
+    } catch {}
   }
 
   useEffect(() => {
@@ -269,6 +291,7 @@ export default function ProductPage({
     setReviewFormOpen(false);
     setEditingReviewId(null);
     setReviewDraft(createEmptyDraft(defaultSz));
+    setActiveInfoTab("description");
   }, [productId]);
 
   useEffect(() => {
@@ -292,7 +315,6 @@ export default function ProductPage({
     : safeVideoSrc(current?.videoUrl);
   const activeColorLabel = activeVariant ? activeVariant.color : current?.color || "";
 
-  // Build Product-Specific Short Video Clips (uploaded product video + reels + demo clips)
   const productShortClips = useMemo(() => {
     if (!current || !productReelsEnabled) return [];
     const posterImg = currentImage;
@@ -373,7 +395,6 @@ export default function ProductPage({
       .slice(0, 4);
   }, [products, current, productId]);
 
-  // Product Suggestions: 1) Similar / Suggested for You, 2) People Also Bought
   const { suggestedItems, alsoBoughtItems } = useMemo(() => {
     const list = (Array.isArray(products) ? products : []).filter((p) => {
       const id = p?.id || p?._id;
@@ -459,13 +480,6 @@ export default function ProductPage({
     if (el?.requestFullscreen) {
       el.requestFullscreen().catch(() => {});
     }
-  }
-
-  function handleFooterSubmit(e) {
-    e.preventDefault();
-    if (!footerEmail.trim()) return;
-    setFooterSubscribed(true);
-    setFooterEmail("");
   }
 
   function handleOpenNewReviewForm() {
@@ -573,7 +587,7 @@ export default function ProductPage({
       : null;
 
   return (
-    <div className="pdp-page">
+    <div className="pdp-page" style={{ paddingBottom: isMobileView ? "76px" : 0 }}>
       <div className="pdp-topbar">
         <button type="button" className="pdp-back-btn" onClick={onGoBack}>
           <ArrowLeft size={14} /> BACK TO COLLECTION
@@ -688,7 +702,6 @@ export default function ProductPage({
             )}
           </div>
 
-          {/* PRODUCT VARIANTS SELECTOR */}
           {variantList.length > 0 && (
             <div className="size-block" style={{ marginBottom: "14px" }}>
               <span className="size-label" style={{ marginBottom: "8px" }}>
@@ -718,7 +731,6 @@ export default function ProductPage({
             </div>
           )}
 
-          {/* IN-PRODUCT SHORT VIDEOS (GATED BY ADMIN REEL TOGGLE) */}
           {productReelsEnabled && productShortClips.length > 0 && (
             <div style={{ marginBottom: "16px" }}>
               <div
@@ -920,6 +932,10 @@ export default function ProductPage({
                       <img
                         src={safeImgSrc(opt.image)}
                         alt={opt.color || opt.name}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                        }}
                       />
                     </button>
                   );
@@ -984,27 +1000,121 @@ export default function ProductPage({
             </button>
           </div>
 
-          {current.description && (
-            <p
-              className="pdp-desc"
-              style={{ marginTop: "18px", marginBottom: 0 }}
-            >
-              {current.description}
-            </p>
-          )}
-
-          {current.highlights?.length > 0 && (
-            <ul
-              className="pdp-highlights"
-              style={{ marginTop: "14px", marginBottom: 0 }}
-            >
-              {current.highlights.map((item, idx) => (
-                <li key={idx}>
-                  <Check size={14} /> {item}
-                </li>
+          {/* PAYMENT & TRUST STRIP */}
+          <div
+            style={{
+              marginTop: "14px",
+              padding: "10px 12px",
+              borderRadius: "10px",
+              background: "var(--surface, #f2f1eb)",
+              border: "1px solid var(--line, rgba(0,0,0,0.08))",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "8px",
+              fontSize: "11px"
+            }}
+          >
+            <span style={{ fontWeight: 600, color: "var(--ink)" }}>
+              Partial COD • Ships in 24–48 hrs • 7-Day Swap
+            </span>
+            <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+              {["UPI", "RuPay", "VISA", "Mastercard", "Razorpay"].map((badge) => (
+                <span
+                  key={badge}
+                  style={{
+                    padding: "2px 7px",
+                    borderRadius: "4px",
+                    background: "#FFFFFF",
+                    border: "1px solid rgba(0,0,0,0.1)",
+                    fontSize: "9.5px",
+                    fontWeight: 700,
+                    letterSpacing: "0.04em"
+                  }}
+                >
+                  {badge}
+                </span>
               ))}
-            </ul>
-          )}
+            </div>
+          </div>
+
+          {/* TABBED PRODUCT DETAILS */}
+          <div style={{ marginTop: "20px" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "16px",
+                borderBottom: "1px solid var(--line, rgba(0,0,0,0.12))",
+                marginBottom: "12px"
+              }}
+            >
+              {[
+                { key: "description", label: "Description" },
+                { key: "features", label: "Key Features" },
+                { key: "shipping", label: "Shipping & Returns" }
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveInfoTab(tab.key)}
+                  style={{
+                    background: "none",
+                    border: 0,
+                    borderBottom:
+                      activeInfoTab === tab.key
+                        ? "2px solid var(--ink, #1e211d)"
+                        : "2px solid transparent",
+                    padding: "8px 0",
+                    fontSize: "12px",
+                    fontWeight: activeInfoTab === tab.key ? 700 : 500,
+                    color: activeInfoTab === tab.key ? "var(--ink)" : "var(--muted)",
+                    cursor: "pointer"
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeInfoTab === "description" && (
+              <p className="pdp-desc" style={{ margin: 0 }}>
+                {current.description ||
+                  "Engineered for everyday comfort with lightweight cushioning and durable grip."}
+              </p>
+            )}
+
+            {activeInfoTab === "features" && (
+              <ul className="pdp-highlights" style={{ margin: 0 }}>
+                {(current.highlights?.length
+                  ? current.highlights
+                  : [
+                      "Dual-density memory footbed",
+                      "Lightweight all-day construction",
+                      "Anti-slip everyday outsole"
+                    ]
+                ).map((item, idx) => (
+                  <li key={idx}>
+                    <Check size={14} /> {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {activeInfoTab === "shipping" && (
+              <div style={{ fontSize: "12.5px", lineHeight: 1.7, color: "var(--muted)" }}>
+                <p style={{ margin: "0 0 6px" }}>
+                  <strong>Dispatch:</strong>{" "}
+                  {current.dispatchNotice || "Orders processed within 1–2 business days."}
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong>Returns & Exchange:</strong>{" "}
+                  {current.returnDetails ||
+                    "7-day easy UK size exchange on unworn pairs in original packaging."}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1076,7 +1186,7 @@ export default function ProductPage({
         </section>
       )}
 
-      {/* FULL-SCREEN VERTICAL SHORT VIDEO MODAL (SHOPPABLE REEL PLAYER) */}
+      {/* FULL-SCREEN VERTICAL SHORT VIDEO MODAL */}
       {activeClip && (
         <div
           className="modal-backdrop"
@@ -1388,7 +1498,7 @@ export default function ProductPage({
         </div>
       )}
 
-      {/* CUSTOMER REVIEWS SECTION (BACKEND SYNCED + ADMIN ADD / EDIT / DELETE) */}
+      {/* CUSTOMER REVIEWS SECTION */}
       <section className="calzare-reviews-section" id="product-reviews">
         <div className="calzare-reviews-header">
           <div className="calzare-rating-pill">
@@ -1681,166 +1791,54 @@ export default function ProductPage({
         </section>
       )}
 
-      <footer className="site-footer-dark">
-        <div className="footer-grid-4">
-          <div>
-            <p className="footer-brand-blurb">
-              {homepage?.footer?.tagline ||
-                "We design and make every pair ourselves, then ship it straight to you."}
-            </p>
-            <p className="footer-connect-title">Connect with us</p>
-            <a href="mailto:support@calzare.in" className="footer-contact-link">
-              support@calzare.in
-            </a>
-            <a href="tel:+919876543210" className="footer-contact-link">
-              +91 98765 43210
-            </a>
-            <p className="footer-hours">
-              {homepage?.footer?.hours || "Monday to Friday, 10:00 AM to 6:00 PM."}
-            </p>
-            <div className="footer-social-row">
-              <button
-                type="button"
-                className="footer-social-btn"
-                onClick={onGoBack}
-              >
-                IG
-              </button>
-              <a
-                href="mailto:support@calzare.in"
-                className="footer-social-btn"
-              >
-                ✉
-              </a>
-            </div>
-          </div>
+      {/* STICKY MOBILE ADD-TO-CART BAR */}
+      {isMobileView && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 80,
+            background: "#FFFFFF",
+            borderTop: "1px solid rgba(0,0,0,0.12)",
+            padding: "10px 14px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            boxShadow: "0 -6px 20px rgba(0,0,0,0.08)"
+          }}
+        >
+          <select
+            aria-label="Select size"
+            value={selectedSize}
+            onChange={(e) => setSelectedSize(e.target.value)}
+            style={{
+              padding: "10px 8px",
+              borderRadius: "8px",
+              border: "1px solid rgba(0,0,0,0.2)",
+              background: "#F8FAFC",
+              fontSize: "12px",
+              fontWeight: 700
+            }}
+          >
+            {sizes.map((sz) => (
+              <option key={sz} value={sz}>
+                {sz}
+              </option>
+            ))}
+          </select>
 
-          <div>
-            <h4 className="footer-col-heading">Main Menu</h4>
-            <ul className="footer-col-list">
-              <li>
-                <button
-                  type="button"
-                  onClick={onGoBack}
-                  style={{
-                    background: "none",
-                    border: 0,
-                    padding: 0,
-                    color: "inherit",
-                    cursor: "pointer"
-                  }}
-                >
-                  Home
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={onGoBack}
-                  style={{
-                    background: "none",
-                    border: 0,
-                    padding: 0,
-                    color: "inherit",
-                    cursor: "pointer"
-                  }}
-                >
-                  Shop
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={onGoBack}
-                  style={{
-                    background: "none",
-                    border: 0,
-                    padding: 0,
-                    color: "inherit",
-                    cursor: "pointer"
-                  }}
-                >
-                  About Us
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="footer-col-heading">Useful Links</h4>
-            <ul className="footer-col-list">
-              <li>
-                <button
-                  type="button"
-                  onClick={onGoBack}
-                  style={{
-                    background: "none",
-                    border: 0,
-                    padding: 0,
-                    color: "inherit",
-                    cursor: "pointer"
-                  }}
-                >
-                  Shipping & Exchange
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={onGoBack}
-                  style={{
-                    background: "none",
-                    border: 0,
-                    padding: 0,
-                    color: "inherit",
-                    cursor: "pointer"
-                  }}
-                >
-                  Privacy Policy
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="footer-col-heading">Join the Calzare team</h4>
-            <p className="footer-newsletter-copy">
-              Sign up for early access to drops and free shipping updates on new
-              collections.
-            </p>
-            <form className="footer-newsletter-form" onSubmit={handleFooterSubmit}>
-              <input
-                type="email"
-                required
-                value={footerEmail}
-                onChange={(e) => setFooterEmail(e.target.value)}
-                placeholder="Enter your email..."
-                className="footer-newsletter-input"
-              />
-              <button type="submit" className="footer-newsletter-submit">
-                {footerSubscribed ? "Joined" : "Sign Up"}
-              </button>
-            </form>
-            <p className="footer-privacy-note">
-              By entering the e-mail you accept the privacy policy.
-            </p>
-          </div>
+          <button
+            type="button"
+            className="primary-cta-btn"
+            onClick={handleAddSelection}
+            style={{ flex: 1, margin: 0, padding: "12px 14px", borderRadius: "999px" }}
+          >
+            ADD TO CART — {formatPrice(priceNum * quantity)}
+          </button>
         </div>
-
-        <div className="footer-watermark-wordmark" aria-hidden="true">
-          Calzare
-        </div>
-
-        <div className="footer-bottom-bar">
-          <span>
-            {homepage?.footer?.copyright ||
-              "© 2026 Calzare. All rights reserved."}
-          </span>
-          <div className="footer-payment-badges">
-            <span className="footer-pay-pill">razorpay</span>
-          </div>
-        </div>
-      </footer>
+      )}
     </div>
   );
 }
