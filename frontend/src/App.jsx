@@ -1339,10 +1339,11 @@ function App() {
   const [checkoutForm, setCheckoutForm] = useState({
     name: "",
     phone: "",
+    email: "",
     address: "",
     city: "",
     pincode: "",
-    paymentMethod: "Partial COD (₹299 Advance)"
+    paymentMethod: "Razorpay Magic Checkout"
   });
 
   const [couponInput, setCouponInput] = useState("");
@@ -1357,6 +1358,16 @@ function App() {
     const timer = setTimeout(() => setNotice(""), 3500);
     return () => clearTimeout(timer);
   }, [notice]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    setCheckoutForm((prev) => ({
+      ...prev,
+      name: prev.name || currentUser.name || "",
+      phone: prev.phone || currentUser.phone || "",
+      email: prev.email || currentUser.email || ""
+    }));
+  }, [currentUser]);
 
   const canManageReviews = Boolean(
     currentUser?.role === "admin" || sessionStorage.getItem("calzare_admin_token")
@@ -1865,7 +1876,8 @@ function App() {
       setCheckoutForm((prev) => ({
         ...prev,
         name: prev.name || data.user.name || "",
-        phone: prev.phone || data.user.phone || ""
+        phone: prev.phone || data.user.phone || "",
+        email: prev.email || data.user.email || ""
       }));
       setAuthForm({ name: "", email: "", phone: "", password: "" });
       setAuthOpen(false);
@@ -1912,8 +1924,24 @@ function App() {
 
   async function handlePlaceOrder(event) {
     event.preventDefault();
+
+    if (!cart.length) {
+      setNotice("Your bag is empty.");
+      return;
+    }
+
+    const customerData = {
+      name: (checkoutForm.name || currentUser?.name || "").trim(),
+      phone: (checkoutForm.phone || currentUser?.phone || "").trim(),
+      email: (checkoutForm.email || currentUser?.email || "").trim(),
+      address: (checkoutForm.address || "").trim(),
+      city: (checkoutForm.city || "").trim(),
+      pincode: (checkoutForm.pincode || "").trim(),
+      paymentMethod: checkoutForm.paymentMethod
+    };
+
     const orderPayload = {
-      customer: checkoutForm,
+      customer: customerData,
       items: cart.map(({ id, name, size, price, quantity }) => ({
         id,
         name,
@@ -1926,10 +1954,10 @@ function App() {
       couponCode: appliedCoupon?.code || null,
       couponDiscount,
       total: cartFinalTotal,
-      paymentMethod: checkoutForm.paymentMethod
+      paymentMethod: customerData.paymentMethod
     };
 
-    if (checkoutForm.paymentMethod === "Cash on Delivery") {
+    if (customerData.paymentMethod === "Cash on Delivery") {
       try {
         const res = await fetch(`${API}/orders`, {
           method: "POST",
@@ -1949,7 +1977,7 @@ function App() {
       return;
     }
 
-    const chargeAmount = checkoutForm.paymentMethod.includes("Partial COD")
+    const chargeAmount = customerData.paymentMethod.includes("Partial COD")
       ? 299
       : cartFinalTotal;
 
@@ -1962,54 +1990,123 @@ function App() {
       const createRes = await fetch(`${API}/payments/razorpay/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountInPaise: Math.round(chargeAmount * 100) })
+        body: JSON.stringify({
+          amountInPaise: Math.round(chargeAmount * 100),
+          currency: "INR",
+          magicCheckout: true,
+          customer: customerData,
+          items: orderPayload.items,
+          totalAmount: cartFinalTotal,
+          couponCode: appliedCoupon?.code || null
+        })
       });
       const rzpData = await createRes.json();
       if (!createRes.ok) {
         throw new Error(rzpData.message || "Razorpay initialization failed");
       }
 
-      const options = {
-        key: rzpData.keyId,
-        amount: rzpData.amount,
-        currency: rzpData.currency,
-        name: `${storeSettings.storeName || "CALZARE"}®`,
-        description: checkoutForm.paymentMethod,
-        order_id: rzpData.order_id,
-        prefill: {
-          name: checkoutForm.name,
-          contact: checkoutForm.phone
-        },
-        theme: { color: "#252a22" },
-        modal: {
-          ondismiss: () => setNotice("Payment cancelled. No charge was made.")
-        },
-        handler: async function (response) {
-          try {
-            const verifyRes = await fetch(`${API}/payments/razorpay/verify`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                orderPayload
-              })
-            });
-            const verified = await verifyRes.json();
-            if (!verifyRes.ok) {
-              throw new Error(verified.message || "Payment verification failed.");
-            }
-            recordLocalOrder(verified.order);
-            setOrderConfirmed(verified.order);
-            setCart([]);
-            setAppliedCoupon(null);
-            setCouponInput("");
-          } catch (err) {
-            setNotice(err.message || "Payment verification failed.");
-          }
-        }
+      const rawPhone = String(customerData.phone || "").replace(/\D/g, "");
+      const normalizedContact =
+        rawPhone.length === 10
+          ? `+91${rawPhone}`
+          : rawPhone.length > 10
+          ? `+${rawPhone}`
+          : "";
+
+const cleanOrderPayload = {
+  customer: customerData,
+  items: orderPayload.items,
+  subtotal: orderPayload.subtotal,
+  discount: orderPayload.discount,
+  couponCode: orderPayload.couponCode || null,
+  couponDiscount: orderPayload.couponDiscount || 0,
+  total: orderPayload.total,
+  paymentMethod: customerData.paymentMethod
+};
+
+const options = {
+  key: rzpData.keyId,
+  amount: rzpData.amount,
+  currency: rzpData.currency || "INR",
+  name: `${storeSettings.storeName || "CALZARE"}®`,
+  description: customerData.paymentMethod,
+  order_id: rzpData.order_id,
+  one_click_checkout: true,
+  show_coupons: true,
+  prefill: {
+    name: customerData.name,
+    email: customerData.email,
+    contact: normalizedContact,
+    ...(appliedCoupon?.code ? { coupon_code: appliedCoupon.code } : {})
+  },
+  notes: {
+    items_count: String(cartCount),
+    payment_mode: customerData.paymentMethod,
+    coupon_code: appliedCoupon?.code || ""
+  },
+  theme: { color: homepage.theme?.accentColor || "#252a22" },
+  modal: {
+    ondismiss: () => setNotice("Payment cancelled. No charge was made.")
+  },
+  handler: async function (response) {
+    try {
+      const magicAddress =
+        response?.shipping_address ||
+        response?.address ||
+        response?.customer_details?.address ||
+        null;
+
+      const mergedCustomer = {
+        name:
+          response?.customer_details?.name ||
+          magicAddress?.name ||
+          customerData.name,
+        phone:
+          response?.customer_details?.contact ||
+          magicAddress?.contact ||
+          customerData.phone,
+        email: response?.customer_details?.email || customerData.email || "",
+        address:
+          magicAddress?.line1 ||
+          magicAddress?.street ||
+          magicAddress?.address ||
+          customerData.address,
+        city: magicAddress?.city || customerData.city,
+        pincode:
+          magicAddress?.zipcode || magicAddress?.pincode || customerData.pincode
       };
+
+      const verifyRes = await fetch(`${API}/payments/razorpay/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          magic_checkout_data: response,
+          orderPayload: {
+            ...cleanOrderPayload,
+            customer: mergedCustomer
+          }
+        })
+      });
+
+      const verified = await verifyRes.json();
+      if (!verifyRes.ok) {
+        throw new Error(verified.message || "Payment verification failed.");
+      }
+
+      recordLocalOrder(verified.order);
+      setOrderConfirmed(verified.order);
+      setCheckoutOpen(false);
+      setCart([]);
+      setAppliedCoupon(null);
+      setCouponInput("");
+    } catch (err) {
+      setNotice(err.message || "Payment verification failed.");
+    }
+  }
+};
 
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", (response) => {
@@ -2941,7 +3038,7 @@ function App() {
                     <RefreshCw size={13} /> 7-Day Exchange
                   </span>
                   <span>
-                    <ShieldCheck size={13} /> Partial COD
+                    <ShieldCheck size={13} /> Magic Checkout
                   </span>
                 </div>
 
@@ -3034,8 +3131,11 @@ function App() {
               </div>
             ) : (
               <form className="checkout-form" onSubmit={handlePlaceOrder}>
-                <p className="eyebrow">EXPRESS CHECKOUT</p>
-                <h3>Delivery Details</h3>
+                <p className="eyebrow">RAZORPAY MAGIC CHECKOUT</p>
+                <h3>Quick Contact & Checkout</h3>
+                <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: 0 }}>
+                  Saved delivery addresses and payment methods will auto-fill inside Magic Checkout.
+                </p>
                 <input
                   required
                   placeholder="Full Name"
@@ -3044,26 +3144,29 @@ function App() {
                 />
                 <input
                   required
-                  placeholder="Mobile Number (for doorstep updates)"
+                  placeholder="Mobile Number (10-digit Indian number)"
                   value={checkoutForm.phone}
                   onChange={(e) => setCheckoutForm({ ...checkoutForm, phone: e.target.value })}
                 />
                 <input
-                  required
-                  placeholder="Street Address / Apartment"
+                  type="email"
+                  placeholder="Email Address (optional)"
+                  value={checkoutForm.email}
+                  onChange={(e) => setCheckoutForm({ ...checkoutForm, email: e.target.value })}
+                />
+                <input
+                  placeholder="Street Address / Apartment (optional if using saved address)"
                   value={checkoutForm.address}
                   onChange={(e) => setCheckoutForm({ ...checkoutForm, address: e.target.value })}
                 />
                 <div className="checkout-row">
                   <input
-                    required
-                    placeholder="City"
+                    placeholder="City (optional)"
                     value={checkoutForm.city}
                     onChange={(e) => setCheckoutForm({ ...checkoutForm, city: e.target.value })}
                   />
                   <input
-                    required
-                    placeholder="PIN Code"
+                    placeholder="PIN Code (optional)"
                     value={checkoutForm.pincode}
                     onChange={(e) => setCheckoutForm({ ...checkoutForm, pincode: e.target.value })}
                   />
@@ -3074,6 +3177,7 @@ function App() {
                     setCheckoutForm({ ...checkoutForm, paymentMethod: e.target.value })
                   }
                 >
+                  <option>Razorpay Magic Checkout</option>
                   <option>Partial COD (₹299 Advance)</option>
                   <option>UPI / Cards / NetBanking</option>
                   <option>Cash on Delivery</option>
@@ -3104,7 +3208,11 @@ function App() {
                 )}
 
                 <button type="submit" className="primary-cta-btn">
-                  PLACE ORDER — {money(cartFinalTotal)} <ArrowUpRight size={16} />
+                  CONTINUE TO MAGIC CHECKOUT —{" "}
+                  {money(
+                    checkoutForm.paymentMethod.includes("Partial COD") ? 299 : cartFinalTotal
+                  )}{" "}
+                  <ArrowUpRight size={16} />
                 </button>
               </form>
             )}
