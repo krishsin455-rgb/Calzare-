@@ -37,6 +37,7 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
 const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
 const CATEGORIES_STORAGE_KEY = "calzare_custom_categories";
 const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
+const PAGE_STYLES_STORAGE_KEY = "calzare_page_styles_v1";
 const POLICIES_STORAGE_KEY = "calzare_store_policies_v1";
 
 const DEFAULT_PAYMENT_METHODS = [
@@ -93,6 +94,47 @@ const STOREFRONT_PAGES = [
 ];
 
 const ALL_COLLECTIONS = ["men", "women", "unisex", "kids"];
+
+const DEFAULT_SINGLE_PAGE_STYLE = {
+  bannerHeightPx: 380,
+  cardImageHeightPx: 280,
+  imageFit: "cover",
+  imagePosX: 50,
+  imagePosY: 50,
+  imageZoom: 1,
+  pageBgColor: "#F7F6F2",
+  surfaceColor: "#F2F1EB",
+  textColor: "#1E211D",
+  accentColor: "#252A22"
+};
+
+function buildDefaultPageStyles() {
+  return Object.fromEntries(
+    STOREFRONT_PAGES.map(({ key }) => [key, { ...DEFAULT_SINGLE_PAGE_STYLE }])
+  );
+}
+
+function readLocalPageStyles() {
+  const defaults = buildDefaultPageStyles();
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PAGE_STYLES_STORAGE_KEY) || "null");
+    if (parsed && typeof parsed === "object") {
+      return Object.fromEntries(
+        STOREFRONT_PAGES.map(({ key }) => [
+          key,
+          { ...defaults[key], ...(parsed[key] || {}) }
+        ])
+      );
+    }
+  } catch (_) {}
+  return defaults;
+}
+
+function writeLocalPageStyles(stylesObj) {
+  try {
+    localStorage.setItem(PAGE_STYLES_STORAGE_KEY, JSON.stringify(stylesObj));
+  } catch (_) {}
+}
 
 const FALLBACK_IMG =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
@@ -285,6 +327,16 @@ const DEFAULT_HOMEPAGE_CMS = {
     "Thoughtful footwear. Quiet confidence. Made for wherever the day takes you.",
   heroImage: "",
   heroVideoUrl: "",
+  productPage: {
+    homeIconSizePx: 16,
+    galleryMaxHeightPx: 560,
+    offer1Badge: "10% OFF",
+    offer1Text: "Buy 2 Pairs",
+    offer2Badge: "15% OFF",
+    offer2Text: "Buy 3 Pairs",
+    standardTitle: "THE CALZARE STANDARD",
+    standardSubtitle: "Built with science. Tested with life."
+  },
   mobileUI: {
     navHeightPx: 58,
     logoSizePx: 17,
@@ -312,6 +364,7 @@ const DEFAULT_HOMEPAGE_CMS = {
   },
   affordableStore: {
     enabled: true,
+    sectionHeightPx: 480,
     title: "Your day\nfound its footing.",
     subtitle: "Everyday Calzare, everyday price.\nStarting ₹999",
     badgeLabel: "/999 Store",
@@ -330,6 +383,7 @@ const DEFAULT_HOMEPAGE_CMS = {
         subtitle: "Minimal architectural court silhouette built for long city days.",
         ctaLabel: "Buy Now",
         image: FALLBACK_IMG,
+        slideHeightPx: 460,
         imageFit: "cover",
         imagePosX: 50,
         imagePosY: 50,
@@ -848,7 +902,15 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
         return {
           ...DEFAULT_HOMEPAGE_CMS,
           ...saved,
+          productPage: {
+            ...DEFAULT_HOMEPAGE_CMS.productPage,
+            ...(saved.productPage || {})
+          },
           sections: sanitizeHomepageSections(saved.sections),
+          affordableStore: {
+            ...DEFAULT_HOMEPAGE_CMS.affordableStore,
+            ...(saved.affordableStore || {})
+          },
           editorialSlider: {
             ...DEFAULT_HOMEPAGE_CMS.editorialSlider,
             ...(saved.editorialSlider || {})
@@ -878,6 +940,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       partialCodAdvance: 299,
       categories: mergedCats,
       pageAssignments: readLocalPageAssignments(mergedCats),
+      pageStyles: readLocalPageStyles(),
       policies: readLocalPolicies(),
       collectionImages: { men: "", women: "", unisex: "", kids: "" },
       categoryImages: {},
@@ -993,6 +1056,11 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             ...DEFAULT_HOMEPAGE_CMS,
             ...p,
             ...data.homepage,
+            productPage: {
+              ...DEFAULT_HOMEPAGE_CMS.productPage,
+              ...(p.productPage || {}),
+              ...(data.homepage.productPage || {})
+            },
             sections: sanitizeHomepageSections(data.homepage.sections),
             featuredProduct: {
               ...DEFAULT_HOMEPAGE_CMS.featuredProduct,
@@ -1076,6 +1144,12 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             ...(data.settings.pageAssignments || {})
           };
           writeLocalPageAssignments(mergedAssignments);
+          const mergedPageStyles = {
+            ...readLocalPageStyles(),
+            ...(p.pageStyles || {}),
+            ...(data.settings.pageStyles || {})
+          };
+          writeLocalPageStyles(mergedPageStyles);
           const mergedPolicies =
             Array.isArray(data.settings.policies) && data.settings.policies.length
               ? data.settings.policies
@@ -1091,6 +1165,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             paymentMethods: mergedPaymentMethods,
             categories: mergedCats,
             pageAssignments: mergedAssignments,
+            pageStyles: mergedPageStyles,
             policies: mergedPolicies,
             collectionImages: {
               ...(p.collectionImages || {}),
@@ -1560,6 +1635,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     if (updated.pageAssignments && typeof updated.pageAssignments === "object") {
       writeLocalPageAssignments(updated.pageAssignments);
     }
+    if (updated.pageStyles && typeof updated.pageStyles === "object") {
+      writeLocalPageStyles(updated.pageStyles);
+    }
     if (Array.isArray(updated.policies)) {
       writeLocalPolicies(updated.policies);
     }
@@ -1614,6 +1692,11 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 typeof data.settings.pageAssignments === "object"
                   ? { ...updated.pageAssignments, ...data.settings.pageAssignments }
                   : updated.pageAssignments,
+              pageStyles:
+                data.settings.pageStyles &&
+                typeof data.settings.pageStyles === "object"
+                  ? { ...updated.pageStyles, ...data.settings.pageStyles }
+                  : updated.pageStyles,
               policies:
                 Array.isArray(data.settings.policies) && data.settings.policies.length
                   ? data.settings.policies
@@ -1624,6 +1707,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       writeLocalCategories(nextSettings.categories || []);
       if (nextSettings.pageAssignments) {
         writeLocalPageAssignments(nextSettings.pageAssignments);
+      }
+      if (nextSettings.pageStyles) {
+        writeLocalPageStyles(nextSettings.pageStyles);
       }
       if (nextSettings.policies) {
         writeLocalPolicies(nextSettings.policies);
@@ -1832,8 +1918,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       collections: [...ALL_COLLECTIONS],
       categories: [...availableCategories]
     };
-    const currentPageRule =
-      settings.pageAssignments?.[pageKey] || fallbackRule;
+    const currentPageRule = settings.pageAssignments?.[pageKey] || fallbackRule;
     const currentList = Array.isArray(currentPageRule[groupType])
       ? currentPageRule[groupType]
       : [];
@@ -1931,10 +2016,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     writeLocalPageAssignments(updatedAssignments);
     setSettings(updated);
 
-    await handleSaveSettings(
-      updated,
-      `Added category "${clean.toUpperCase()}".`
-    );
+    await handleSaveSettings(updated, `Added category "${clean.toUpperCase()}".`);
   }
 
   async function handleRenameCategory(oldCatKey, rawNewName) {
@@ -2054,10 +2136,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     writeLocalPageAssignments(updatedAssignments);
     setSettings(updated);
 
-    await handleSaveSettings(
-      updated,
-      `Removed category "${catKey.toUpperCase()}".`
-    );
+    await handleSaveSettings(updated, `Removed category "${catKey.toUpperCase()}".`);
   }
 
   const collectionsSummary = ALL_COLLECTIONS.map((col) => ({
@@ -2077,6 +2156,29 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     Array.isArray(settings.paymentMethods) && settings.paymentMethods.length
       ? settings.paymentMethods
       : DEFAULT_PAYMENT_METHODS;
+
+  const activePageStyle =
+    settings.pageStyles?.[selectedAssignPage] || DEFAULT_SINGLE_PAGE_STYLE;
+
+  const activePageImage = ALL_COLLECTIONS.includes(selectedAssignPage)
+    ? settings.collectionImages?.[selectedAssignPage] || ""
+    : selectedAssignPage === "home"
+    ? homepage.heroImage || ""
+    : settings.collectionImages?.unisex || "";
+
+  function updateSelectedPageStyle(patch) {
+    setSettings((prev) => {
+      const nextPageStyles = {
+        ...(prev.pageStyles || buildDefaultPageStyles()),
+        [selectedAssignPage]: {
+          ...(prev.pageStyles?.[selectedAssignPage] || DEFAULT_SINGLE_PAGE_STYLE),
+          ...patch
+        }
+      };
+      writeLocalPageStyles(nextPageStyles);
+      return { ...prev, pageStyles: nextPageStyles };
+    });
+  }
 
   return (
     <div
@@ -3522,7 +3624,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   <h1 style={pageTitle}>COLLECTIONS & CATEGORIES</h1>
                   <p style={pageSub}>
                     Add or remove which Collections and Categories appear on each
-                    storefront page, and manage global banners.
+                    storefront page, customize page images & colors, and manage banners.
                   </p>
                 </div>
                 <button
@@ -3816,6 +3918,191 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 </div>
               </div>
 
+              {/* PER-PAGE IMAGE SIZE & COLOR THEME */}
+              <div style={cardBox}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "10px",
+                    marginBottom: "14px"
+                  }}
+                >
+                  <div>
+                    <h3 style={{ ...sectionSubTitle, margin: 0 }}>
+                      {selectedAssignPage.toUpperCase()} PAGE — IMAGE SIZE & COLOR THEME
+                    </h3>
+                    <p style={pageSub}>
+                      Set image dimensions, crop/zoom, and custom page colors for{" "}
+                      <strong>{selectedAssignPage.toUpperCase()}</strong>.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveSettings(settings)}
+                    style={primaryBlueBtn}
+                  >
+                    <Check size={14} /> Save {selectedAssignPage.toUpperCase()} Style
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: "16px",
+                    marginBottom: "16px"
+                  }}
+                >
+                  <DropZoneField
+                    label={`${selectedAssignPage.toUpperCase()} Page Banner Image`}
+                    uploadKey={`pageStyleImg-${selectedAssignPage}`}
+                    uploadingKey={uploading}
+                    value={activePageImage}
+                    onUploadFile={uploadMedia}
+                    onChange={(url) => {
+                      if (ALL_COLLECTIONS.includes(selectedAssignPage)) {
+                        setSettings((prev) => ({
+                          ...prev,
+                          collectionImages: {
+                            ...(prev.collectionImages || {}),
+                            [selectedAssignPage]: url
+                          }
+                        }));
+                      } else if (selectedAssignPage === "home") {
+                        setHomepage((prev) => ({ ...prev, heroImage: url }));
+                      }
+                    }}
+                  />
+
+                  <div style={{ display: "grid", gap: "12px" }}>
+                    <div>
+                      <label style={fieldLabel}>
+                        Banner Height ({activePageStyle.bannerHeightPx ?? 380}px)
+                      </label>
+                      <input
+                        type="range"
+                        min={200}
+                        max={640}
+                        step={10}
+                        value={activePageStyle.bannerHeightPx ?? 380}
+                        onChange={(e) =>
+                          updateSelectedPageStyle({
+                            bannerHeightPx: Number(e.target.value)
+                          })
+                        }
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={fieldLabel}>
+                        Product Card Image Height (
+                        {activePageStyle.cardImageHeightPx ?? 280}px)
+                      </label>
+                      <input
+                        type="range"
+                        min={180}
+                        max={460}
+                        step={10}
+                        value={activePageStyle.cardImageHeightPx ?? 280}
+                        onChange={(e) =>
+                          updateSelectedPageStyle({
+                            cardImageHeightPx: Number(e.target.value)
+                          })
+                        }
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(2, minmax(110px, 1fr))",
+                        gap: "10px"
+                      }}
+                    >
+                      <div>
+                        <label style={fieldLabel}>Page Background</label>
+                        <input
+                          type="color"
+                          value={activePageStyle.pageBgColor || "#F7F6F2"}
+                          onChange={(e) =>
+                            updateSelectedPageStyle({ pageBgColor: e.target.value })
+                          }
+                          style={{
+                            width: "100%",
+                            height: "36px",
+                            border: "1px solid #CBD5E1",
+                            borderRadius: "8px"
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={fieldLabel}>Card / Surface Color</label>
+                        <input
+                          type="color"
+                          value={activePageStyle.surfaceColor || "#F2F1EB"}
+                          onChange={(e) =>
+                            updateSelectedPageStyle({ surfaceColor: e.target.value })
+                          }
+                          style={{
+                            width: "100%",
+                            height: "36px",
+                            border: "1px solid #CBD5E1",
+                            borderRadius: "8px"
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={fieldLabel}>Text Color</label>
+                        <input
+                          type="color"
+                          value={activePageStyle.textColor || "#1E211D"}
+                          onChange={(e) =>
+                            updateSelectedPageStyle({ textColor: e.target.value })
+                          }
+                          style={{
+                            width: "100%",
+                            height: "36px",
+                            border: "1px solid #CBD5E1",
+                            borderRadius: "8px"
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={fieldLabel}>Accent Color</label>
+                        <input
+                          type="color"
+                          value={activePageStyle.accentColor || "#252A22"}
+                          onChange={(e) =>
+                            updateSelectedPageStyle({ accentColor: e.target.value })
+                          }
+                          style={{
+                            width: "100%",
+                            height: "36px",
+                            border: "1px solid #CBD5E1",
+                            borderRadius: "8px"
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <ImageFitControls
+                  image={activePageImage}
+                  fit={activePageStyle.imageFit}
+                  posX={activePageStyle.imagePosX}
+                  posY={activePageStyle.imagePosY}
+                  zoom={activePageStyle.imageZoom}
+                  aspect="16 / 9"
+                  onChange={(patch) => updateSelectedPageStyle(patch)}
+                />
+              </div>
+
               <div
                 style={{
                   display: "grid",
@@ -3826,47 +4113,101 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div style={cardBox}>
                   <h3 style={sectionSubTitle}>AUDIENCE COLLECTIONS & BANNERS</h3>
                   <div style={{ display: "grid", gap: "14px" }}>
-                    {collectionsSummary.map((c) => (
-                      <div
-                        key={c.key}
-                        style={{
-                          padding: "12px",
-                          border: "1px solid #E2E8F0",
-                          borderRadius: "10px",
-                          display: "grid",
-                          gap: "8px"
-                        }}
-                      >
+                    {collectionsSummary.map((c) => {
+                      const colStyle =
+                        settings.pageStyles?.[c.key] || DEFAULT_SINGLE_PAGE_STYLE;
+                      return (
                         <div
+                          key={c.key}
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center"
+                            padding: "12px",
+                            border: "1px solid #E2E8F0",
+                            borderRadius: "10px",
+                            display: "grid",
+                            gap: "8px"
                           }}
                         >
-                          <strong>{c.name}</strong>
-                          <span style={{ color: "#64748B", fontSize: "12.5px" }}>
-                            {c.count} {c.count === 1 ? "style" : "styles"}
-                          </span>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center"
+                            }}
+                          >
+                            <strong>{c.name}</strong>
+                            <span style={{ color: "#64748B", fontSize: "12.5px" }}>
+                              {c.count} {c.count === 1 ? "style" : "styles"}
+                            </span>
+                          </div>
+                          <DropZoneField
+                            label={`${c.name} Hero / Card Image`}
+                            uploadKey={`colImg-${c.key}`}
+                            uploadingKey={uploading}
+                            value={settings.collectionImages?.[c.key] || ""}
+                            onUploadFile={uploadMedia}
+                            onChange={(url) =>
+                              setSettings((prev) => ({
+                                ...prev,
+                                collectionImages: {
+                                  ...(prev.collectionImages || {}),
+                                  [c.key]: url
+                                }
+                              }))
+                            }
+                          />
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: "repeat(2, minmax(110px, 1fr))",
+                              gap: "8px"
+                            }}
+                          >
+                            <div>
+                              <label style={fieldLabel}>Page BG</label>
+                              <input
+                                type="color"
+                                value={colStyle.pageBgColor || "#F7F6F2"}
+                                onChange={(e) => {
+                                  const nextStyles = {
+                                    ...(settings.pageStyles || buildDefaultPageStyles()),
+                                    [c.key]: { ...colStyle, pageBgColor: e.target.value }
+                                  };
+                                  writeLocalPageStyles(nextStyles);
+                                  setSettings((prev) => ({ ...prev, pageStyles: nextStyles }));
+                                }}
+                                style={{
+                                  width: "100%",
+                                  height: "32px",
+                                  border: "1px solid #CBD5E1",
+                                  borderRadius: "6px"
+                                }}
+                              />
+                            </div>
+                            <div>
+                              <label style={fieldLabel}>Accent</label>
+                              <input
+                                type="color"
+                                value={colStyle.accentColor || "#252A22"}
+                                onChange={(e) => {
+                                  const nextStyles = {
+                                    ...(settings.pageStyles || buildDefaultPageStyles()),
+                                    [c.key]: { ...colStyle, accentColor: e.target.value }
+                                  };
+                                  writeLocalPageStyles(nextStyles);
+                                  setSettings((prev) => ({ ...prev, pageStyles: nextStyles }));
+                                }}
+                                style={{
+                                  width: "100%",
+                                  height: "32px",
+                                  border: "1px solid #CBD5E1",
+                                  borderRadius: "6px"
+                                }}
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <DropZoneField
-                          label={`${c.name} Hero / Card Image`}
-                          uploadKey={`colImg-${c.key}`}
-                          uploadingKey={uploading}
-                          value={settings.collectionImages?.[c.key] || ""}
-                          onUploadFile={uploadMedia}
-                          onChange={(url) =>
-                            setSettings((prev) => ({
-                              ...prev,
-                              collectionImages: {
-                                ...(prev.collectionImages || {}),
-                                [c.key]: url
-                              }
-                            }))
-                          }
-                        />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -4365,6 +4706,84 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     }
                     style={ctrlInput}
                   />
+                </div>
+              </div>
+
+              <div style={cardBox}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "8px",
+                    marginBottom: "12px"
+                  }}
+                >
+                  <h3 style={{ ...sectionSubTitle, margin: 0 }}>
+                    HOME ICON & PRODUCT PAGE IMAGE SIZE
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveHomepage(homepage)}
+                    style={primaryBlueBtn}
+                  >
+                    <Check size={14} /> Save Sizes
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "12px"
+                  }}
+                >
+                  <div>
+                    <label style={fieldLabel}>
+                      Home Icon Size ({homepage.productPage?.homeIconSizePx ?? 16}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={12}
+                      max={24}
+                      value={homepage.productPage?.homeIconSizePx ?? 16}
+                      onChange={(e) =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          productPage: {
+                            ...(prev.productPage || {}),
+                            homeIconSizePx: Number(e.target.value)
+                          }
+                        }))
+                      }
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={fieldLabel}>
+                      Product Image Stage Height (
+                      {homepage.productPage?.galleryMaxHeightPx ?? 560}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={380}
+                      max={720}
+                      step={10}
+                      value={homepage.productPage?.galleryMaxHeightPx ?? 560}
+                      onChange={(e) =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          productPage: {
+                            ...(prev.productPage || {}),
+                            galleryMaxHeightPx: Number(e.target.value)
+                          }
+                        }))
+                      }
+                      style={{ width: "100%" }}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -5410,7 +5829,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>₹999 STORE SLIDER MANAGER</h1>
                   <p style={pageSub}>
-                    Manage the /999 Store promo card and upload or replace dedicated slide photos.
+                    Manage the /999 Store promo card, section height, and individual slide
+                    heights & photos.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -5426,6 +5846,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                             {
                               id: `u999-${Date.now().toString().slice(-4)}`,
                               image: "",
+                              slideHeightPx: 260,
                               imageFit: "contain",
                               imagePosX: 50,
                               imagePosY: 50,
@@ -5452,7 +5873,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               </div>
 
               <div style={cardBox}>
-                <h3 style={sectionSubTitle}>BLUE PROMO CARD TEXT</h3>
+                <h3 style={sectionSubTitle}>BLUE PROMO CARD TEXT & SECTION HEIGHT</h3>
                 <div
                   style={{
                     display: "grid",
@@ -5528,11 +5949,33 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       style={ctrlInput}
                     />
                   </div>
+                  <div>
+                    <label style={fieldLabel}>
+                      Section Height ({homepage.affordableStore?.sectionHeightPx ?? 480}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={340}
+                      max={760}
+                      step={10}
+                      value={homepage.affordableStore?.sectionHeightPx ?? 480}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          affordableStore: {
+                            ...(homepage.affordableStore || {}),
+                            sectionHeightPx: Number(e.target.value)
+                          }
+                        })
+                      }
+                      style={{ width: "100%" }}
+                    />
+                  </div>
                 </div>
               </div>
 
               <div style={cardBox}>
-                <h3 style={sectionSubTitle}>SLIDE IMAGES & PRODUCT LINKS</h3>
+                <h3 style={sectionSubTitle}>SLIDE IMAGES, HEIGHTS & PRODUCT LINKS</h3>
                 {!(homepage.affordableStore?.customSlides || []).length ? (
                   <p style={pageSub}>
                     No ₹999 slides yet. Click <strong>+ Add ₹999 Slide</strong> above to upload
@@ -5584,7 +6027,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         <div
                           style={{
                             display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
                             gap: "10px"
                           }}
                         >
@@ -5633,6 +6076,34 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                                 }))
                               }
                               style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
+
+                          <div>
+                            <label style={fieldLabel}>
+                              Slide Height ({slide.slideHeightPx ?? 260}px)
+                            </label>
+                            <input
+                              type="range"
+                              min={160}
+                              max={520}
+                              step={10}
+                              value={slide.slideHeightPx ?? 260}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  affordableStore: {
+                                    ...(prev.affordableStore || {}),
+                                    customSlides: prev.affordableStore.customSlides.map(
+                                      (it, i) =>
+                                        i === sIdx
+                                          ? { ...it, slideHeightPx: Number(e.target.value) }
+                                          : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ width: "100%" }}
                             />
                           </div>
                         </div>
@@ -5699,7 +6170,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   <h1 style={pageTitle}>EDITORIAL SHOWCASE SLIDES (BELOW ₹999)</h1>
                   <p style={pageSub}>
                     Manage the full-width Sola World–style slider directly below the ₹999 Store
-                    section.
+                    section, including per-slide height.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -5718,6 +6189,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                               subtitle: "Engineered for everyday movement.",
                               ctaLabel: "Buy Now",
                               image: "",
+                              slideHeightPx: 460,
                               imageFit: "cover",
                               imagePosX: 50,
                               imagePosY: 50,
@@ -5922,6 +6394,32 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                                 }))
                               }
                               style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
+                          <div>
+                            <label style={fieldLabel}>
+                              Slide Height ({slide.slideHeightPx ?? 460}px)
+                            </label>
+                            <input
+                              type="range"
+                              min={260}
+                              max={820}
+                              step={10}
+                              value={slide.slideHeightPx ?? 460}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  editorialSlider: {
+                                    ...(prev.editorialSlider || {}),
+                                    slides: prev.editorialSlider.slides.map((it, i) =>
+                                      i === sIdx
+                                        ? { ...it, slideHeightPx: Number(e.target.value) }
+                                        : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ width: "100%" }}
                             />
                           </div>
                         </div>

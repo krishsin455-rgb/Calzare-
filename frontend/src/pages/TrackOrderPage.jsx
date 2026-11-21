@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
+  ExternalLink,
   MapPin,
   Package,
   Search,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
+const FSHIP_TRACK_URL = "https://fship.in/ordertracking";
 
 const STATUS_STEPS = [
   { key: "Confirmed", label: "Order Confirmed", desc: "Payment & order verified" },
@@ -19,9 +21,27 @@ const STATUS_STEPS = [
   { key: "Delivered", label: "Delivered", desc: "Handed over at doorstep" }
 ];
 
+function buildFshipRedirectUrl(order, fallbackOrderId, fallbackPhone) {
+  const directUrl = String(order?.trackingUrl || "").trim();
+  if (directUrl && /^https?:\/\//i.test(directUrl)) {
+    return directUrl;
+  }
+
+  const awb = String(order?.trackingNumber || order?.awb || "").trim();
+  const ordId = String(order?.orderId || order?.id || fallbackOrderId || "").trim();
+  const phone = String(order?.customer?.phone || order?.phone || fallbackPhone || "").trim();
+
+  const url = new URL(FSHIP_TRACK_URL);
+  if (awb) url.searchParams.set("awb", awb);
+  if (ordId) url.searchParams.set("orderId", ordId);
+  if (phone) url.searchParams.set("phone", phone);
+  return url.toString();
+}
+
 export default function TrackOrderPage({
   initialOrderId = "",
   initialPhone = "",
+  storeSettings = {},
   onGoHome,
   money
 }) {
@@ -31,13 +51,18 @@ export default function TrackOrderPage({
   const [error, setError] = useState("");
   const [matchedOrders, setMatchedOrders] = useState([]);
   const [searched, setSearched] = useState(false);
+  const [redirectNotice, setRedirectNotice] = useState("");
 
   const formatPrice =
     typeof money === "function"
       ? money
       : (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
 
-  async function lookupOrders(orderQuery = orderIdInput, phoneQuery = phoneInput) {
+  async function lookupOrders(
+    orderQuery = orderIdInput,
+    phoneQuery = phoneInput,
+    shouldRedirect = true
+  ) {
     const cleanId = String(orderQuery || "").trim().toUpperCase();
     const cleanPhone = String(phoneQuery || "").trim();
 
@@ -48,6 +73,7 @@ export default function TrackOrderPage({
 
     setLoading(true);
     setError("");
+    setRedirectNotice("");
     setSearched(true);
 
     let found = [];
@@ -102,18 +128,39 @@ export default function TrackOrderPage({
     });
 
     setMatchedOrders(filtered);
-    if (filtered.length === 0) {
+    setLoading(false);
+
+    if (shouldRedirect) {
+      const targetOrder = filtered[0] || null;
+      const trackCode = String(
+        targetOrder?.trackingNumber || targetOrder?.awb || cleanId || ""
+      ).trim();
+
+      if (trackCode && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(trackCode).catch(() => {});
+      }
+
+      const targetUrl = buildFshipRedirectUrl(targetOrder, cleanId, cleanPhone);
+      setRedirectNotice(
+        trackCode
+          ? `Copied "${trackCode}" and redirecting to FShip tracking...`
+          : "Redirecting to FShip order tracking..."
+      );
+
+      setTimeout(() => {
+        window.location.href = targetUrl;
+      }, 350);
+    } else if (filtered.length === 0) {
       setError(
-        "No matching order found. Double-check your Order ID (e.g. CLZ-1024) or mobile number."
+        "No matching order found locally. Entering an Order ID and Mobile Number will still redirect you to FShip tracking."
       );
     }
-    setLoading(false);
   }
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (initialOrderId || initialPhone) {
-      lookupOrders(initialOrderId, initialPhone);
+      lookupOrders(initialOrderId, initialPhone, false);
     }
   }, [initialOrderId, initialPhone]);
 
@@ -125,6 +172,11 @@ export default function TrackOrderPage({
     );
     return idx >= 0 ? idx : 0;
   }
+
+  const supportEmail =
+    storeSettings?.supportEmail ||
+    storeSettings?.contactItems?.find((c) => c.type === "Email")?.value ||
+    "Admin@calzareheels.com";
 
   return (
     <section
@@ -146,7 +198,7 @@ export default function TrackOrderPage({
           <ArrowLeft size={14} /> BACK TO STORE
         </button>
         <span className="eyebrow" style={{ margin: 0 }}>
-          CALZARE LOGISTICS
+          FSHIP LIVE TRACKING
         </span>
       </div>
 
@@ -163,15 +215,14 @@ export default function TrackOrderPage({
           Track your <em>order.</em>
         </h1>
         <p style={{ fontSize: "13px", color: "var(--muted)", margin: 0 }}>
-          Enter your Order ID or the mobile number used at checkout to check live
-          dispatch and delivery updates.
+          Enter your Order ID and Mobile Number to go directly to FShip order tracking.
         </p>
       </div>
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          lookupOrders();
+          lookupOrders(orderIdInput, phoneInput, true);
         }}
         style={{
           background: "var(--surface, #f2f1eb)",
@@ -247,9 +298,25 @@ export default function TrackOrderPage({
           className="primary-cta-btn"
           style={{ borderRadius: "8px", height: "44px" }}
         >
-          <Search size={15} /> {loading ? "CHECKING..." : "TRACK ORDER"}
+          <ExternalLink size={15} /> {loading ? "REDIRECTING..." : "TRACK ON FSHIP"}
         </button>
       </form>
+
+      {redirectNotice && (
+        <div
+          style={{
+            padding: "14px 16px",
+            borderRadius: "10px",
+            background: "#EFF6FF",
+            border: "1px solid #BFDBFE",
+            color: "#1E40AF",
+            fontSize: "13px",
+            marginBottom: "24px"
+          }}
+        >
+          {redirectNotice}
+        </div>
+      )}
 
       {error && (
         <div
@@ -271,6 +338,7 @@ export default function TrackOrderPage({
         const isCancelled =
           String(ord.status || "").toLowerCase() === "cancelled";
         const currentStep = getStepIndex(ord.status);
+        const fshipLink = buildFshipRedirectUrl(ord, ord.orderId, ord.customer?.phone);
 
         return (
           <div
@@ -339,6 +407,20 @@ export default function TrackOrderPage({
                 <div style={{ marginTop: "6px", fontWeight: 700, fontSize: "15px" }}>
                   {formatPrice(ord.total)}
                 </div>
+                <a
+                  href={fshipLink}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    marginTop: "6px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: "#2563EB"
+                  }}
+                >
+                  Track on FShip <ExternalLink size={12} />
+                </a>
               </div>
             </div>
 
@@ -407,47 +489,6 @@ export default function TrackOrderPage({
               >
                 This order was cancelled. If any prepaid amount was charged, it is
                 refunded within 5–7 business days.
-              </div>
-            )}
-
-            {(ord.trackingNumber || ord.trackingUrl || ord.courierName) && (
-              <div
-                style={{
-                  marginTop: "16px",
-                  padding: "12px 14px",
-                  borderRadius: "10px",
-                  background: "#EFF6FF",
-                  border: "1px solid #BFDBFE",
-                  display: "flex",
-                  flexWrap: "wrap",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: "10px",
-                  fontSize: "12.5px"
-                }}
-              >
-                <div>
-                  <strong>Courier:</strong> {ord.courierName || "Express Partner"}{" "}
-                  {ord.trackingNumber && (
-                    <>
-                      • <strong>AWB:</strong> {ord.trackingNumber}
-                    </>
-                  )}
-                </div>
-                {ord.trackingUrl && (
-                  <a
-                    href={ord.trackingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{
-                      color: "#1D4ED8",
-                      fontWeight: 700,
-                      textDecoration: "underline"
-                    }}
-                  >
-                    Open Courier Live Map →
-                  </a>
-                )}
               </div>
             )}
 
@@ -569,10 +610,10 @@ export default function TrackOrderPage({
           >
             <Truck size={18} />
             <strong style={{ display: "block", fontSize: "13px", marginTop: "8px" }}>
-              3–7 Day Delivery
+              FShip Live Tracking
             </strong>
             <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-              Live SMS & email tracking updates sent automatically once shipped.
+              Submits your Order ID and phone number straight to FShip's tracking portal.
             </span>
           </div>
           <div
@@ -588,7 +629,7 @@ export default function TrackOrderPage({
               Need Help?
             </strong>
             <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-              Reach us at Admin@calzareheels.com with your Order ID.
+              Reach us at {supportEmail} with your Order ID.
             </span>
           </div>
         </div>

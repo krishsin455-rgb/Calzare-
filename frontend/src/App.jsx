@@ -22,6 +22,7 @@ import {
 const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
 const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
 const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
+const PAGE_STYLES_STORAGE_KEY = "calzare_page_styles_v1";
 
 const SAFE_IMAGE_FALLBACK =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
@@ -54,6 +55,18 @@ function readLocalPageAssignments() {
   return DEFAULT_PAGE_ASSIGNMENTS;
 }
 
+function readLocalPageStyles() {
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(PAGE_STYLES_STORAGE_KEY) || "null"
+    );
+    if (parsed && typeof parsed === "object") {
+      return parsed;
+    }
+  } catch (_) {}
+  return {};
+}
+
 export function safeImg(url, fallback = SAFE_IMAGE_FALLBACK) {
   if (!url || typeof url !== "string" || !url.trim()) return fallback;
   const clean = url.trim();
@@ -83,7 +96,7 @@ function loadRazorpayScript() {
   return new Promise((resolve) => {
     if (window.Razorpay) return resolve(true);
     const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.src = "https://checkout.razorpay.com/v1/magic-checkout.js";
     script.onload = () => resolve(true);
     script.onerror = () => resolve(false);
     document.body.appendChild(script);
@@ -337,6 +350,7 @@ const DEFAULT_HOMEPAGE = {
   },
   affordableStore: {
     enabled: true,
+    sectionHeightPx: 480,
     badgeLabel: "/999 Store",
     title: "Your day\nfound its footing.",
     subtitle: "Everyday Calzare, everyday price.\nStarting ₹999",
@@ -357,6 +371,7 @@ const DEFAULT_SETTINGS = {
   freeShippingThreshold: 2999,
   categories: ["sneakers", "formal", "slides"],
   pageAssignments: DEFAULT_PAGE_ASSIGNMENTS,
+  pageStyles: readLocalPageStyles(),
   navigation: [
     { label: "HOME", url: "#home" },
     { label: "MEN", url: "#men" },
@@ -685,6 +700,7 @@ export function Under999StoreSection({
     !rawCta || rawCta.toUpperCase() === "EXPLORE DROP" ? "EXPLORE" : rawCta;
 
   const maxPrice = Number(config.maxPrice ?? 999);
+  const sectionHeightPx = Number(config.sectionHeightPx) || 480;
 
   const publishedProducts = (Array.isArray(products) ? products : []).filter(
     (p) => p && (p.status || "published") !== "draft"
@@ -704,6 +720,7 @@ export function Under999StoreSection({
         key: s.id || `custom-999-${i}`,
         alt: s.title || linkedProd?.name || `Calzare ₹${maxPrice} Slide ${i + 1}`,
         slideImage: safeImg(s.image.trim()),
+        slideHeightPx: Number(s.slideHeightPx) || 260,
         imageFit: s.imageFit || "contain",
         imagePosX: s.imagePosX ?? 50,
         imagePosY: s.imagePosY ?? 50,
@@ -763,7 +780,13 @@ export function Under999StoreSection({
   return (
     <section id="under-999-store" style={under999Styles.sectionBlock}>
       <div className="under999-split-wrap" style={under999Styles.splitRow}>
-        <div className="under999-blue-banner" style={under999Styles.bannerCard}>
+        <div
+          className="under999-blue-banner"
+          style={{
+            ...under999Styles.bannerCard,
+            minHeight: `${sectionHeightPx}px`
+          }}
+        >
           <div style={under999Styles.bannerTopRow}>
             <span style={under999Styles.badge}>{badgeLabel}</span>
           </div>
@@ -850,7 +873,12 @@ export function Under999StoreSection({
                   onClick={() => handleSlideClick(item)}
                   style={under999Styles.slideItem}
                 >
-                  <div style={under999Styles.featuredSlideImgWrap}>
+                  <div
+                    style={{
+                      ...under999Styles.featuredSlideImgWrap,
+                      height: `${item.slideHeightPx}px`
+                    }}
+                  >
                     <img
                       src={item.slideImage}
                       alt={item.alt}
@@ -1293,7 +1321,8 @@ function App() {
   const [homepage, setHomepage] = useState(DEFAULT_HOMEPAGE);
   const [storeSettings, setStoreSettings] = useState(() => ({
     ...DEFAULT_SETTINGS,
-    pageAssignments: readLocalPageAssignments()
+    pageAssignments: readLocalPageAssignments(),
+    pageStyles: readLocalPageStyles()
   }));
   const [category, setCategory] = useState("all");
   const [collection, setCollection] = useState(initialRoute.collection);
@@ -1505,6 +1534,10 @@ function App() {
       pageAssignments: {
         ...(prev.pageAssignments || DEFAULT_PAGE_ASSIGNMENTS),
         ...readLocalPageAssignments()
+      },
+      pageStyles: {
+        ...(prev.pageStyles || {}),
+        ...readLocalPageStyles()
       }
     }));
 
@@ -1572,6 +1605,14 @@ function App() {
                     ...readLocalPageAssignments()
                   }
                 : prev.pageAssignments || readLocalPageAssignments(),
+            pageStyles:
+              incoming.pageStyles && typeof incoming.pageStyles === "object"
+                ? {
+                    ...(prev.pageStyles || {}),
+                    ...incoming.pageStyles,
+                    ...readLocalPageStyles()
+                  }
+                : prev.pageStyles || readLocalPageStyles(),
             navigation: incoming.navigation?.length ? incoming.navigation : prev.navigation,
             storySections: incoming.storySections?.length
               ? incoming.storySections
@@ -1589,17 +1630,21 @@ function App() {
       if (
         e.key === "calzare_store_sync" ||
         e.key === HOMEPAGE_STORAGE_KEY ||
-        e.key === PAGE_ASSIGNMENTS_STORAGE_KEY
+        e.key === PAGE_ASSIGNMENTS_STORAGE_KEY ||
+        e.key === PAGE_STYLES_STORAGE_KEY
       ) {
         refreshStore();
       }
     };
+    const onStoreUpdatedEvent = () => refreshStore();
     const onFocus = () => refreshStore();
 
     window.addEventListener("storage", onStorage);
+    window.addEventListener("calzare_store_updated", onStoreUpdatedEvent);
     window.addEventListener("focus", onFocus);
     return () => {
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener("calzare_store_updated", onStoreUpdatedEvent);
       window.removeEventListener("focus", onFocus);
     };
   }, []);
@@ -1922,13 +1967,16 @@ function App() {
     } catch {}
   }
 
-  async function handlePlaceOrder(event) {
-    event.preventDefault();
+  async function handlePlaceOrder(event, overrideMethod = null) {
+    event?.preventDefault?.();
 
     if (!cart.length) {
       setNotice("Your bag is empty.");
       return;
     }
+
+    const chosenMethod =
+      overrideMethod || checkoutForm.paymentMethod || "Razorpay Magic Checkout";
 
     const customerData = {
       name: (checkoutForm.name || currentUser?.name || "").trim(),
@@ -1937,7 +1985,7 @@ function App() {
       address: (checkoutForm.address || "").trim(),
       city: (checkoutForm.city || "").trim(),
       pincode: (checkoutForm.pincode || "").trim(),
-      paymentMethod: checkoutForm.paymentMethod
+      paymentMethod: chosenMethod
     };
 
     const orderPayload = {
@@ -2013,109 +2061,112 @@ function App() {
           ? `+${rawPhone}`
           : "";
 
-const cleanOrderPayload = {
-  customer: customerData,
-  items: orderPayload.items,
-  subtotal: orderPayload.subtotal,
-  discount: orderPayload.discount,
-  couponCode: orderPayload.couponCode || null,
-  couponDiscount: orderPayload.couponDiscount || 0,
-  total: orderPayload.total,
-  paymentMethod: customerData.paymentMethod
-};
-
-const options = {
-  key: rzpData.keyId,
-  amount: rzpData.amount,
-  currency: rzpData.currency || "INR",
-  name: `${storeSettings.storeName || "CALZARE"}®`,
-  description: customerData.paymentMethod,
-  order_id: rzpData.order_id,
-  one_click_checkout: true,
-  show_coupons: true,
-  prefill: {
-    name: customerData.name,
-    email: customerData.email,
-    contact: normalizedContact,
-    ...(appliedCoupon?.code ? { coupon_code: appliedCoupon.code } : {})
-  },
-  notes: {
-    items_count: String(cartCount),
-    payment_mode: customerData.paymentMethod,
-    coupon_code: appliedCoupon?.code || ""
-  },
-  theme: { color: homepage.theme?.accentColor || "#252a22" },
-  modal: {
-    ondismiss: () => setNotice("Payment cancelled. No charge was made.")
-  },
-  handler: async function (response) {
-    try {
-      const magicAddress =
-        response?.shipping_address ||
-        response?.address ||
-        response?.customer_details?.address ||
-        null;
-
-      const mergedCustomer = {
-        name:
-          response?.customer_details?.name ||
-          magicAddress?.name ||
-          customerData.name,
-        phone:
-          response?.customer_details?.contact ||
-          magicAddress?.contact ||
-          customerData.phone,
-        email: response?.customer_details?.email || customerData.email || "",
-        address:
-          magicAddress?.line1 ||
-          magicAddress?.street ||
-          magicAddress?.address ||
-          customerData.address,
-        city: magicAddress?.city || customerData.city,
-        pincode:
-          magicAddress?.zipcode || magicAddress?.pincode || customerData.pincode
+      const cleanOrderPayload = {
+        customer: customerData,
+        items: orderPayload.items,
+        subtotal: orderPayload.subtotal,
+        discount: orderPayload.discount,
+        couponCode: orderPayload.couponCode || null,
+        couponDiscount: orderPayload.couponDiscount || 0,
+        total: orderPayload.total,
+        paymentMethod: customerData.paymentMethod
       };
 
-      const verifyRes = await fetch(`${API}/payments/razorpay/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          razorpay_order_id: response.razorpay_order_id,
-          razorpay_payment_id: response.razorpay_payment_id,
-          razorpay_signature: response.razorpay_signature,
-          magic_checkout_data: response,
-          orderPayload: {
-            ...cleanOrderPayload,
-            customer: mergedCustomer
+      const options = {
+        key: rzpData.keyId,
+        amount: rzpData.amount,
+        currency: rzpData.currency || "INR",
+        name: `${storeSettings.storeName || "CALZARE"}®`,
+        description: customerData.paymentMethod,
+        order_id: rzpData.order_id,
+        one_click_checkout: true,
+        show_coupons: true,
+        prefill: {
+          name: customerData.name,
+          email: customerData.email,
+          contact: normalizedContact,
+          ...(appliedCoupon?.code ? { coupon_code: appliedCoupon.code } : {})
+        },
+        notes: {
+          items_count: String(cartCount),
+          payment_mode: customerData.paymentMethod,
+          coupon_code: appliedCoupon?.code || ""
+        },
+        theme: { color: homepage.theme?.accentColor || "#252a22" },
+        modal: {
+          ondismiss: () => setNotice("Payment cancelled. No charge was made.")
+        },
+        handler: async function (response) {
+          try {
+            const magicAddress =
+              response?.shipping_address ||
+              response?.address ||
+              response?.customer_details?.address ||
+              null;
+
+            const mergedCustomer = {
+              name:
+                response?.customer_details?.name ||
+                magicAddress?.name ||
+                customerData.name,
+              phone:
+                response?.customer_details?.contact ||
+                magicAddress?.contact ||
+                customerData.phone,
+              email: response?.customer_details?.email || customerData.email || "",
+              address:
+                magicAddress?.line1 ||
+                magicAddress?.street ||
+                magicAddress?.address ||
+                customerData.address,
+              city: magicAddress?.city || customerData.city,
+              pincode:
+                magicAddress?.zipcode || magicAddress?.pincode || customerData.pincode
+            };
+
+            const verifyRes = await fetch(`${API}/payments/razorpay/verify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                magic_checkout_data: response,
+                orderPayload: {
+                  ...cleanOrderPayload,
+                  customer: mergedCustomer
+                }
+              })
+            });
+
+            const verified = await verifyRes.json();
+            if (!verifyRes.ok) {
+              throw new Error(verified.message || "Payment verification failed.");
+            }
+
+            recordLocalOrder(verified.order);
+            setOrderConfirmed(verified.order);
+            setCheckoutOpen(false);
+            setCart([]);
+            setAppliedCoupon(null);
+            setCouponInput("");
+          } catch (err) {
+            console.error("Razorpay payment verify error:", err);
+            setNotice(err.message || "Payment verification failed.");
           }
-        })
-      });
-
-      const verified = await verifyRes.json();
-      if (!verifyRes.ok) {
-        throw new Error(verified.message || "Payment verification failed.");
-      }
-
-      recordLocalOrder(verified.order);
-      setOrderConfirmed(verified.order);
-      setCheckoutOpen(false);
-      setCart([]);
-      setAppliedCoupon(null);
-      setCouponInput("");
-    } catch (err) {
-      setNotice(err.message || "Payment verification failed.");
-    }
-  }
-};
+        }
+      };
 
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", (response) => {
+        console.error("Razorpay payment.failed:", response.error);
         setNotice(
           response.error?.description || "Payment failed. Please try again."
         );
       });
       rzp.open();
     } catch (err) {
+      console.error("Magic Checkout launch error:", err);
       setNotice(err.message || "Payment could not be started.");
     }
   }
@@ -2193,6 +2244,11 @@ const options = {
     />
   );
 
+  const activeColStyle =
+    storeSettings.pageStyles?.[collection] ||
+    readLocalPageStyles()?.[collection] ||
+    {};
+
   return (
     <div
       className="site-shell"
@@ -2242,12 +2298,14 @@ const options = {
           <TrackOrderPage
             initialOrderId={trackOrderId}
             initialPhone={currentUser?.phone || ""}
+            storeSettings={storeSettings}
             onGoHome={() => navigateCollection("home")}
             money={money}
           />
         ) : policyPageKey ? (
           <PolicyPage
             policyKey={policyPageKey}
+            storeSettings={storeSettings}
             onSwitchPolicy={(nextKey) => openPolicyPage(nextKey)}
             onGoHome={() => navigateCollection("home")}
           />
@@ -2294,28 +2352,56 @@ const options = {
             )}
           </>
         ) : collection !== "all" ? (
-          <CollectionPage
-            collection={collection}
-            products={
-              visibleProducts.length > 0
-                ? visibleProducts
-                : products.filter((p) => p && (p.status || "published") !== "draft")
-            }
-            allowedCategories={activeCategories}
-            allowedCollections={activeCollectionsForPage}
-            search={search}
-            favorites={favorites}
-            onToggleFavorite={(id) =>
-              setFavorites((old) =>
-                old.includes(id) ? old.filter((item) => item !== id) : [...old, id]
-              )
-            }
-            onOpenProduct={(p, startVideo) =>
-              startVideo ? openProductModal(p, true) : openFullProductPage(p)
-            }
-            onGoHome={() => navigateCollection("home")}
-            money={money}
-          />
+          <div
+            style={{
+              "--paper":
+                activeColStyle.pageBgColor || homepage.theme?.pageBgColor || "#f7f6f2",
+              "--surface":
+                activeColStyle.surfaceColor || homepage.theme?.surfaceColor || "#f2f1eb",
+              "--ink":
+                activeColStyle.textColor || homepage.theme?.textColor || "#1e211d",
+              "--accent":
+                activeColStyle.accentColor || homepage.theme?.accentColor || "#252a22",
+              "--collection-banner-height": `${
+                Number(activeColStyle.bannerHeightPx) || 380
+              }px`,
+              "--collection-card-image-height": `${
+                Number(activeColStyle.cardImageHeightPx) || 280
+              }px`,
+              "--collection-image-fit": activeColStyle.imageFit || "cover",
+              "--collection-image-position": `${activeColStyle.imagePosX ?? 50}% ${
+                activeColStyle.imagePosY ?? 50
+              }%`,
+              "--collection-image-scale": Number(activeColStyle.imageZoom) || 1,
+              backgroundColor: "var(--paper)",
+              color: "var(--ink)"
+            }}
+          >
+            <CollectionPage
+              collection={collection}
+              pageStyle={activeColStyle}
+              products={
+                visibleProducts.length > 0
+                  ? visibleProducts
+                  : products.filter((p) => p && (p.status || "published") !== "draft")
+              }
+              storeSettings={storeSettings}
+              allowedCategories={activeCategories}
+              allowedCollections={activeCollectionsForPage}
+              search={search}
+              favorites={favorites}
+              onToggleFavorite={(id) =>
+                setFavorites((old) =>
+                  old.includes(id) ? old.filter((item) => item !== id) : [...old, id]
+                )
+              }
+              onOpenProduct={(p, startVideo) =>
+                startVideo ? openProductModal(p, true) : openFullProductPage(p)
+              }
+              onGoHome={() => navigateCollection("home")}
+              money={money}
+            />
+          </div>
         ) : (
           <HomePage
             homepage={homepage}
@@ -3081,7 +3167,7 @@ const options = {
                   onClick={() => {
                     setCartOpen(false);
                     setOrderConfirmed(null);
-                    setCheckoutOpen(true);
+                    handlePlaceOrder(null, "Razorpay Magic Checkout");
                   }}
                 >
                   PROCEED TO CHECKOUT <ArrowRight size={16} />

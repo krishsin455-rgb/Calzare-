@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, Film, Heart } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Film, Heart, Home } from "lucide-react";
 
 const COLLECTION_META = {
   men: {
@@ -39,10 +39,12 @@ const SAFE_IMAGE =
 export default function CollectionPage({
   collection,
   products,
+  storeSettings = {},
   allowedCategories,
   allowedCollections,
   search = "",
   favorites = [],
+  homeIconSize = 16,
   onToggleFavorite,
   onOpenProduct,
   onGoHome,
@@ -107,12 +109,52 @@ export default function CollectionPage({
     });
   }, [collectionProducts, styleFilter, search]);
 
+  const activeBanner =
+    storeSettings?.collectionImages?.[cleanCol] ||
+    (styleFilter !== "all" ? storeSettings?.categoryImages?.[styleFilter] : "") ||
+    meta.banner;
+
   return (
     <>
+      <nav
+        aria-label="Breadcrumb"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          padding: "10px 24px",
+          fontSize: "12px",
+          color: "var(--muted, #64748B)",
+          borderBottom: "1px solid var(--line, rgba(0,0,0,0.08))"
+        }}
+      >
+        <button
+          type="button"
+          onClick={onGoHome}
+          aria-label="Home"
+          style={{
+            background: "none",
+            border: 0,
+            padding: 0,
+            color: "inherit",
+            display: "inline-flex",
+            alignItems: "center",
+            cursor: "pointer"
+          }}
+        >
+          <Home size={homeIconSize} strokeWidth={1.85} />
+        </button>
+        <ChevronRight size={13} style={{ opacity: 0.55 }} />
+        <span style={{ fontWeight: 600, color: "var(--ink, #0F172A)" }}>
+          {meta.title}
+        </span>
+      </nav>
+
       <section className="collection-hero">
         <img
-          src={meta.banner}
+          src={activeBanner}
           onError={(e) => {
+            e.currentTarget.onerror = null;
             e.currentTarget.src = SAFE_IMAGE;
           }}
           alt={meta.title}

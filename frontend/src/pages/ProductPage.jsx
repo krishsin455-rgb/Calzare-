@@ -439,7 +439,9 @@ export default function ProductPage({
       ? money
       : (val) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
 
-  const priceNum = activeVariant ? Number(activeVariant.price) || 0 : Number(current.price) || 0;
+  const priceNum = activeVariant
+    ? Number(activeVariant.price) || 0
+    : Number(current.price) || 0;
   const oldPriceNum = activeVariant
     ? Number(activeVariant.oldPrice) || 0
     : Number(current.oldPrice) || 0;
@@ -597,79 +599,166 @@ export default function ProductPage({
       </div>
 
       <div className="pdp-main-grid">
-        <div className="pdp-stage" style={{ overflow: "hidden" }}>
-          {showVideo && currentVideo ? (
-            <video
-              src={currentVideo}
-              poster={currentImage}
-              autoPlay
-              loop
-              muted
-              playsInline
-              controls
-              onError={() => setShowVideo(false)}
-            />
-          ) : (
-            <img
-              src={currentImage}
-              alt={current.name}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: current.imageFit || "cover",
-                objectPosition: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`,
-                transform: `scale(${Number(current.imageZoom) || 1})`,
-                transformOrigin: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`
-              }}
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-              }}
-            />
-          )}
-
-          <button
-            type="button"
-            className="pdp-expand-btn"
-            aria-label="Expand product image"
-            onClick={handleExpandMedia}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: isMobileView ? "column-reverse" : "row",
+            gap: "12px",
+            alignItems: "flex-start"
+          }}
+        >
+          <div
             style={{
-              position: "absolute",
-              top: "14px",
-              right: "14px",
-              width: "36px",
-              height: "36px",
-              borderRadius: "50%",
-              border: "1px solid var(--line)",
-              background: "rgba(255, 255, 255, 0.92)",
-              color: "#111",
-              display: "grid",
-              placeItems: "center",
-              cursor: "pointer",
-              zIndex: 3
+              display: "flex",
+              flexDirection: isMobileView ? "row" : "column",
+              gap: "8px",
+              overflowX: isMobileView ? "auto" : "visible",
+              flexShrink: 0
             }}
           >
-            <Maximize2 size={15} />
-          </button>
+            {[
+              currentImage,
+              ...(Array.isArray(current.images) ? current.images : []),
+              ...colorOptions.map((opt) => safeImgSrc(opt.image))
+            ]
+              .filter(Boolean)
+              .filter((url, idx, arr) => arr.indexOf(url) === idx)
+              .slice(0, 5)
+              .map((thumbUrl, tIdx) => {
+                const isThumbActive = !showVideo && currentImage === thumbUrl;
+                return (
+                  <button
+                    key={`${thumbUrl}-${tIdx}`}
+                    type="button"
+                    aria-label={`View image ${tIdx + 1}`}
+                    onClick={() => {
+                      setShowVideo(false);
+                      const matchingColor = colorOptions.find(
+                        (c) => safeImgSrc(c.image) === thumbUrl
+                      );
+                      if (matchingColor) {
+                        setSelectedColorwayId(matchingColor.id || matchingColor._id);
+                      }
+                    }}
+                    style={{
+                      width: isMobileView ? "60px" : "68px",
+                      height: isMobileView ? "60px" : "68px",
+                      padding: "4px",
+                      borderRadius: "8px",
+                      border: isThumbActive
+                        ? "1.5px solid #0F172A"
+                        : "1px solid #E2E8F0",
+                      background: "#F5F5F5",
+                      cursor: "pointer",
+                      overflow: "hidden",
+                      flexShrink: 0
+                    }}
+                  >
+                    <img
+                      src={thumbUrl}
+                      alt={`${current.name} angle ${tIdx + 1}`}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                      }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        display: "block"
+                      }}
+                    />
+                  </button>
+                );
+              })}
+          </div>
 
-          {currentVideo && (
-            <div className="media-switcher">
-              <button
-                type="button"
-                className={!showVideo ? "active" : ""}
-                onClick={() => setShowVideo(false)}
-              >
-                PHOTO
-              </button>
-              <button
-                type="button"
-                className={showVideo ? "active" : ""}
-                onClick={() => setShowVideo(true)}
-              >
-                <Film size={11} /> MOTION FIT
-              </button>
-            </div>
-          )}
+          <div
+            className="pdp-stage"
+            style={{
+              flex: 1,
+              width: "100%",
+              background: "#F5F5F5",
+              borderRadius: "12px",
+              overflow: "hidden",
+              maxHeight: isMobileView
+                ? undefined
+                : `${Number(homepage?.productPage?.galleryMaxHeightPx) || 560}px`
+            }}
+          >
+            {showVideo && currentVideo ? (
+              <video
+                src={currentVideo}
+                poster={currentImage}
+                autoPlay
+                loop
+                muted
+                playsInline
+                controls
+                onError={() => setShowVideo(false)}
+              />
+            ) : (
+              <img
+                src={currentImage}
+                alt={current.name}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: current.imageFit || "contain",
+                  objectPosition: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`,
+                  transform: `scale(${Number(current.imageZoom) || 1})`,
+                  transformOrigin: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`
+                }}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                }}
+              />
+            )}
+
+            <button
+              type="button"
+              className="pdp-expand-btn"
+              aria-label="Expand product image"
+              onClick={handleExpandMedia}
+              style={{
+                position: "absolute",
+                top: "14px",
+                right: "14px",
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                border: "1px solid var(--line)",
+                background: "rgba(255, 255, 255, 0.92)",
+                color: "#111",
+                display: "grid",
+                placeItems: "center",
+                cursor: "pointer",
+                zIndex: 3
+              }}
+            >
+              <Maximize2 size={15} />
+            </button>
+
+            {currentVideo && (
+              <div className="media-switcher">
+                <button
+                  type="button"
+                  className={!showVideo ? "active" : ""}
+                  onClick={() => setShowVideo(false)}
+                >
+                  PHOTO
+                </button>
+                <button
+                  type="button"
+                  className={showVideo ? "active" : ""}
+                  onClick={() => setShowVideo(true)}
+                >
+                  <Film size={11} /> MOTION FIT
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="pdp-info-col">

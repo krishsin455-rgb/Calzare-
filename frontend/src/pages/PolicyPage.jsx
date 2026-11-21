@@ -196,6 +196,7 @@ const REFUND_POLICY = {
 
 export default function PolicyPage({
   policyKey = "shipping-policy",
+  storeSettings = {},
   onSwitchPolicy,
   onGoHome
 }) {
@@ -205,6 +206,22 @@ export default function PolicyPage({
 
   const isRefund = policyKey === "refund-policy";
   const doc = isRefund ? REFUND_POLICY : SHIPPING_POLICY;
+
+  const customPolicy = Array.isArray(storeSettings?.policies)
+    ? storeSettings.policies.find((p) =>
+        isRefund
+          ? p.key === "refund" || p.key === "exchange"
+          : p.key === "shipping"
+      )
+    : null;
+
+  const supportEmail =
+    storeSettings?.supportEmail ||
+    storeSettings?.contactItems?.find((c) => c.type === "Email")?.value ||
+    "Admin@calzareheels.com";
+
+  const displayTitle = customPolicy?.title || doc.title;
+  const displayIntro = customPolicy?.content || doc.intro;
 
   return (
     <section
@@ -284,10 +301,10 @@ export default function PolicyPage({
           margin: "0 0 8px"
         }}
       >
-        {doc.title}
+        {displayTitle}
       </h1>
       <p style={{ fontSize: "12px", opacity: 0.72, margin: "0 0 20px" }}>{doc.meta}</p>
-      <p style={{ margin: "0 0 28px" }}>{doc.intro}</p>
+      <p style={{ margin: "0 0 28px" }}>{displayIntro}</p>
 
       <div style={{ display: "grid", gap: "24px" }}>
         {doc.sections.map((sec) => (
@@ -323,8 +340,8 @@ export default function PolicyPage({
           <strong>Website:</strong> calzare.in
           <br />
           <strong>Email:</strong>{" "}
-          <a href="mailto:Admin@calzareheels.com" style={{ textDecoration: "underline" }}>
-            Admin@calzareheels.com
+          <a href={`mailto:${supportEmail}`} style={{ textDecoration: "underline" }}>
+            {supportEmail}
           </a>
         </p>
         <p style={{ margin: 0, fontSize: "13px", opacity: 0.8 }}>{doc.footerNote}</p>

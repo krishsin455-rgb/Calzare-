@@ -1,10 +1,6 @@
-
 name: Deploy CALZARE to Bluehost
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -26,11 +22,11 @@ jobs:
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           set -euo pipefail
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/calzare_deploy
-          chmod 600 ~/.ssh/calzare_deploy
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/calzare_deploy"
+          chmod 600 "$HOME/.ssh/calzare_deploy"
+          ssh-keyscan -H "$VPS_HOST" >> "$HOME/.ssh/known_hosts"
 
       - name: Deploy CALZARE
         env:
@@ -38,38 +34,26 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           set -euo pipefail
-
-          ssh -i ~/.ssh/calzare_deploy \
+          ssh -i "$HOME/.ssh/calzare_deploy" \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
-
           set -euo pipefail
-
           cd /var/www/calzare-new
-
           echo "===== UPDATING GITHUB CODE ====="
           git pull --ff-only origin main
-
           echo "===== INSTALLING BACKEND ====="
           npm --prefix backend ci
-
           echo "===== INSTALLING FRONTEND ====="
           npm --prefix frontend ci
-
           echo "===== BUILDING FRONTEND ====="
           npm --prefix frontend run build
-
           echo "===== RESTARTING BACKEND ====="
           pm2 restart calzare-new --update-env
-
           sleep 3
-
           echo "===== CHECKING API ====="
           curl -fsS http://127.0.0.1:5003/api/health
-
           echo
           echo "===== DEPLOYMENT COMPLETED ====="
           pm2 status calzare-new
-
           REMOTE

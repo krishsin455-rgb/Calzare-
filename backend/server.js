@@ -18,6 +18,7 @@ const MONGO_URI =
 const adminSessions = new Set();
 
 app.use(cors({ origin: true, credentials: true }));
+<<<<<<< HEAD
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -25,6 +26,8 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }
 });
+=======
+>>>>>>> 9226bc3 (Deploy CALZARE storefront, API config, and Razorpay webhook setup)
 
 // --- SCHEMAS ---
 const productSchema = new mongoose.Schema(
@@ -563,6 +566,92 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// --- RAZORPAY WEBHOOK (RAW BODY REQUIRED FOR SIGNATURE VERIFICATION) ---
+app.post(
+  "/api/webhooks/razorpay",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    try {
+      const secret = String(process.env.RAZORPAY_WEBHOOK_SECRET || "").trim();
+      const receivedSignature = String(req.headers["x-razorpay-signature"] || "").trim();
+
+      if (!secret || !receivedSignature) {
+        return res.status(400).json({ message: "Missing webhook secret or signature." });
+      }
+
+      const rawBody = Buffer.isBuffer(req.body)
+        ? req.body
+        : Buffer.from(JSON.stringify(req.body || {}));
+
+      const expectedSignature = crypto
+        .createHmac("sha256", secret)
+        .update(rawBody)
+        .digest("hex");
+
+      const expectedBuf = Buffer.from(expectedSignature);
+      const receivedBuf = Buffer.from(receivedSignature);
+      if (
+        expectedBuf.length !== receivedBuf.length ||
+        !crypto.timingSafeEqual(expectedBuf, receivedBuf)
+      ) {
+        return res.status(400).json({ message: "Invalid Razorpay webhook signature." });
+      }
+
+      const event = JSON.parse(rawBody.toString("utf8"));
+      const eventAgeSeconds = Date.now() / 1000 - Number(event?.created_at || 0);
+      if (event?.created_at && eventAgeSeconds > 300) {
+        return res.status(200).json({ received: true, stale: true });
+      }
+
+      if (event.event === "payment.captured" || event.event === "order.paid") {
+        const paymentEntity = event?.payload?.payment?.entity;
+        const rzpOrderId = String(paymentEntity?.order_id || "").trim();
+        const rzpPaymentId = String(paymentEntity?.id || "").trim();
+
+        if (rzpOrderId || rzpPaymentId) {
+          const updated = await Order.findOneAndUpdate(
+            {
+              $or: [
+                ...(rzpOrderId ? [{ razorpayOrderId: rzpOrderId }] : []),
+                ...(rzpPaymentId ? [{ razorpayPaymentId: rzpPaymentId }] : [])
+              ]
+            },
+            {
+              $set: {
+                paymentStatus: "Paid Online",
+                status: "Confirmed",
+                ...(rzpPaymentId ? { razorpayPaymentId: rzpPaymentId } : {})
+              }
+            },
+            { new: true }
+          );
+
+          if (updated) {
+            await logAudit(
+              "RAZORPAY_WEBHOOK_PAID",
+              `${updated.orderId} (${rzpPaymentId || rzpOrderId})`,
+              req
+            );
+          }
+        }
+      }
+
+      return res.status(200).json({ received: true });
+    } catch (err) {
+      return res.status(500).json({ message: err.message || "Webhook error." });
+    }
+  }
+);
+
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+// Memory storage only: never writes uploaded files to your Mac or Render disk
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 // --- PUBLIC STOREFRONT ROUTES ---
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
@@ -740,11 +829,36 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
       return res.status(400).json({ message: "Invalid payment amount." });
     }
 
+<<<<<<< HEAD
+=======
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    const lineItems = items.map((item, idx) => {
+      const unitPaise = Math.max(100, Math.round((Number(item.price) || 0) * 100));
+      return {
+        sku: String(item.sku || item.id || `item_${idx + 1}`),
+        variant_id: String(item.size || "default"),
+        other_product_codes: {},
+        price: unitPaise,
+        offer_price: unitPaise,
+        tax_amount: 0,
+        quantity: Math.max(1, Number(item.quantity) || 1),
+        name: String(item.name || "CALZARE Footwear"),
+        description: `${item.name || "CALZARE Footwear"} (${item.size || "UK 8"})`,
+        image_url:
+          item.image && String(item.image).startsWith("https://")
+            ? String(item.image)
+            : "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85",
+        product_url: "https://calzare.in"
+      };
+    });
+
+>>>>>>> 9226bc3 (Deploy CALZARE storefront, API config, and Razorpay webhook setup)
     const rzp = new Razorpay({
       key_id: keyId,
       key_secret: keySecret
     });
 
+<<<<<<< HEAD
     const rzpOrder = await rzp.orders.create({
       amount,
       currency: "INR",
@@ -754,6 +868,24 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
       }
     });
 
+=======
+    const orderPayload = {
+      amount,
+      currency: "INR",
+      receipt: `rcpt_${Date.now()}`,
+      ...(lineItems.length
+        ? {
+            line_items_total: lineItems.reduce(
+              (sum, li) => sum + li.offer_price * li.quantity,
+              0
+            ),
+            line_items: lineItems
+          }
+        : {})
+    };
+
+    const rzpOrder = await rzp.orders.create(orderPayload);
+>>>>>>> 9226bc3 (Deploy CALZARE storefront, API config, and Razorpay webhook setup)
     res.json({
       keyId,
       order_id: rzpOrder.id,
@@ -810,6 +942,32 @@ app.post("/api/payments/razorpay/verify", async (req, res) => {
       !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
     ) {
       return res.status(400).json({ message: "Invalid payment signature." });
+    }
+
+    const existingOrder = await Order.findOne({
+      $or: [
+        { razorpayPaymentId: razorpay_payment_id },
+        { razorpayOrderId: razorpay_order_id }
+      ]
+    });
+
+    if (existingOrder) {
+      const updatedExisting = await Order.findOneAndUpdate(
+        { _id: existingOrder._id },
+        {
+          $set: {
+            ...orderPayload,
+            razorpayOrderId: razorpay_order_id,
+            razorpayPaymentId: razorpay_payment_id,
+            paymentStatus: (orderPayload.paymentMethod || "").includes("Partial COD")
+              ? "Partial Advance Paid (₹299)"
+              : "Paid Online",
+            status: "Confirmed"
+          }
+        },
+        { new: true }
+      );
+      return res.json({ order: updatedExisting });
     }
 
     const isPartial = (orderPayload.paymentMethod || "").includes("Partial COD");
