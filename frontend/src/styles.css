@@ -763,7 +763,8 @@ main > section:last-of-type {
   width: 138px;
   height: 215px;
   background: #1e211d;
-  z-index: 35;
+  z-index: 999;
+  border-radius: 14px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.2);

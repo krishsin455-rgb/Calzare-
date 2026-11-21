@@ -6044,6 +6044,42 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       </>
                     )}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextEnabled = homepage.pipVideo?.enabled === false;
+                      handleSaveHomepage({
+                        ...homepage,
+                        pipVideo: {
+                          ...(homepage.pipVideo || {}),
+                          enabled: nextEnabled
+                        }
+                      });
+                    }}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: "999px",
+                      border: "1px solid #CBD5E1",
+                      background: homepage.pipVideo?.enabled === false ? "#FEF2F2" : "#ECFDF5",
+                      color: homepage.pipVideo?.enabled === false ? "#DC2626" : "#059669",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    {homepage.pipVideo?.enabled === false ? (
+                      <>
+                        <EyeOff size={14} /> Product PiP Reel Disabled
+                      </>
+                    ) : (
+                      <>
+                        <Eye size={14} /> Product PiP Reel Enabled
+                      </>
+                    )}
+                  </button>
 
                   <button
                     type="button"

@@ -318,7 +318,7 @@ const DEFAULT_HOMEPAGE = {
     trustLayout: "swipe"
   },
   pipVideo: {
-    enabled: false,
+    enabled: true,
     label: "WATCH FIT & FLEX",
     productId: "c-001",
     videoUrl: "",
@@ -525,7 +525,7 @@ function applyHomepagePayload(hp, setHomepage) {
           ...hp.pipVideo,
           videoUrl: safeVid(hp.pipVideo.videoUrl),
           poster: safeImg(hp.pipVideo.poster || prev.pipVideo.poster),
-          enabled: Boolean(hp.pipVideo.enabled && safeVid(hp.pipVideo.videoUrl))
+          enabled: hp.pipVideo.enabled !== undefined ? Boolean(hp.pipVideo.enabled) : prev.pipVideo.enabled
         }
       : prev.pipVideo,
     featuredProduct: hp.featuredProduct
@@ -2124,7 +2124,13 @@ const options = {
     ? products.find((p) => p.id === activeReel.productId) || products[0]
     : null;
 
-  const pipVideoUrl = safeVid(homepage.pipVideo?.videoUrl);
+  const currentProductPageProduct = productPageId ? (products.find((p) => p.id === productPageId) || products[0]) : null;
+  const pipVideoUrl = currentProductPageProduct
+    ? safeVid(currentProductPageProduct.videoUrl) ||
+      safeVid(currentProductPageProduct.shortVideos?.find((v) => safeVid(v?.videoUrl || v?.url))?.videoUrl) ||
+      safeVid(currentProductPageProduct.shortVideos?.find((v) => safeVid(v?.videoUrl || v?.url))?.url) ||
+      safeVid(reels.find((r) => r.productId === currentProductPageProduct.id && safeVid(r.videoUrl))?.videoUrl)
+    : "";
 
   const navItems = useMemo(() => {
     const raw = (
@@ -2555,11 +2561,11 @@ const options = {
         </div>
       </footer>
 
-      {pipVisible && homepage.pipVideo?.enabled && pipVideoUrl && (
+      {pipVisible && Boolean(productPageId && currentProductPageProduct) && homepage.pipVideo?.enabled !== false && Boolean(pipVideoUrl) && (
         <div className="pip-widget">
           <video
-            src={pipVideoUrl}
-            poster={safeImg(homepage.pipVideo.poster)}
+            src={pipVideoUrl || undefined}
+            poster={safeImg(currentProductPageProduct?.image || homepage.pipVideo.poster)}
             autoPlay
             loop
             muted={pipMuted}
@@ -2567,7 +2573,7 @@ const options = {
             onError={() => setPipVisible(false)}
             onClick={() => {
               const target =
-                products.find((p) => p.id === homepage.pipVideo.productId) || products[0];
+                currentProductPageProduct || currentProductPageProduct || products.find((p) => p.id === homepage.pipVideo.productId) || products[0];
               if (target) openProductModal(target, true);
             }}
           />
@@ -2592,7 +2598,7 @@ const options = {
             className="pip-caption"
             onClick={() => {
               const target =
-                products.find((p) => p.id === homepage.pipVideo.productId) || products[0];
+                currentProductPageProduct || currentProductPageProduct || products.find((p) => p.id === homepage.pipVideo.productId) || products[0];
               if (target) openProductModal(target, true);
             }}
           >

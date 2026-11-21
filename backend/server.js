@@ -21,7 +21,6 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Memory storage only: never writes uploaded files to your Mac or Render disk
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }
@@ -668,38 +667,107 @@ app.post("/api/coupons/validate", async (req, res) => {
   }
 });
 
-// --- RAZORPAY & ORDERS ---
+// --- RAZORPAY MAGIC CHECKOUT & ORDERS ---
+app.post("/api/payments/razorpay/shipping-info", async (req, res) => {
+  try {
+    const magicSecret = String(process.env.RAZORPAY_MAGIC_SECRET_KEY || "").trim();
+    if (magicSecret) {
+      const providedSecret = String(
+        req.headers["x-razorpay-magic-secret"] ||
+          req.headers["x-razorpay-secret"] ||
+          ""
+      ).trim();
+      if (!providedSecret || providedSecret !== magicSecret) {
+        return res.status(401).json({ message: "Invalid Magic Checkout secret." });
+      }
+    }
+
+    const settings =
+      (await StoreSettings.findOne({ singletonKey: "store_settings" }).lean()) || {};
+    const freeShipMin = Number(settings.freeShippingThreshold ?? 2999);
+    const stdShipFeeRupees = Number(settings.standardShippingFee ?? 149);
+    const codEnabled = settings.codEnabled !== false;
+
+    const { addresses = [], order_amount } = req.body || {};
+    const amountRupees =
+      typeof order_amount === "number" ? order_amount / 100 : Number(order_amount || 0);
+    const shippingFeePaise =
+      amountRupees >= freeShipMin ? 0 : Math.max(0, Math.round(stdShipFeeRupees * 100));
+
+    const evaluated = (Array.isArray(addresses) ? addresses : []).map((addr, idx) => {
+      const zip = String(addr?.zipcode || addr?.pincode || "").replace(/\D/g, "");
+      const serviceable = /^[1-9][0-9]{5}$/.test(zip);
+      const cod = serviceable && codEnabled;
+
+      return {
+        id: addr?.id || String(idx + 1),
+        zipcode: zip,
+        country: addr?.country || "IN",
+        state: addr?.state || "",
+        serviceable,
+        cod,
+        shipping_fee: serviceable ? shippingFeePaise : 0,
+        cod_fee: cod ? 0 : 0
+      };
+    });
+
+    return res.status(200).json({ addresses: evaluated });
+  } catch (err) {
+    console.error("Magic Checkout shipping-info error:", err);
+    return res.status(500).json({ message: err.message || "Shipping info failed." });
+  }
+});
+
 app.post("/api/payments/razorpay/create-order", async (req, res) => {
   try {
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+    const keyId = String(process.env.RAZORPAY_KEY_ID || "").trim();
+    const keySecret = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
+
+    if (!keyId || !keySecret) {
       return res
         .status(400)
         .json({ message: "Razorpay keys not configured in backend environment." });
     }
-    const amount = Number(req.body.amountInPaise);
+
+    const rawPaise =
+      req.body?.amountInPaise ??
+      req.body?.amount ??
+      (req.body?.totalAmount != null ? Number(req.body.totalAmount) * 100 : NaN);
+
+    const amount = Math.round(Number(rawPaise));
+
     if (!Number.isSafeInteger(amount) || amount < 100) {
       return res.status(400).json({ message: "Invalid payment amount." });
     }
+
     const rzp = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET
+      key_id: keyId,
+      key_secret: keySecret
     });
+
     const rzpOrder = await rzp.orders.create({
       amount,
       currency: "INR",
-      receipt: `rcpt_${Date.now()}`
+      receipt: `rcpt_${Date.now()}`,
+      notes: {
+        couponCode: String(req.body?.couponCode || "")
+      }
     });
+
     res.json({
-      keyId: process.env.RAZORPAY_KEY_ID,
+      keyId,
       order_id: rzpOrder.id,
       amount: rzpOrder.amount,
       currency: rzpOrder.currency
     });
   } catch (err) {
-    const status = err.statusCode === 401 ? 401 : 500;
-    res
-      .status(status)
-      .json({ message: err.message || "Razorpay order creation failed." });
+    console.error("Razorpay create-order error:", err);
+    const status = err?.statusCode === 401 ? 401 : 500;
+    const detail =
+      err?.error?.description ||
+      err?.message ||
+      "Razorpay order creation failed.";
+    res.status(status).json({ message: detail });
   }
 });
 
@@ -850,7 +918,6 @@ app.get("/api/admin/overview", requireAdmin, async (req, res) => {
   });
 });
 
-// Cloud-only upload: forwards to Cloudinary from memory (never saves to local Mac/Render disk)
 app.post("/api/admin/upload", requireAdmin, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
