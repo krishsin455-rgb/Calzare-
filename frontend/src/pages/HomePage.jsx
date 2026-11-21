@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowRight,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   Film,
   Heart,
   Play,
@@ -48,17 +50,306 @@ const COLLECTIONS_STRIP = [
   }
 ];
 
-export default function HomePage({
-  homepage,
-  storeSettings,
+const DEFAULT_EDITORIAL_SLIDES = [
+  {
+    id: "ed-1",
+    title: "Forma Court",
+    subtitle: "Minimal architectural court silhouette built for long city days.",
+    ctaLabel: "Buy Now",
+    image:
+      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1600&q=85",
+    imageFit: "cover",
+    imagePosX: 50,
+    imagePosY: 50,
+    imageZoom: 1,
+    productId: "",
+    redirectUrl: "#shop"
+  },
+  {
+    id: "ed-2",
+    title: "Everyday Rotation",
+    subtitle: "Featherweight cushioning with zero break-in from day one.",
+    ctaLabel: "Shop Now",
+    image:
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1600&q=85",
+    imageFit: "cover",
+    imagePosX: 50,
+    imagePosY: 50,
+    imageZoom: 1,
+    productId: "",
+    redirectUrl: "#unisex"
+  }
+];
+
+const DEFAULT_SECTION_ORDER = [
+  "hero_main",
+  "trust_strip",
+  "collections_strip",
+  "affordable_store",
+  "editorial_slider",
+  "featured_product",
+  "intro_statement",
+  "shop_grid",
+  "reels_motion",
+  "campaign_banner",
+  "our_philosophy",
+  "journal_notes",
+  "newsletter"
+];
+
+function EditorialShowcaseSlider({
+  slides,
   products,
-  visibleProducts,
-  reels,
+  onOpenProductPage,
+  onNavigateCollection
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const touchStartX = useRef(0);
+
+  const list =
+    Array.isArray(slides) && slides.length > 0 ? slides : DEFAULT_EDITORIAL_SLIDES;
+  const safeIndex = Math.min(activeIndex, list.length - 1);
+  const current = list[safeIndex];
+
+  const handlePrev = () =>
+    setActiveIndex((prev) => (prev - 1 + list.length) % list.length);
+  const handleNext = () => setActiveIndex((prev) => (prev + 1) % list.length);
+
+  const handleSlideAction = (slide) => {
+    if (slide.productId) {
+      const found = (products || []).find((p) => p.id === slide.productId);
+      if (found) {
+        onOpenProductPage?.(found);
+        return;
+      }
+    }
+    const url = (slide.redirectUrl || "").trim();
+    if (!url) return;
+    if (["#men", "#women", "#unisex", "#kids", "#story"].includes(url.toLowerCase())) {
+      onNavigateCollection?.(url.replace("#", "").toLowerCase());
+      return;
+    }
+    if (url.startsWith("#")) {
+      window.location.hash = url;
+      const target = document.querySelector(url);
+      target?.scrollIntoView({ behavior: "smooth" });
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <section
+      className="editorial-showcase-slider"
+      aria-label="Editorial showcase"
+      style={{
+        position: "relative",
+        width: "100%",
+        overflow: "hidden",
+        background: "#0B0D10",
+        margin: "24px 0"
+      }}
+      onTouchStart={(e) => {
+        touchStartX.current = e.touches[0]?.clientX || 0;
+      }}
+      onTouchEnd={(e) => {
+        const delta = (e.changedTouches[0]?.clientX || 0) - touchStartX.current;
+        if (Math.abs(delta) > 45) {
+          if (delta < 0) handleNext();
+          else handlePrev();
+        }
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          height: "clamp(420px, 68vh, 640px)",
+          overflow: "hidden"
+        }}
+      >
+        <img
+          src={current.image || SAFE_IMAGE_FALLBACK}
+          alt={current.title || "Calzare Showcase"}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+          }}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: current.imageFit || "cover",
+            objectPosition: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`,
+            transform: `scale(${Number(current.imageZoom) || 1})`,
+            transformOrigin: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`,
+            display: "block"
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.58) 100%)"
+          }}
+        />
+
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            padding: "24px",
+            color: "#FFFFFF"
+          }}
+        >
+          {current.title && (
+            <h2
+              style={{
+                margin: "0 0 10px",
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: "clamp(32px, 5vw, 58px)",
+                fontWeight: 500,
+                lineHeight: 1.08,
+                color: "#FFFFFF"
+              }}
+            >
+              {current.title}
+            </h2>
+          )}
+          {current.subtitle && (
+            <p
+              style={{
+                margin: "0 0 22px",
+                maxWidth: "540px",
+                fontSize: "clamp(13px, 1.4vw, 16px)",
+                lineHeight: 1.55,
+                color: "rgba(255,255,255,0.9)"
+              }}
+            >
+              {current.subtitle}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => handleSlideAction(current)}
+            style={{
+              padding: "12px 28px",
+              borderRadius: "999px",
+              border: "1px solid #FFFFFF",
+              background: "#FFFFFF",
+              color: "#0F172A",
+              fontSize: "12px",
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              cursor: "pointer"
+            }}
+          >
+            {current.ctaLabel || "Buy Now"}
+          </button>
+        </div>
+
+        {list.length > 1 && (
+          <>
+            <button
+              type="button"
+              aria-label="Previous slide"
+              onClick={handlePrev}
+              style={{
+                position: "absolute",
+                left: "16px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "40px",
+                height: "40px",
+                borderRadius: "999px",
+                border: "1px solid rgba(255,255,255,0.35)",
+                background: "rgba(0,0,0,0.42)",
+                color: "#FFFFFF",
+                display: "grid",
+                placeItems: "center",
+                cursor: "pointer"
+              }}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Next slide"
+              onClick={handleNext}
+              style={{
+                position: "absolute",
+                right: "16px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: "40px",
+                height: "40px",
+                borderRadius: "999px",
+                border: "1px solid rgba(255,255,255,0.35)",
+                background: "rgba(0,0,0,0.42)",
+                color: "#FFFFFF",
+                display: "grid",
+                placeItems: "center",
+                cursor: "pointer"
+              }}
+            >
+              <ChevronRight size={18} />
+            </button>
+
+            <div
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: "18px",
+                display: "flex",
+                justifyContent: "center",
+                gap: "8px"
+              }}
+            >
+              {list.map((s, idx) => (
+                <button
+                  key={s.id || idx}
+                  type="button"
+                  aria-label={`Go to slide ${idx + 1}`}
+                  onClick={() => setActiveIndex(idx)}
+                  style={{
+                    width: idx === safeIndex ? "24px" : "8px",
+                    height: "8px",
+                    borderRadius: "999px",
+                    border: 0,
+                    padding: 0,
+                    background:
+                      idx === safeIndex ? "#FFFFFF" : "rgba(255,255,255,0.45)",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease"
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+export default function HomePage({
+  homepage = {},
+  storeSettings = {},
+  products = [],
+  visibleProducts = [],
+  reels = [],
   categories = ["sneakers", "formal", "slides"],
   allowedCollections = ["men", "women", "unisex", "kids"],
   category,
   setCategory,
-  favorites,
+  favorites = [],
   onToggleFavorite,
   onOpenProductPage,
   onOpenQuickView,
@@ -99,36 +390,58 @@ export default function HomePage({
       )
     : [];
 
-  return (
-    <>
-      <section className="hero">
+  const cmsSections = Array.isArray(homepage?.sections) ? homepage.sections : [];
+  const sectionMap = Object.fromEntries(cmsSections.map((s) => [s.key, s]));
+
+  const isVisible = (key) => {
+    if (sectionMap[key] && sectionMap[key].visible === false) return false;
+    return true;
+  };
+
+  const orderedKeys = (() => {
+    const knownCmsKeys = cmsSections
+      .map((s) => s.key)
+      .filter((k) => DEFAULT_SECTION_ORDER.includes(k));
+    const missing = DEFAULT_SECTION_ORDER.filter((k) => !knownCmsKeys.includes(k));
+    return [...knownCmsKeys, ...missing];
+  })();
+
+  const sectionRenderers = {
+    hero_main: () => (
+      <section className="hero" key="hero_main">
         <img
           className="hero-image"
-          src={homepage.heroImage || SAFE_IMAGE_FALLBACK}
+          src={
+            homepage?.heroImage ||
+            sectionMap.hero_main?.image ||
+            SAFE_IMAGE_FALLBACK
+          }
           onError={(e) => {
             e.currentTarget.onerror = null;
             e.currentTarget.src = SAFE_IMAGE_FALLBACK;
           }}
-          alt={homepage.heroTitle || "Minimal footwear editorial"}
+          alt={homepage?.heroTitle || "Minimal footwear editorial"}
         />
         <div className="hero-shade" />
         <div className="hero-copy">
-          <p className="eyebrow light">{homepage.heroEyebrow}</p>
+          <p className="eyebrow light">{homepage?.heroEyebrow}</p>
           <h1>
-            {homepage.heroTitle}
+            {homepage?.heroTitle}
             <br />
-            <em>{homepage.heroTitleEmphasis}</em>
+            <em>{homepage?.heroTitleEmphasis}</em>
           </h1>
-          <p className="hero-sub">{homepage.heroDescription}</p>
+          <p className="hero-sub">{homepage?.heroDescription}</p>
           <div className="hero-cta-row">
             <a className="light-link" href="#shop">
               DISCOVER THE COLLECTION <ArrowUpRight size={16} />
             </a>
-            {reels.length > 0 && (
-              <a className="light-link" href="#reels">
-                WATCH IN MOTION <Play size={14} />
-              </a>
-            )}
+            {homepage?.reelsEnabled !== false &&
+              isVisible("reels_motion") &&
+              reels.length > 0 && (
+                <a className="light-link" href="#reels">
+                  WATCH IN MOTION <Play size={14} />
+                </a>
+              )}
           </div>
         </div>
 
@@ -136,8 +449,11 @@ export default function HomePage({
           <ArrowDown size={15} /> SCROLL TO EXPLORE
         </a>
       </section>
+    ),
 
+    trust_strip: () => (
       <section
+        key="trust_strip"
         className={`trust-strip ${trustLayoutClass}`}
         aria-label="Store highlights"
       >
@@ -170,9 +486,15 @@ export default function HomePage({
           </div>
         </div>
       </section>
+    ),
 
-      {visibleCollectionCards.length > 0 && (
-        <section className="collections-strip section-pad">
+    collections_strip: () =>
+      visibleCollectionCards.length > 0 ? (
+        <section
+          className="collections-strip section-pad"
+          id="collections"
+          key="collections_strip"
+        >
           <div className="section-heading">
             <div>
               <p className="eyebrow">CURATED DEPARTMENTS</p>
@@ -199,7 +521,7 @@ export default function HomePage({
                 onClick={() => onNavigateCollection?.(col.key)}
               >
                 <img
-                  src={col.image}
+                  src={storeSettings?.collectionImages?.[col.key] || col.image}
                   alt={col.label}
                   loading="lazy"
                   onError={(e) => {
@@ -216,19 +538,34 @@ export default function HomePage({
             ))}
           </div>
         </section>
-      )}
+      ) : null,
 
-      {under999Section}
+    affordable_store: () =>
+      homepage?.affordableStore?.enabled !== false ? (
+        <div key="affordable_store">{under999Section}</div>
+      ) : null,
 
-      {homepage.featuredProduct?.enabled !== false && (
-        <section className="exclusive-spotlight section-pad">
+    editorial_slider: () =>
+      homepage?.editorialSlider?.enabled !== false ? (
+        <EditorialShowcaseSlider
+          key="editorial_slider"
+          slides={homepage?.editorialSlider?.slides}
+          products={products}
+          onOpenProductPage={onOpenProductPage}
+          onNavigateCollection={onNavigateCollection}
+        />
+      ) : null,
+
+    featured_product: () =>
+      homepage?.featuredProduct?.enabled !== false && homepage?.featuredProduct ? (
+        <section className="exclusive-spotlight section-pad" key="featured_product">
           <div className="exclusive-card" onClick={onFeaturedClick}>
             <div className="exclusive-media">
               <span className="product-badge">
                 {homepage.featuredProduct.sectionType || "EXCLUSIVE"}
               </span>
               <img
-                src={homepage.featuredProduct.image}
+                src={homepage.featuredProduct.image || SAFE_IMAGE_FALLBACK}
                 onError={(e) => {
                   e.currentTarget.onerror = null;
                   e.currentTarget.src = SAFE_IMAGE_FALLBACK;
@@ -246,9 +583,10 @@ export default function HomePage({
             </div>
           </div>
         </section>
-      )}
+      ) : null,
 
-      <section className="intro section-pad">
+    intro_statement: () => (
+      <section className="intro section-pad" key="intro_statement">
         <p className="eyebrow">LESS, BUT BETTER</p>
         <h2>
           Good design is felt
@@ -256,12 +594,14 @@ export default function HomePage({
           in <em>every step.</em>
         </h2>
         <p>
-          We believe the things you wear every day should be considered, comfortable and made to last.
-          Meet the new language of everyday footwear.
+          We believe the things you wear every day should be considered, comfortable and made to
+          last. Meet the new language of everyday footwear.
         </p>
       </section>
+    ),
 
-      <section className="shop-section section-pad" id="shop">
+    shop_grid: () => (
+      <section className="shop-section section-pad" id="shop" key="shop_grid">
         <div className="section-heading">
           <div>
             <p className="eyebrow">THE CALZARE EDIT</p>
@@ -413,9 +753,11 @@ export default function HomePage({
           <p className="empty-state">No pieces found. Try another category or search.</p>
         )}
       </section>
+    ),
 
-      {reels.length > 0 && (
-        <section className="reels-section section-pad" id="reels">
+    reels_motion: () =>
+      homepage?.reelsEnabled !== false && reels.length > 0 ? (
+        <section className="reels-section section-pad" id="reels" key="reels_motion">
           <div className="section-heading">
             <div>
               <p className="eyebrow">SHOPPABLE REELS</p>
@@ -477,14 +819,15 @@ export default function HomePage({
             })}
           </div>
         </section>
-      )}
+      ) : null,
 
-      <section className="campaign">
+    campaign_banner: () => (
+      <section className="campaign" key="campaign_banner">
         <div className="campaign-image">
-          {homepage.campaignVideoUrl && !campaignVideoFailed ? (
+          {homepage?.campaignVideoUrl && !campaignVideoFailed ? (
             <video
               src={homepage.campaignVideoUrl}
-              poster={SAFE_IMAGE_FALLBACK}
+              poster={sectionMap.campaign_banner?.image || SAFE_IMAGE_FALLBACK}
               autoPlay
               loop
               muted
@@ -493,7 +836,7 @@ export default function HomePage({
             />
           ) : (
             <img
-              src={SAFE_IMAGE_FALLBACK}
+              src={sectionMap.campaign_banner?.image || SAFE_IMAGE_FALLBACK}
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = SAFE_IMAGE_FALLBACK;
@@ -511,13 +854,24 @@ export default function HomePage({
             <em>Made to matter.</em>
           </h2>
           <p>From slow mornings to the long way home, find pieces that feel like you.</p>
-          <a className="dark-link" href="#shop">
+          <a
+            className="dark-link"
+            href="#collections"
+            onClick={(e) => {
+              e.preventDefault();
+              document
+                .getElementById("collections")
+                ?.scrollIntoView({ behavior: "smooth" });
+            }}
+          >
             SHOP THE EDIT <ArrowRight size={16} />
           </a>
         </div>
       </section>
+    ),
 
-      <section className="story section-pad" id="story">
+    our_philosophy: () => (
+      <section className="story section-pad" id="story" key="our_philosophy">
         <p className="eyebrow">
           {customStoryBlocks[0]?.eyebrow || "OUR PHILOSOPHY"}
         </p>
@@ -548,8 +902,10 @@ export default function HomePage({
           GET TO KNOW US <ArrowUpRight size={16} />
         </button>
       </section>
+    ),
 
-      <section className="journal section-pad" id="journal">
+    journal_notes: () => (
+      <section className="journal section-pad" id="journal" key="journal_notes">
         <div>
           <p className="eyebrow">NOTES FROM CALZARE</p>
           <h2>
@@ -558,7 +914,10 @@ export default function HomePage({
         </div>
         <div className="journal-card">
           <img
-            src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=85"
+            src={
+              sectionMap.journal_notes?.image ||
+              "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=85"
+            }
             alt="Minimal design studio"
             loading="lazy"
           />
@@ -571,8 +930,10 @@ export default function HomePage({
           </div>
         </div>
       </section>
+    ),
 
-      <section className="newsletter">
+    newsletter: () => (
+      <section className="newsletter" key="newsletter">
         <p className="eyebrow light">A NOTE, NOW AND THEN</p>
         <h2>
           Stay in the <em>know.</em>
@@ -588,6 +949,14 @@ export default function HomePage({
           />
         </form>
       </section>
+    )
+  };
+
+  return (
+    <>
+      {orderedKeys.map((key) =>
+        isVisible(key) && sectionRenderers[key] ? sectionRenderers[key]() : null
+      )}
     </>
   );
 }

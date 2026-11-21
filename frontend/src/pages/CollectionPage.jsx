@@ -41,8 +41,8 @@ export default function CollectionPage({
   products,
   allowedCategories,
   allowedCollections,
-  search,
-  favorites,
+  search = "",
+  favorites = [],
   onToggleFavorite,
   onOpenProduct,
   onGoHome,
@@ -79,7 +79,10 @@ export default function CollectionPage({
       : Array.from(new Set(["sneakers", "formal", "slides", ...productCats]));
 
     const visibleCats = Array.isArray(allowedCategories)
-      ? baseCats.filter((c) => productCats.includes(c) || ["sneakers", "formal", "slides"].includes(c))
+      ? baseCats.filter(
+          (c) =>
+            productCats.includes(c) || ["sneakers", "formal", "slides"].includes(c)
+        )
       : baseCats;
 
     return ["all", ...Array.from(new Set(visibleCats))];
@@ -92,7 +95,7 @@ export default function CollectionPage({
   }, [styleFilter, filterOptions]);
 
   const filteredProducts = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = String(search || "").trim().toLowerCase();
 
     return collectionProducts.filter((p) => {
       const cat = String(p.category || "").toLowerCase();
@@ -116,13 +119,6 @@ export default function CollectionPage({
         />
         <div className="collection-hero-shade" />
         <div className="collection-hero-copy">
-          <div className="breadcrumb">
-            <button type="button" onClick={onGoHome}>
-              HOME
-            </button>
-            <span>/</span>
-            <span>{cleanCol.toUpperCase()}</span>
-          </div>
           <p className="eyebrow light">{meta.eyebrow}</p>
           <h1>{meta.title}</h1>
           <p>{meta.subtitle}</p>

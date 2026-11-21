@@ -676,28 +676,30 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
         .status(400)
         .json({ message: "Razorpay keys not configured in backend environment." });
     }
-    const amountInRupees = Number(req.body.amountInRupees || 0);
-    if (!amountInRupees || amountInRupees <= 0) {
+    const amount = Number(req.body.amountInPaise);
+    if (!Number.isSafeInteger(amount) || amount < 100) {
       return res.status(400).json({ message: "Invalid payment amount." });
     }
     const rzp = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
       key_secret: process.env.RAZORPAY_KEY_SECRET
     });
-    const amountInPaise = Math.round(amountInRupees * 100);
     const rzpOrder = await rzp.orders.create({
-      amount: amountInPaise,
+      amount,
       currency: "INR",
       receipt: `rcpt_${Date.now()}`
     });
     res.json({
       keyId: process.env.RAZORPAY_KEY_ID,
-      razorpayOrderId: rzpOrder.id,
+      order_id: rzpOrder.id,
       amount: rzpOrder.amount,
       currency: rzpOrder.currency
     });
   } catch (err) {
-    res.status(500).json({ message: err.message || "Razorpay order creation failed." });
+    const status = err.statusCode === 401 ? 401 : 500;
+    res
+      .status(status)
+      .json({ message: err.message || "Razorpay order creation failed." });
   }
 });
 
@@ -710,8 +712,22 @@ app.post("/api/payments/razorpay/verify", async (req, res) => {
       orderPayload
     } = req.body;
 
+    if (
+      typeof razorpay_order_id !== "string" ||
+      !razorpay_order_id ||
+      typeof razorpay_payment_id !== "string" ||
+      !razorpay_payment_id ||
+      typeof razorpay_signature !== "string" ||
+      !razorpay_signature ||
+      !orderPayload ||
+      typeof orderPayload !== "object" ||
+      Array.isArray(orderPayload)
+    ) {
+      return res.status(400).json({ message: "Payment verification fields are required." });
+    }
+
     if (!process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(400).json({ message: "Razorpay secret not configured." });
+      return res.status(500).json({ message: "Razorpay secret not configured." });
     }
 
     const expected = crypto
@@ -719,7 +735,12 @@ app.post("/api/payments/razorpay/verify", async (req, res) => {
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest("hex");
 
-    if (expected !== razorpay_signature) {
+    const expectedBuffer = Buffer.from(expected);
+    const signatureBuffer = Buffer.from(razorpay_signature);
+    if (
+      signatureBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
+    ) {
       return res.status(400).json({ message: "Invalid payment signature." });
     }
 

@@ -119,6 +119,8 @@ const NAV_GROUPS = [
     group: "CONTENT & CMS",
     items: [
       { id: "homepage", label: "Homepage CMS", icon: Sparkles },
+      { id: "under999_slider", label: "₹999 Store Slides", icon: Tag },
+      { id: "editorial_slider", label: "Editorial Showcase Slides", icon: Layers },
       { id: "mobile_ui", label: "Mobile UI & Navbar", icon: Smartphone },
       { id: "reels", label: "Shoppable Reels", icon: Film },
       { id: "story", label: "Our Story Manager", icon: FileText },
@@ -142,92 +144,130 @@ const NAV_GROUPS = [
   }
 ];
 
+const REAL_HOMEPAGE_SECTIONS = [
+  {
+    key: "hero_main",
+    label: "HERO BANNER",
+    title: "Walk your own way.",
+    layout: "hero_banner",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "trust_strip",
+    label: "TRUST STRIP",
+    title: "FREE SHIPPING ₹2,999+ • 7-DAY SIZE EXCHANGE",
+    layout: "trust_strip",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "collections_strip",
+    label: "CURATED DEPARTMENTS",
+    title: "Shop by collection.",
+    layout: "4_column_tiles",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "affordable_store",
+    label: "/999 STORE",
+    title: "Your day found its footing. (/999 Store)",
+    layout: "horizontal_slider",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "editorial_slider",
+    label: "EDITORIAL SLIDER",
+    title: "Editorial Showcase Slider (Below /999 Store)",
+    layout: "full_bleed_slider",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "featured_product",
+    label: "FEATURED DROP",
+    title: "FEATURED DROP (Exclusive Spotlight)",
+    layout: "spotlight_card",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "intro_statement",
+    label: "LESS, BUT BETTER",
+    title: "Good design is felt in every step.",
+    layout: "editorial_intro",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "shop_grid",
+    label: "THE CALZARE EDIT",
+    title: "Find your form.",
+    layout: "product_grid",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "reels_motion",
+    label: "SHOPPABLE REELS",
+    title: "Calzare in motion.",
+    layout: "reels_strip",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "campaign_banner",
+    label: "A CALZARE STATE OF MIND",
+    title: "Made to move. Made to matter.",
+    layout: "split_campaign",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "our_philosophy",
+    label: "OUR PHILOSOPHY",
+    title: "Wear what moves you.",
+    layout: "story_block",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "journal_notes",
+    label: "NOTES FROM CALZARE",
+    title: "The considered life.",
+    layout: "journal_card",
+    visible: true,
+    image: ""
+  },
+  {
+    key: "newsletter",
+    label: "A NOTE, NOW AND THEN",
+    title: "Stay in the know.",
+    layout: "dark_banner",
+    visible: true,
+    image: ""
+  }
+];
+
+function sanitizeHomepageSections(savedSections) {
+  const validKeys = new Set(REAL_HOMEPAGE_SECTIONS.map((s) => s.key));
+  const defaultsByKey = Object.fromEntries(
+    REAL_HOMEPAGE_SECTIONS.map((s) => [s.key, s])
+  );
+  const kept = (Array.isArray(savedSections) ? savedSections : [])
+    .filter((s) => s && validKeys.has(s.key))
+    .map((s) => ({ ...defaultsByKey[s.key], ...s }));
+  const keptKeys = new Set(kept.map((s) => s.key));
+  const missing = REAL_HOMEPAGE_SECTIONS.filter((s) => !keptKeys.has(s.key));
+  return [...kept, ...missing];
+}
+
 const DEFAULT_HOMEPAGE_CMS = {
   reelsEnabled: true,
   productReelsEnabled: true,
-  sections: [
-    {
-      key: "hero_main",
-      label: "HERO",
-      title: "0% BORING. 100% AIR.",
-      layout: "asymmetric_editorial",
-      visible: true,
-      image: ""
-    },
-    {
-      key: "trust_ticker",
-      label: "TICKER",
-      title: "Live Ticker",
-      layout: "marquee_strip",
-      visible: true,
-      image: ""
-    },
-    {
-      key: "bestsellers",
-      label: "BESTSELLERS",
-      title: "CROWD FAVORITES",
-      layout: "luxury_grid",
-      visible: true,
-      maxItems: 8,
-      image: ""
-    },
-    {
-      key: "shop_audience",
-      label: "AUDIENCE_CARDS",
-      title: "DESIGNED FOR EVERY STRIDE",
-      layout: "split_4_panels",
-      visible: true,
-      image: ""
-    },
-    {
-      key: "affordable_store",
-      label: "AFFORDABLE_STORE",
-      title: "THE UNDER ₹999 STORE",
-      layout: "editorial_split",
-      visible: true,
-      image: ""
-    },
-    {
-      key: "storytelling",
-      label: "STORYTELLING",
-      title: "BUILT FOR REAL LIFE & WILD PERSONALITIES",
-      layout: "editorial_split",
-      visible: true,
-      image: ""
-    },
-    {
-      key: "category_discovery",
-      label: "CATEGORY_DISCOVERY",
-      title: "CHOOSE YOUR SILHOUETTE",
-      layout: "luxury_grid",
-      visible: true,
-      image: ""
-    },
-    {
-      key: "customer_reviews",
-      label: "REVIEWS",
-      title: "WORDS FROM THE PAVEMENT",
-      layout: "verified_grid",
-      visible: true,
-      image: ""
-    },
-    {
-      key: "benefits_trust",
-      label: "BENEFITS",
-      title: "THE CALZARE STANDARD",
-      layout: "asymmetric_editorial",
-      visible: true,
-      image: ""
-    },
-    {
-      key: "newsletter",
-      label: "NEWSLETTER",
-      title: "DON'T MISS THE NEXT DROP.",
-      layout: "dark_banner",
-      visible: true,
-      image: ""
-    }
-  ],
+  sections: REAL_HOMEPAGE_SECTIONS,
   featuredProduct: {
     enabled: true,
     sectionType: "EXCLUSIVE / MOST SELLING",
@@ -267,7 +307,8 @@ const DEFAULT_HOMEPAGE_CMS = {
     accentColor: "#2563EB",
     logoSizePx: 27,
     sticky: true,
-    announcementText: "COMPLIMENTARY EXPRESS SHIPPING ABOVE ₹2,999 • 7-DAY EASY EXCHANGE"
+    announcementText:
+      "COMPLIMENTARY EXPRESS SHIPPING ABOVE ₹2,999 • 7-DAY EASY EXCHANGE"
   },
   affordableStore: {
     enabled: true,
@@ -279,6 +320,24 @@ const DEFAULT_HOMEPAGE_CMS = {
     ctaLabel: "EXPLORE",
     ctaRoute: "#shop",
     customSlides: []
+  },
+  editorialSlider: {
+    enabled: true,
+    slides: [
+      {
+        id: "ed-1",
+        title: "Forma Court",
+        subtitle: "Minimal architectural court silhouette built for long city days.",
+        ctaLabel: "Buy Now",
+        image: FALLBACK_IMG,
+        imageFit: "cover",
+        imagePosX: 50,
+        imagePosY: 50,
+        imageZoom: 1,
+        productId: "c-001",
+        redirectUrl: "#shop"
+      }
+    ]
   },
   footer: {
     bgColor: "#0F172A",
@@ -416,6 +475,10 @@ const EMPTY_PRODUCT = {
   seoTitle: "",
   seoDescription: "",
   image: "",
+  imageFit: "cover",
+  imagePosX: 50,
+  imagePosY: 50,
+  imageZoom: 1,
   videoUrl: "",
   published: true
 };
@@ -621,6 +684,141 @@ function DropZoneField({
   );
 }
 
+function ImageFitControls({
+  image,
+  fit,
+  posX,
+  posY,
+  zoom,
+  aspect = "16 / 9",
+  onChange
+}) {
+  if (!image) return null;
+  const activeFit = fit || "cover";
+  const activeX = posX ?? 50;
+  const activeY = posY ?? 50;
+  const activeZoom = Number(zoom) || 1;
+
+  return (
+    <div
+      style={{
+        border: "1px solid #E2E8F0",
+        borderRadius: "10px",
+        padding: "12px",
+        background: "#FFFFFF",
+        display: "grid",
+        gap: "10px"
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "8px"
+        }}
+      >
+        <strong style={{ fontSize: "11px", color: "#475569", letterSpacing: "0.6px" }}>
+          ADJUST PHOTO FIT & POSITION
+        </strong>
+        <button
+          type="button"
+          onClick={() =>
+            onChange({ imageFit: "cover", imagePosX: 50, imagePosY: 50, imageZoom: 1 })
+          }
+          style={{ ...linkBtn, fontSize: "11px" }}
+        >
+          Reset
+        </button>
+      </div>
+
+      <div
+        style={{
+          width: "100%",
+          aspectRatio: aspect,
+          maxHeight: "170px",
+          borderRadius: "8px",
+          overflow: "hidden",
+          background: "#F1F5F9",
+          border: "1px solid #E2E8F0"
+        }}
+      >
+        <img
+          src={image}
+          alt="Fit preview"
+          onError={handleImgError}
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "block",
+            objectFit: activeFit,
+            objectPosition: `${activeX}% ${activeY}%`,
+            transform: `scale(${activeZoom})`,
+            transformOrigin: `${activeX}% ${activeY}%`
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: "10px"
+        }}
+      >
+        <div>
+          <label style={fieldLabel}>Fit Mode</label>
+          <select
+            value={activeFit}
+            onChange={(e) => onChange({ imageFit: e.target.value })}
+            style={ctrlInput}
+          >
+            <option value="cover">Fill Frame (Cover)</option>
+            <option value="contain">Fit Full Photo (Contain)</option>
+          </select>
+        </div>
+
+        <div>
+          <label style={fieldLabel}>Left / Right ({activeX}%)</label>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={activeX}
+            onChange={(e) => onChange({ imagePosX: Number(e.target.value) })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label style={fieldLabel}>Up / Down ({activeY}%)</label>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={activeY}
+            onChange={(e) => onChange({ imagePosY: Number(e.target.value) })}
+            style={{ width: "100%" }}
+          />
+        </div>
+
+        <div>
+          <label style={fieldLabel}>Zoom ({Math.round(activeZoom * 100)}%)</label>
+          <input
+            type="range"
+            min={1}
+            max={1.8}
+            step={0.05}
+            value={activeZoom}
+            onChange={(e) => onChange({ imageZoom: Number(e.target.value) })}
+            style={{ width: "100%" }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPanel({ onExit, onStoreUpdated }) {
   const [token, setToken] = useState(
     () => sessionStorage.getItem("calzare_admin_token") || ""
@@ -647,7 +845,15 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     try {
       const saved = JSON.parse(localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null");
       if (saved && typeof saved === "object") {
-        return { ...DEFAULT_HOMEPAGE_CMS, ...saved };
+        return {
+          ...DEFAULT_HOMEPAGE_CMS,
+          ...saved,
+          sections: sanitizeHomepageSections(saved.sections),
+          editorialSlider: {
+            ...DEFAULT_HOMEPAGE_CMS.editorialSlider,
+            ...(saved.editorialSlider || {})
+          }
+        };
       }
     } catch (_) {}
     return DEFAULT_HOMEPAGE_CMS;
@@ -787,9 +993,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             ...DEFAULT_HOMEPAGE_CMS,
             ...p,
             ...data.homepage,
-            sections: data.homepage.sections?.length
-              ? data.homepage.sections
-              : DEFAULT_HOMEPAGE_CMS.sections,
+            sections: sanitizeHomepageSections(data.homepage.sections),
             featuredProduct: {
               ...DEFAULT_HOMEPAGE_CMS.featuredProduct,
               ...(p.featuredProduct || {}),
@@ -814,6 +1018,11 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               ...DEFAULT_HOMEPAGE_CMS.affordableStore,
               ...(p.affordableStore || {}),
               ...(data.homepage.affordableStore || {})
+            },
+            editorialSlider: {
+              ...DEFAULT_HOMEPAGE_CMS.editorialSlider,
+              ...(p.editorialSlider || {}),
+              ...(data.homepage.editorialSlider || {})
             },
             footer: {
               ...DEFAULT_HOMEPAGE_CMS.footer,
@@ -2323,7 +2532,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     onClick={handleFshipSync}
                     style={primaryBlueBtn}
                   >
-                    <RefreshCw size={13} /> {syncingFship ? "Syncing FShip..." : "Sync FShip"}
+                    <RefreshCw size={13} />{" "}
+                    {syncingFship ? "Syncing FShip..." : "Sync FShip"}
                   </button>
                   <button type="button" onClick={() => syncAll()} style={topActionBtn}>
                     <RefreshCw size={13} /> Refresh Orders
@@ -2692,14 +2902,27 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         gap: "12px"
                       }}
                     >
-                      <DropZoneField
-                        label="Product Photo (Drag & Drop or Upload)"
-                        uploadKey="pImg"
-                        uploadingKey={uploading}
-                        value={productForm.image}
-                        onUploadFile={uploadMedia}
-                        onChange={(u) => setProductForm((p) => ({ ...p, image: u }))}
-                      />
+                      <div style={{ display: "grid", gap: "10px" }}>
+                        <DropZoneField
+                          label="Product Photo (Drag & Drop or Upload)"
+                          uploadKey="pImg"
+                          uploadingKey={uploading}
+                          value={productForm.image}
+                          onUploadFile={uploadMedia}
+                          onChange={(u) => setProductForm((p) => ({ ...p, image: u }))}
+                        />
+                        <ImageFitControls
+                          image={productForm.image}
+                          fit={productForm.imageFit}
+                          posX={productForm.imagePosX}
+                          posY={productForm.imagePosY}
+                          zoom={productForm.imageZoom}
+                          aspect="4 / 5"
+                          onChange={(patch) =>
+                            setProductForm((p) => ({ ...p, ...patch }))
+                          }
+                        />
+                      </div>
                       <DropZoneField
                         label="Hover Video MP4 (Drag & Drop or Upload)"
                         uploadKey="pVid"
@@ -3771,7 +3994,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>MOBILE UI, NAVBAR & CALZARE® LOGO</h1>
                   <p style={pageSub}>
-                    Customize mobile header height, CALZARE® font size, hero scaling, trust strip layout, and product reel visibility.
+                    Customize mobile header height, CALZARE® font size, hero scaling, trust strip
+                    layout, and product reel visibility.
                   </p>
                 </div>
                 <button
@@ -3894,7 +4118,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
 
                   <div>
                     <label style={fieldLabel}>
-                      "Shop by collection." Mobile Size ({homepage.mobileUI?.collectionTitleSizePx ?? 26}px)
+                      "Shop by collection." Mobile Size (
+                      {homepage.mobileUI?.collectionTitleSizePx ?? 26}px)
                     </label>
                     <input
                       type="range"
@@ -3987,7 +4212,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>HOMEPAGE CMS BUILDER</h1>
                   <p style={pageSub}>
-                    Edit hero text, CALZARE logo size, colors, fonts, navbar, footer, featured product redirect, and dedicated Under ₹999 showcase slides.
+                    Edit hero text, CALZARE logo size, colors, fonts, navbar, footer, featured
+                    product, and toggle visibility of real homepage sections.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -4140,277 +4366,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     style={ctrlInput}
                   />
                 </div>
-              </div>
-
-              {/* DEDICATED UNDER ₹999 HOMEPAGE SHOWCASE SLIDES */}
-              <div style={cardBox}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    gap: "8px",
-                    marginBottom: "12px"
-                  }}
-                >
-                  <div>
-                    <h3 style={{ ...sectionSubTitle, margin: 0 }}>
-                      UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (DEDICATED SLIDE PHOTOS ONLY)
-                    </h3>
-                    <p style={pageSub}>
-                      Upload dedicated photos for the ₹999 store slider. Product uploads under ₹999 will NOT appear here unless you upload a slide photo below.
-                    </p>
-                  </div>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setHomepage((prev) => ({
-                          ...prev,
-                          affordableStore: {
-                            ...(prev.affordableStore || {}),
-                            customSlides: [
-                              ...(prev.affordableStore?.customSlides || []),
-                              {
-                                id: `u999-${Date.now().toString().slice(-4)}`,
-                                image: "",
-                                productId: products[0]?.id || "c-005",
-                                redirectUrl: ""
-                              }
-                            ]
-                          }
-                        }))
-                      }
-                      style={topActionBtn}
-                    >
-                      <Plus size={14} /> Add ₹999 Slide
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSaveHomepage(homepage)}
-                      style={primaryBlueBtn}
-                    >
-                      <Check size={14} /> Save ₹999 Slides
-                    </button>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
-                    gap: "10px",
-                    marginBottom: "14px",
-                    paddingBottom: "14px",
-                    borderBottom: "1px solid #E2E8F0"
-                  }}
-                >
-                  <div>
-                    <label style={fieldLabel}>Blue Card Badge</label>
-                    <input
-                      value={homepage.affordableStore?.badgeLabel || "/999 Store"}
-                      onChange={(e) =>
-                        setHomepage({
-                          ...homepage,
-                          affordableStore: {
-                            ...(homepage.affordableStore || {}),
-                            badgeLabel: e.target.value
-                          }
-                        })
-                      }
-                      style={ctrlInput}
-                    />
-                  </div>
-                  <div>
-                    <label style={fieldLabel}>Blue Card Heading</label>
-                    <input
-                      value={
-                        homepage.affordableStore?.title || "Your day\nfound its footing."
-                      }
-                      onChange={(e) =>
-                        setHomepage({
-                          ...homepage,
-                          affordableStore: {
-                            ...(homepage.affordableStore || {}),
-                            title: e.target.value
-                          }
-                        })
-                      }
-                      style={ctrlInput}
-                    />
-                  </div>
-                  <div>
-                    <label style={fieldLabel}>Blue Card Subtitle</label>
-                    <input
-                      value={
-                        homepage.affordableStore?.subtitle ||
-                        "Everyday Calzare, everyday price.\nStarting ₹999"
-                      }
-                      onChange={(e) =>
-                        setHomepage({
-                          ...homepage,
-                          affordableStore: {
-                            ...(homepage.affordableStore || {}),
-                            subtitle: e.target.value
-                          }
-                        })
-                      }
-                      style={ctrlInput}
-                    />
-                  </div>
-                  <div>
-                    <label style={fieldLabel}>Explore Button Label</label>
-                    <input
-                      value={homepage.affordableStore?.ctaLabel || "EXPLORE"}
-                      onChange={(e) =>
-                        setHomepage({
-                          ...homepage,
-                          affordableStore: {
-                            ...(homepage.affordableStore || {}),
-                            ctaLabel: e.target.value
-                          }
-                        })
-                      }
-                      style={ctrlInput}
-                    />
-                  </div>
-                </div>
-
-                {!(homepage.affordableStore?.customSlides || []).length ? (
-                  <p style={pageSub}>
-                    No dedicated ₹999 slides added yet. Click <strong>+ Add ₹999 Slide</strong> to upload a slide photo.
-                  </p>
-                ) : (
-                  <div style={{ display: "grid", gap: "14px" }}>
-                    {(homepage.affordableStore?.customSlides || []).map((slide, sIdx) => (
-                      <div
-                        key={slide.id || sIdx}
-                        style={{
-                          border: "1px solid #E2E8F0",
-                          borderRadius: "10px",
-                          padding: "14px",
-                          background: "#F8FAFC",
-                          display: "grid",
-                          gap: "10px"
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center"
-                          }}
-                        >
-                          <strong style={{ fontSize: "12px", color: "#2563EB" }}>
-                            ₹999 DEDICATED SLIDE #{sIdx + 1}
-                          </strong>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setHomepage((prev) => ({
-                                ...prev,
-                                affordableStore: {
-                                  ...(prev.affordableStore || {}),
-                                  customSlides: prev.affordableStore.customSlides.filter(
-                                    (_, i) => i !== sIdx
-                                  )
-                                }
-                              }))
-                            }
-                            style={{ ...topActionBtn, color: "#DC2626", padding: "4px 8px" }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-
-                        <div
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                            gap: "10px"
-                          }}
-                        >
-                          <div>
-                            <label style={fieldLabel}>
-                              Target Product Page (Redirects on Click)
-                            </label>
-                            <select
-                              value={slide.productId || ""}
-                              onChange={(e) =>
-                                setHomepage((prev) => ({
-                                  ...prev,
-                                  affordableStore: {
-                                    ...(prev.affordableStore || {}),
-                                    customSlides: prev.affordableStore.customSlides.map(
-                                      (it, i) =>
-                                        i === sIdx
-                                          ? { ...it, productId: e.target.value }
-                                          : it
-                                    )
-                                  }
-                                }))
-                              }
-                              style={{ ...ctrlInput, background: "#FFFFFF" }}
-                            >
-                              <option value="">-- Use Custom Redirect URL --</option>
-                              {products.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} ({money(p.price)})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label style={fieldLabel}>
-                              Product Page Redirect URL (Optional)
-                            </label>
-                            <input
-                              placeholder="#product/c-005 or https://..."
-                              value={slide.redirectUrl || ""}
-                              onChange={(e) =>
-                                setHomepage((prev) => ({
-                                  ...prev,
-                                  affordableStore: {
-                                    ...(prev.affordableStore || {}),
-                                    customSlides: prev.affordableStore.customSlides.map(
-                                      (it, i) =>
-                                        i === sIdx
-                                          ? { ...it, redirectUrl: e.target.value }
-                                          : it
-                                    )
-                                  }
-                                }))
-                              }
-                              style={{ ...ctrlInput, background: "#FFFFFF" }}
-                            />
-                          </div>
-                        </div>
-
-                        <DropZoneField
-                          label="Dedicated ₹999 Slide Photo (Required — Independent from Product Photos)"
-                          uploadKey={`u999SlideImg-${sIdx}`}
-                          uploadingKey={uploading}
-                          value={slide.image || ""}
-                          onUploadFile={uploadMedia}
-                          onChange={(url) =>
-                            setHomepage((prev) => ({
-                              ...prev,
-                              affordableStore: {
-                                ...(prev.affordableStore || {}),
-                                customSlides: prev.affordableStore.customSlides.map(
-                                  (it, i) =>
-                                    i === sIdx ? { ...it, image: url } : it
-                                )
-                              }
-                            }))
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div style={cardBox}>
@@ -4632,9 +4587,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               </div>
 
               <div style={cardBox}>
-                <h3 style={sectionSubTitle}>
-                  NAVBAR, HERO PHOTO & UNDER ₹999 SECTION IMAGE
-                </h3>
+                <h3 style={sectionSubTitle}>NAVBAR & HERO PHOTO</h3>
                 <div
                   style={{
                     display: "grid",
@@ -4702,40 +4655,16 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                    gap: "14px"
-                  }}
-                >
-                  <DropZoneField
-                    label="Hero Photo (Homepage Hero)"
-                    uploadKey="cmsHero"
-                    uploadingKey={uploading}
-                    value={homepage.heroImage || ""}
-                    onUploadFile={uploadMedia}
-                    onChange={(url) =>
-                      setHomepage((h) => ({ ...h, heroImage: url }))
-                    }
-                  />
-                  <DropZoneField
-                    label="Under ₹999 Section Image"
-                    uploadKey="cms999"
-                    uploadingKey={uploading}
-                    value={homepage.affordableStore?.image || ""}
-                    onUploadFile={uploadMedia}
-                    onChange={(url) =>
-                      setHomepage((h) => ({
-                        ...h,
-                        affordableStore: {
-                          ...(h.affordableStore || {}),
-                          image: url
-                        }
-                      }))
-                    }
-                  />
-                </div>
+                <DropZoneField
+                  label="Hero Photo (Homepage Hero)"
+                  uploadKey="cmsHero"
+                  uploadingKey={uploading}
+                  value={homepage.heroImage || ""}
+                  onUploadFile={uploadMedia}
+                  onChange={(url) =>
+                    setHomepage((h) => ({ ...h, heroImage: url }))
+                  }
+                />
               </div>
 
               {/* FOOTER STYLING, LOGO, CONTACT INFO & NAVIGATION COLUMNS */}
@@ -5466,6 +5395,602 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
+          {/* ==================== DEDICATED ₹999 STORE SLIDES ==================== */}
+          {activeNav === "under999_slider" && (
+            <div style={{ display: "grid", gap: "16px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "12px"
+                }}
+              >
+                <div>
+                  <h1 style={pageTitle}>₹999 STORE SLIDER MANAGER</h1>
+                  <p style={pageSub}>
+                    Manage the /999 Store promo card and upload or replace dedicated slide photos.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setHomepage((prev) => ({
+                        ...prev,
+                        affordableStore: {
+                          ...(prev.affordableStore || {}),
+                          customSlides: [
+                            ...(prev.affordableStore?.customSlides || []),
+                            {
+                              id: `u999-${Date.now().toString().slice(-4)}`,
+                              image: "",
+                              imageFit: "contain",
+                              imagePosX: 50,
+                              imagePosY: 50,
+                              imageZoom: 1,
+                              productId: products[0]?.id || "c-005",
+                              redirectUrl: ""
+                            }
+                          ]
+                        }
+                      }))
+                    }
+                    style={topActionBtn}
+                  >
+                    <Plus size={14} /> Add ₹999 Slide
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveHomepage(homepage)}
+                    style={primaryBlueBtn}
+                  >
+                    <Check size={14} /> Save ₹999 Slides
+                  </button>
+                </div>
+              </div>
+
+              <div style={cardBox}>
+                <h3 style={sectionSubTitle}>BLUE PROMO CARD TEXT</h3>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                    gap: "10px"
+                  }}
+                >
+                  <div>
+                    <label style={fieldLabel}>Blue Card Badge</label>
+                    <input
+                      placeholder="/999 Store"
+                      value={homepage.affordableStore?.badgeLabel ?? ""}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          affordableStore: {
+                            ...(homepage.affordableStore || {}),
+                            badgeLabel: e.target.value
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Blue Card Heading</label>
+                    <input
+                      placeholder="Your day found its footing."
+                      value={homepage.affordableStore?.title ?? ""}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          affordableStore: {
+                            ...(homepage.affordableStore || {}),
+                            title: e.target.value
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Blue Card Subtitle</label>
+                    <input
+                      placeholder="Everyday Calzare, everyday price. Starting ₹999"
+                      value={homepage.affordableStore?.subtitle ?? ""}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          affordableStore: {
+                            ...(homepage.affordableStore || {}),
+                            subtitle: e.target.value
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Explore Button Label</label>
+                    <input
+                      placeholder="EXPLORE"
+                      value={homepage.affordableStore?.ctaLabel ?? ""}
+                      onChange={(e) =>
+                        setHomepage({
+                          ...homepage,
+                          affordableStore: {
+                            ...(homepage.affordableStore || {}),
+                            ctaLabel: e.target.value
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={cardBox}>
+                <h3 style={sectionSubTitle}>SLIDE IMAGES & PRODUCT LINKS</h3>
+                {!(homepage.affordableStore?.customSlides || []).length ? (
+                  <p style={pageSub}>
+                    No ₹999 slides yet. Click <strong>+ Add ₹999 Slide</strong> above to upload
+                    images.
+                  </p>
+                ) : (
+                  <div style={{ display: "grid", gap: "14px" }}>
+                    {(homepage.affordableStore?.customSlides || []).map((slide, sIdx) => (
+                      <div
+                        key={slide.id || sIdx}
+                        style={{
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "10px",
+                          padding: "14px",
+                          background: "#F8FAFC",
+                          display: "grid",
+                          gap: "10px"
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center"
+                          }}
+                        >
+                          <strong style={{ fontSize: "12px", color: "#2563EB" }}>
+                            ₹999 SLIDE #{sIdx + 1}
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setHomepage((prev) => ({
+                                ...prev,
+                                affordableStore: {
+                                  ...(prev.affordableStore || {}),
+                                  customSlides: prev.affordableStore.customSlides.filter(
+                                    (_, i) => i !== sIdx
+                                  )
+                                }
+                              }))
+                            }
+                            style={{ ...topActionBtn, color: "#DC2626", padding: "4px 8px" }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                            gap: "10px"
+                          }}
+                        >
+                          <div>
+                            <label style={fieldLabel}>Target Product Page</label>
+                            <select
+                              value={slide.productId || ""}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  affordableStore: {
+                                    ...(prev.affordableStore || {}),
+                                    customSlides: prev.affordableStore.customSlides.map(
+                                      (it, i) =>
+                                        i === sIdx ? { ...it, productId: e.target.value } : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            >
+                              <option value="">-- Use Custom Redirect URL --</option>
+                              {products.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} ({money(p.price)})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label style={fieldLabel}>Custom Redirect URL (Optional)</label>
+                            <input
+                              placeholder="#product/c-005 or https://..."
+                              value={slide.redirectUrl || ""}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  affordableStore: {
+                                    ...(prev.affordableStore || {}),
+                                    customSlides: prev.affordableStore.customSlides.map(
+                                      (it, i) =>
+                                        i === sIdx ? { ...it, redirectUrl: e.target.value } : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
+                        </div>
+
+                        <DropZoneField
+                          label="Slide Photo"
+                          uploadKey={`u999SlideImg-${sIdx}`}
+                          uploadingKey={uploading}
+                          value={slide.image || ""}
+                          onUploadFile={uploadMedia}
+                          onChange={(url) =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              affordableStore: {
+                                ...(prev.affordableStore || {}),
+                                customSlides: prev.affordableStore.customSlides.map(
+                                  (it, i) => (i === sIdx ? { ...it, image: url } : it)
+                                )
+                              }
+                            }))
+                          }
+                        />
+
+                        <ImageFitControls
+                          image={slide.image}
+                          fit={slide.imageFit}
+                          posX={slide.imagePosX}
+                          posY={slide.imagePosY}
+                          zoom={slide.imageZoom}
+                          aspect="4 / 5"
+                          onChange={(patch) =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              affordableStore: {
+                                ...(prev.affordableStore || {}),
+                                customSlides: prev.affordableStore.customSlides.map(
+                                  (it, i) => (i === sIdx ? { ...it, ...patch } : it)
+                                )
+                              }
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ==================== DEDICATED EDITORIAL SHOWCASE SLIDER (BELOW ₹999) ==================== */}
+          {activeNav === "editorial_slider" && (
+            <div style={{ display: "grid", gap: "16px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "12px"
+                }}
+              >
+                <div>
+                  <h1 style={pageTitle}>EDITORIAL SHOWCASE SLIDES (BELOW ₹999)</h1>
+                  <p style={pageSub}>
+                    Manage the full-width Sola World–style slider directly below the ₹999 Store
+                    section.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setHomepage((prev) => ({
+                        ...prev,
+                        editorialSlider: {
+                          ...(prev.editorialSlider || { enabled: true }),
+                          slides: [
+                            ...(prev.editorialSlider?.slides || []),
+                            {
+                              id: `ed-${Date.now().toString().slice(-4)}`,
+                              title: "New Drop",
+                              subtitle: "Engineered for everyday movement.",
+                              ctaLabel: "Buy Now",
+                              image: "",
+                              imageFit: "cover",
+                              imagePosX: 50,
+                              imagePosY: 50,
+                              imageZoom: 1,
+                              productId: products[0]?.id || "",
+                              redirectUrl: "#shop"
+                            }
+                          ]
+                        }
+                      }))
+                    }
+                    style={topActionBtn}
+                  >
+                    <Plus size={14} /> Add Editorial Slide
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveHomepage(homepage)}
+                    style={primaryBlueBtn}
+                  >
+                    <Check size={14} /> Save Editorial Slides
+                  </button>
+                </div>
+              </div>
+
+              <div style={cardBox}>
+                {!(homepage.editorialSlider?.slides || []).length ? (
+                  <p style={pageSub}>
+                    No slides yet. Click <strong>+ Add Editorial Slide</strong> above to create
+                    your first banner slide.
+                  </p>
+                ) : (
+                  <div style={{ display: "grid", gap: "14px" }}>
+                    {(homepage.editorialSlider?.slides || []).map((slide, sIdx) => (
+                      <div
+                        key={slide.id || sIdx}
+                        style={{
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "10px",
+                          padding: "14px",
+                          background: "#F8FAFC",
+                          display: "grid",
+                          gap: "10px"
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center"
+                          }}
+                        >
+                          <strong style={{ fontSize: "12px", color: "#2563EB" }}>
+                            EDITORIAL SLIDE #{sIdx + 1}
+                          </strong>
+                          <div style={{ display: "flex", gap: "6px" }}>
+                            <button
+                              type="button"
+                              disabled={sIdx === 0}
+                              onClick={() =>
+                                setHomepage((prev) => {
+                                  const next = [...(prev.editorialSlider?.slides || [])];
+                                  [next[sIdx - 1], next[sIdx]] = [next[sIdx], next[sIdx - 1]];
+                                  return {
+                                    ...prev,
+                                    editorialSlider: {
+                                      ...(prev.editorialSlider || {}),
+                                      slides: next
+                                    }
+                                  };
+                                })
+                              }
+                              style={miniIconBtn}
+                            >
+                              <ArrowUp size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={
+                                sIdx === (homepage.editorialSlider?.slides || []).length - 1
+                              }
+                              onClick={() =>
+                                setHomepage((prev) => {
+                                  const next = [...(prev.editorialSlider?.slides || [])];
+                                  [next[sIdx + 1], next[sIdx]] = [next[sIdx], next[sIdx + 1]];
+                                  return {
+                                    ...prev,
+                                    editorialSlider: {
+                                      ...(prev.editorialSlider || {}),
+                                      slides: next
+                                    }
+                                  };
+                                })
+                              }
+                              style={miniIconBtn}
+                            >
+                              <ArrowDown size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  editorialSlider: {
+                                    ...(prev.editorialSlider || {}),
+                                    slides: (prev.editorialSlider?.slides || []).filter(
+                                      (_, i) => i !== sIdx
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...topActionBtn, color: "#DC2626", padding: "4px 8px" }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+                            gap: "10px"
+                          }}
+                        >
+                          <div>
+                            <label style={fieldLabel}>Slide Title</label>
+                            <input
+                              value={slide.title || ""}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  editorialSlider: {
+                                    ...(prev.editorialSlider || {}),
+                                    slides: prev.editorialSlider.slides.map((it, i) =>
+                                      i === sIdx ? { ...it, title: e.target.value } : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
+                          <div>
+                            <label style={fieldLabel}>Button Label</label>
+                            <input
+                              placeholder="Buy Now"
+                              value={slide.ctaLabel || ""}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  editorialSlider: {
+                                    ...(prev.editorialSlider || {}),
+                                    slides: prev.editorialSlider.slides.map((it, i) =>
+                                      i === sIdx ? { ...it, ctaLabel: e.target.value } : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
+                          <div>
+                            <label style={fieldLabel}>Link to Product</label>
+                            <select
+                              value={slide.productId || ""}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  editorialSlider: {
+                                    ...(prev.editorialSlider || {}),
+                                    slides: prev.editorialSlider.slides.map((it, i) =>
+                                      i === sIdx ? { ...it, productId: e.target.value } : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            >
+                              <option value="">-- Use Redirect URL --</option>
+                              {products.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} ({money(p.price)})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label style={fieldLabel}>Redirect URL (Optional)</label>
+                            <input
+                              placeholder="#men, #shop, or https://..."
+                              value={slide.redirectUrl || ""}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  editorialSlider: {
+                                    ...(prev.editorialSlider || {}),
+                                    slides: prev.editorialSlider.slides.map((it, i) =>
+                                      i === sIdx ? { ...it, redirectUrl: e.target.value } : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label style={fieldLabel}>Slide Subtitle</label>
+                          <input
+                            value={slide.subtitle || ""}
+                            onChange={(e) =>
+                              setHomepage((prev) => ({
+                                ...prev,
+                                editorialSlider: {
+                                  ...(prev.editorialSlider || {}),
+                                  slides: prev.editorialSlider.slides.map((it, i) =>
+                                    i === sIdx ? { ...it, subtitle: e.target.value } : it
+                                  )
+                                }
+                              }))
+                            }
+                            style={{ ...ctrlInput, background: "#FFFFFF" }}
+                          />
+                        </div>
+
+                        <DropZoneField
+                          label="Full-Width Banner Image"
+                          uploadKey={`edSlideImg-${sIdx}`}
+                          uploadingKey={uploading}
+                          value={slide.image || ""}
+                          onUploadFile={uploadMedia}
+                          onChange={(url) =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              editorialSlider: {
+                                ...(prev.editorialSlider || {}),
+                                slides: prev.editorialSlider.slides.map((it, i) =>
+                                  i === sIdx ? { ...it, image: url } : it
+                                )
+                              }
+                            }))
+                          }
+                        />
+
+                        <ImageFitControls
+                          image={slide.image}
+                          fit={slide.imageFit}
+                          posX={slide.imagePosX}
+                          posY={slide.imagePosY}
+                          zoom={slide.imageZoom}
+                          aspect="16 / 9"
+                          onChange={(patch) =>
+                            setHomepage((prev) => ({
+                              ...prev,
+                              editorialSlider: {
+                                ...(prev.editorialSlider || {}),
+                                slides: prev.editorialSlider.slides.map((it, i) =>
+                                  i === sIdx ? { ...it, ...patch } : it
+                                )
+                              }
+                            }))
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ==================== SHOPPABLE REELS ==================== */}
           {activeNav === "reels" && (
             <div style={{ display: "grid", gap: "16px" }}>
@@ -5481,7 +6006,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>SHOPPABLE REELS MANAGER</h1>
                   <p style={pageSub}>
-                    Upload vertical fit & motion reels linked directly to products, or toggle reels on/off.
+                    Upload vertical fit & motion reels linked directly to products, or toggle reels
+                    on/off.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -6604,7 +7130,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>SETTINGS & SECURITY</h1>
                   <p style={pageSub}>
-                    Configure store details, payment methods, contact info, and shipping thresholds.
+                    Configure store details, payment methods, contact info, and shipping
+                    thresholds.
                   </p>
                 </div>
                 <button

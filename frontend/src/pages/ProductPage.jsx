@@ -227,12 +227,10 @@ export default function ProductPage({
   const [showVideo, setShowVideo] = useState(false);
   const [selectedColorwayId, setSelectedColorwayId] = useState(productId);
 
-  // Short Video Player State inside Product Page
   const [activeClipIndex, setActiveClipIndex] = useState(null);
   const [clipMuted, setClipMuted] = useState(false);
   const [failedClipIds, setFailedClipIds] = useState({});
 
-  // Backend-Driven Reviews State
   const [backendReviews, setBackendReviews] = useState([]);
   const [reviewFormOpen, setReviewFormOpen] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState(null);
@@ -599,7 +597,7 @@ export default function ProductPage({
       </div>
 
       <div className="pdp-main-grid">
-        <div className="pdp-stage">
+        <div className="pdp-stage" style={{ overflow: "hidden" }}>
           {showVideo && currentVideo ? (
             <video
               src={currentVideo}
@@ -615,6 +613,14 @@ export default function ProductPage({
             <img
               src={currentImage}
               alt={current.name}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: current.imageFit || "cover",
+                objectPosition: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`,
+                transform: `scale(${Number(current.imageZoom) || 1})`,
+                transformOrigin: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`
+              }}
               onError={(e) => {
                 e.currentTarget.onerror = null;
                 e.currentTarget.src = SAFE_IMAGE_FALLBACK;
@@ -1000,7 +1006,6 @@ export default function ProductPage({
             </button>
           </div>
 
-          {/* PAYMENT & TRUST STRIP */}
           <div
             style={{
               marginTop: "14px",
@@ -1039,7 +1044,6 @@ export default function ProductPage({
             </div>
           </div>
 
-          {/* TABBED PRODUCT DETAILS */}
           <div style={{ marginTop: "20px" }}>
             <div
               style={{
@@ -1118,7 +1122,6 @@ export default function ProductPage({
         </div>
       </div>
 
-      {/* SUGGESTED PRODUCTS FOR YOU */}
       {suggestedItems.length > 0 && (
         <section className="shop-section section-pad">
           <div className="section-heading">
@@ -1186,7 +1189,6 @@ export default function ProductPage({
         </section>
       )}
 
-      {/* FULL-SCREEN VERTICAL SHORT VIDEO MODAL */}
       {activeClip && (
         <div
           className="modal-backdrop"
@@ -1498,7 +1500,6 @@ export default function ProductPage({
         </div>
       )}
 
-      {/* CUSTOMER REVIEWS SECTION */}
       <section className="calzare-reviews-section" id="product-reviews">
         <div className="calzare-reviews-header">
           <div className="calzare-rating-pill">
@@ -1791,7 +1792,6 @@ export default function ProductPage({
         </section>
       )}
 
-      {/* STICKY MOBILE ADD-TO-CART BAR */}
       {isMobileView && (
         <div
           style={{

@@ -343,6 +343,10 @@ const DEFAULT_HOMEPAGE = {
     ctaLabel: "EXPLORE",
     maxPrice: 999,
     customSlides: []
+  },
+  editorialSlider: {
+    enabled: true,
+    slides: []
   }
 };
 
@@ -537,6 +541,12 @@ function applyHomepagePayload(hp, setHomepage) {
           ...hp.affordableStore
         }
       : prev.affordableStore,
+    editorialSlider: hp.editorialSlider
+      ? {
+          ...prev.editorialSlider,
+          ...hp.editorialSlider
+        }
+      : prev.editorialSlider,
     productPage: hp.productPage
       ? {
           ...prev.productPage,
@@ -657,20 +667,20 @@ export function Under999StoreSection({
   const config = homepage?.affordableStore || {};
   if (config.enabled === false || config.visible === false) return null;
 
-  const badgeLabel = config.badgeLabel || "/999 Store";
-  const rawTitle = String(config.title || "").trim();
+  const badgeLabel = config.badgeLabel ?? "/999 Store";
+  const rawTitle = String(config.title ?? "").trim();
   const title =
     !rawTitle || rawTitle.toUpperCase() === "THE UNDER ₹999 STORE"
       ? "Your day\nfound its footing."
       : rawTitle;
 
-  const rawSubtitle = String(config.subtitle || "").trim();
+  const rawSubtitle = String(config.subtitle ?? "").trim();
   const subtitle =
     !rawSubtitle || rawSubtitle.startsWith("High performance foam")
       ? "Everyday Calzare, everyday price.\nStarting ₹999"
       : rawSubtitle;
 
-  const rawCta = String(config.ctaLabel || "").trim();
+  const rawCta = String(config.ctaLabel ?? "").trim();
   const ctaLabel =
     !rawCta || rawCta.toUpperCase() === "EXPLORE DROP" ? "EXPLORE" : rawCta;
 
@@ -694,6 +704,10 @@ export function Under999StoreSection({
         key: s.id || `custom-999-${i}`,
         alt: s.title || linkedProd?.name || `Calzare ₹${maxPrice} Slide ${i + 1}`,
         slideImage: safeImg(s.image.trim()),
+        imageFit: s.imageFit || "contain",
+        imagePosX: s.imagePosX ?? 50,
+        imagePosY: s.imagePosY ?? 50,
+        imageZoom: Number(s.imageZoom) || 1,
         targetProduct: linkedProd,
         redirectUrl: String(s.redirectUrl || "").trim()
       };
@@ -840,7 +854,13 @@ export function Under999StoreSection({
                     <img
                       src={item.slideImage}
                       alt={item.alt}
-                      style={under999Styles.productImg}
+                      style={{
+                        ...under999Styles.productImg,
+                        objectFit: item.imageFit,
+                        objectPosition: `${item.imagePosX}% ${item.imagePosY}%`,
+                        transform: `scale(${item.imageZoom})`,
+                        transformOrigin: `${item.imagePosX}% ${item.imagePosY}%`
+                      }}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
                         e.currentTarget.src = SAFE_IMAGE_FALLBACK;
@@ -1942,7 +1962,7 @@ function App() {
       const createRes = await fetch(`${API}/payments/razorpay/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountInRupees: chargeAmount })
+        body: JSON.stringify({ amountInPaise: Math.round(chargeAmount * 100) })
       });
       const rzpData = await createRes.json();
       if (!createRes.ok) {
@@ -1955,37 +1975,48 @@ function App() {
         currency: rzpData.currency,
         name: `${storeSettings.storeName || "CALZARE"}®`,
         description: checkoutForm.paymentMethod,
-        order_id: rzpData.razorpayOrderId,
+        order_id: rzpData.order_id,
         prefill: {
           name: checkoutForm.name,
           contact: checkoutForm.phone
         },
         theme: { color: "#252a22" },
+        modal: {
+          ondismiss: () => setNotice("Payment cancelled. No charge was made.")
+        },
         handler: async function (response) {
-          const verifyRes = await fetch(`${API}/payments/razorpay/verify`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              orderPayload
-            })
-          });
-          const verified = await verifyRes.json();
-          if (verifyRes.ok) {
+          try {
+            const verifyRes = await fetch(`${API}/payments/razorpay/verify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                orderPayload
+              })
+            });
+            const verified = await verifyRes.json();
+            if (!verifyRes.ok) {
+              throw new Error(verified.message || "Payment verification failed.");
+            }
             recordLocalOrder(verified.order);
             setOrderConfirmed(verified.order);
             setCart([]);
             setAppliedCoupon(null);
             setCouponInput("");
-          } else {
-            setNotice(verified.message || "Payment verification failed.");
+          } catch (err) {
+            setNotice(err.message || "Payment verification failed.");
           }
         }
       };
 
       const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (response) => {
+        setNotice(
+          response.error?.description || "Payment failed. Please try again."
+        );
+      });
       rzp.open();
     } catch (err) {
       setNotice(err.message || "Payment could not be started.");
@@ -2185,6 +2216,7 @@ function App() {
         ) : (
           <HomePage
             homepage={homepage}
+            storeSettings={storeSettings}
             products={products}
             visibleProducts={visibleProducts}
             reels={homepage.reelsEnabled === false ? [] : reels}
