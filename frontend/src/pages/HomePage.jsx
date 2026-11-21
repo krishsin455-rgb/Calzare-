@@ -50,6 +50,7 @@ const COLLECTIONS_STRIP = [
 
 export default function HomePage({
   homepage,
+  storeSettings,
   products,
   visibleProducts,
   reels,
@@ -89,6 +90,15 @@ export default function HomePage({
     }))
   ];
 
+  const trustLayoutClass =
+    homepage?.mobileUI?.trustLayout === "stack" ? "" : "mobile-swipe-mode";
+
+  const customStoryBlocks = Array.isArray(storeSettings?.storySections)
+    ? storeSettings.storySections.filter(
+        (s) => s && (s.eyebrow || s.heading || s.body)
+      )
+    : [];
+
   return (
     <>
       <section className="hero">
@@ -127,7 +137,10 @@ export default function HomePage({
         </a>
       </section>
 
-      <section className="trust-strip" aria-label="Store highlights">
+      <section
+        className={`trust-strip ${trustLayoutClass}`}
+        aria-label="Store highlights"
+      >
         <div className="trust-item">
           <Truck size={18} />
           <div>
@@ -505,20 +518,35 @@ export default function HomePage({
       </section>
 
       <section className="story section-pad" id="story">
-        <p className="eyebrow">OUR PHILOSOPHY</p>
+        <p className="eyebrow">
+          {customStoryBlocks[0]?.eyebrow || "OUR PHILOSOPHY"}
+        </p>
         <h2>
-          Wear what
-          <br />
-          moves <em>you.</em>
+          {customStoryBlocks[0]?.heading || (
+            <>
+              Wear what
+              <br />
+              moves <em>you.</em>
+            </>
+          )}
         </h2>
         <p>
-          CALZARE is built around a simple idea: everyday essentials deserve exceptional attention.
-          We bring together considered silhouettes, versatile details and a point of view that never
-          needs to shout.
+          {customStoryBlocks[0]?.body ||
+            "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention. We bring together considered silhouettes, versatile details and a point of view that never needs to shout."}
         </p>
-        <a className="dark-link" href="#journal">
+        <button
+          type="button"
+          className="dark-link"
+          style={{
+            background: "none",
+            border: 0,
+            borderBottom: "1px solid currentColor",
+            cursor: "pointer"
+          }}
+          onClick={() => onNavigateCollection?.("story")}
+        >
           GET TO KNOW US <ArrowUpRight size={16} />
-        </a>
+        </button>
       </section>
 
       <section className="journal section-pad" id="journal">
@@ -558,7 +586,6 @@ export default function HomePage({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Your email address"
           />
-
         </form>
       </section>
     </>

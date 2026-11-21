@@ -7,6 +7,7 @@ import {
   BarChart3,
   Check,
   Compass,
+  Edit3,
   Eye,
   EyeOff,
   FileText,
@@ -21,6 +22,7 @@ import {
   Settings,
   ShieldCheck,
   ShoppingBag,
+  Smartphone,
   Sparkles,
   Star,
   Tag,
@@ -117,6 +119,7 @@ const NAV_GROUPS = [
     group: "CONTENT & CMS",
     items: [
       { id: "homepage", label: "Homepage CMS", icon: Sparkles },
+      { id: "mobile_ui", label: "Mobile UI & Navbar", icon: Smartphone },
       { id: "reels", label: "Shoppable Reels", icon: Film },
       { id: "story", label: "Our Story Manager", icon: FileText },
       { id: "pages", label: "Pages & Policies", icon: FileText },
@@ -141,6 +144,7 @@ const NAV_GROUPS = [
 
 const DEFAULT_HOMEPAGE_CMS = {
   reelsEnabled: true,
+  productReelsEnabled: true,
   sections: [
     {
       key: "hero_main",
@@ -241,6 +245,14 @@ const DEFAULT_HOMEPAGE_CMS = {
     "Thoughtful footwear. Quiet confidence. Made for wherever the day takes you.",
   heroImage: "",
   heroVideoUrl: "",
+  mobileUI: {
+    navHeightPx: 58,
+    logoSizePx: 17,
+    logoTracking: 2.4,
+    heroTitleSizePx: 34,
+    collectionTitleSizePx: 26,
+    trustLayout: "swipe"
+  },
   theme: {
     pageBgColor: "#F8FAFC",
     surfaceColor: "#FFFFFF",
@@ -408,6 +420,21 @@ const EMPTY_PRODUCT = {
   published: true
 };
 
+const EMPTY_REVIEW = {
+  productId: "c-001",
+  productName: "FORMA COURT",
+  customerName: "",
+  customerEmail: "",
+  location: "Bengaluru",
+  rating: 5,
+  headline: "",
+  comment: "",
+  photoUrl: "",
+  verifiedBuyer: true,
+  featuredOnHomepage: true,
+  status: "approved"
+};
+
 const handleImgError = (e) => {
   e.currentTarget.onerror = null;
   e.currentTarget.src = FALLBACK_IMG;
@@ -529,9 +556,7 @@ function DropZoneField({
         }}
       >
         <div style={{ fontSize: "12.5px", fontWeight: 600, color: "#0F172A" }}>
-          {isBusy
-            ? "Uploading file..."
-            : "Click to upload or drag image/file here"}
+          {isBusy ? "Uploading file..." : "Click to upload or drag image/file here"}
         </div>
         <div style={{ fontSize: "11px", color: "#64748B", marginTop: "2px" }}>
           {isVideo
@@ -598,7 +623,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   const [uploading, setUploading] = useState("");
   const [syncingFship, setSyncingFship] = useState(false);
   const [timeframe, setTimeframe] = useState("30 Days");
-
   const [selectedAssignPage, setSelectedAssignPage] = useState("home");
 
   const [orders, setOrders] = useState([]);
@@ -634,12 +658,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       categories: mergedCats,
       pageAssignments: readLocalPageAssignments(mergedCats),
       policies: readLocalPolicies(),
-      collectionImages: {
-        men: "",
-        women: "",
-        unisex: "",
-        kids: ""
-      },
+      collectionImages: { men: "", women: "", unisex: "", kids: "" },
       categoryImages: {},
       navigation: [
         { label: "HOME", url: "#home" },
@@ -695,21 +714,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   });
 
   const [reviewModal, setReviewModal] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState(null);
   const [reviewFilter, setReviewFilter] = useState("all");
-  const [reviewForm, setReviewForm] = useState({
-    productId: "c-001",
-    productName: "FORMA COURT",
-    customerName: "",
-    customerEmail: "",
-    location: "Bengaluru",
-    rating: 5,
-    headline: "",
-    comment: "",
-    photoUrl: "",
-    verifiedBuyer: true,
-    featuredOnHomepage: true,
-    status: "approved"
-  });
+  const [reviewForm, setReviewForm] = useState(EMPTY_REVIEW);
 
   const [pageModal, setPageModal] = useState(false);
   const [pageForm, setPageForm] = useState({
@@ -772,6 +779,11 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               ...DEFAULT_HOMEPAGE_CMS.featuredProduct,
               ...(p.featuredProduct || {}),
               ...(data.homepage.featuredProduct || {})
+            },
+            mobileUI: {
+              ...DEFAULT_HOMEPAGE_CMS.mobileUI,
+              ...(p.mobileUI || {}),
+              ...(data.homepage.mobileUI || {})
             },
             theme: {
               ...DEFAULT_HOMEPAGE_CMS.theme,
@@ -1192,8 +1204,14 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   async function handleSaveReview(e) {
     e.preventDefault();
     const prod = products.find((p) => p.id === reviewForm.productId);
-    const res = await fetch(`${API}/admin/reviews`, {
-      method: "POST",
+    const isEditing = Boolean(editingReviewId);
+    const url = isEditing
+      ? `${API}/admin/reviews/${editingReviewId}`
+      : `${API}/admin/reviews`;
+    const method = isEditing ? "PATCH" : "POST";
+
+    const res = await fetch(url, {
+      method,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`
@@ -1201,12 +1219,14 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       body: JSON.stringify({
         ...reviewForm,
         rating: Number(reviewForm.rating),
-        productName: prod?.name || "FORMA COURT"
+        productName: prod?.name || reviewForm.productName || "FORMA COURT"
       })
     });
     if (res.ok) {
-      notify("Customer review added.");
+      notify(isEditing ? "Comment & writer updated." : "Customer review added.");
+      setEditingReviewId(null);
       setReviewModal(false);
+      setReviewForm(EMPTY_REVIEW);
       await syncAll();
       broadcastSync();
     }
@@ -1227,11 +1247,12 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   }
 
   async function handleDeleteReview(id) {
+    if (!window.confirm("Remove this comment?")) return;
     await fetch(`${API}/admin/reviews/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` }
     });
-    notify("Review deleted.");
+    notify("Comment removed.");
     await syncAll();
     broadcastSync();
   }
@@ -3189,7 +3210,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 </button>
               </div>
 
-              {/* 1. PER-PAGE ADD / REMOVE COLLECTIONS & CATEGORIES */}
               <div style={cardBox}>
                 <div
                   style={{
@@ -3472,7 +3492,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 </div>
               </div>
 
-              {/* 2. GLOBAL COLLECTIONS & CATEGORIES BANNERS */}
               <div
                 style={{
                   display: "grid",
@@ -3636,6 +3655,222 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
+          {/* ==================== DEDICATED MOBILE UI & NAVBAR ==================== */}
+          {activeNav === "mobile_ui" && (
+            <div style={{ display: "grid", gap: "16px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "12px"
+                }}
+              >
+                <div>
+                  <h1 style={pageTitle}>MOBILE UI, NAVBAR & CALZARE® LOGO</h1>
+                  <p style={pageSub}>
+                    Customize mobile header height, CALZARE® font size, hero scaling, trust strip layout, and product reel visibility.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSaveHomepage(homepage)}
+                  style={primaryBlueBtn}
+                >
+                  <Check size={14} /> Save Mobile UI Settings
+                </button>
+              </div>
+
+              <div style={cardBox}>
+                <h3 style={sectionSubTitle}>MOBILE NAVBAR & CALZARE® LOGO SIZE</h3>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                    gap: "14px"
+                  }}
+                >
+                  <div>
+                    <label style={fieldLabel}>
+                      CALZARE® Mobile Font Size ({homepage.mobileUI?.logoSizePx ?? 17}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={13}
+                      max={28}
+                      value={homepage.mobileUI?.logoSizePx ?? 17}
+                      onChange={(e) =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          mobileUI: {
+                            ...(prev.mobileUI || {}),
+                            logoSizePx: Number(e.target.value)
+                          }
+                        }))
+                      }
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={fieldLabel}>
+                      CALZARE® Letter Spacing ({homepage.mobileUI?.logoTracking ?? 2.4}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={5}
+                      step={0.2}
+                      value={homepage.mobileUI?.logoTracking ?? 2.4}
+                      onChange={(e) =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          mobileUI: {
+                            ...(prev.mobileUI || {}),
+                            logoTracking: Number(e.target.value)
+                          }
+                        }))
+                      }
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={fieldLabel}>
+                      Mobile Navbar Height ({homepage.mobileUI?.navHeightPx ?? 58}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={48}
+                      max={76}
+                      value={homepage.mobileUI?.navHeightPx ?? 58}
+                      onChange={(e) =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          mobileUI: {
+                            ...(prev.mobileUI || {}),
+                            navHeightPx: Number(e.target.value)
+                          }
+                        }))
+                      }
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div style={cardBox}>
+                <h3 style={sectionSubTitle}>MOBILE HOMEPAGE & PRODUCT REELS</h3>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+                    gap: "14px"
+                  }}
+                >
+                  <div>
+                    <label style={fieldLabel}>
+                      Mobile Hero Title Size ({homepage.mobileUI?.heroTitleSizePx ?? 34}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={24}
+                      max={48}
+                      value={homepage.mobileUI?.heroTitleSizePx ?? 34}
+                      onChange={(e) =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          mobileUI: {
+                            ...(prev.mobileUI || {}),
+                            heroTitleSizePx: Number(e.target.value)
+                          }
+                        }))
+                      }
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={fieldLabel}>
+                      "Shop by collection." Mobile Size ({homepage.mobileUI?.collectionTitleSizePx ?? 26}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={20}
+                      max={38}
+                      value={homepage.mobileUI?.collectionTitleSizePx ?? 26}
+                      onChange={(e) =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          mobileUI: {
+                            ...(prev.mobileUI || {}),
+                            collectionTitleSizePx: Number(e.target.value)
+                          }
+                        }))
+                      }
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={fieldLabel}>Trust Strip Layout on Mobile</label>
+                    <select
+                      value={homepage.mobileUI?.trustLayout || "swipe"}
+                      onChange={(e) =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          mobileUI: {
+                            ...(prev.mobileUI || {}),
+                            trustLayout: e.target.value
+                          }
+                        }))
+                      }
+                      style={ctrlInput}
+                    >
+                      <option value="swipe">Horizontal Swipe Strip (Compact)</option>
+                      <option value="stack">Vertical Stack</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={fieldLabel}>Product Page Short Reels</label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleSaveHomepage({
+                          ...homepage,
+                          productReelsEnabled: homepage.productReelsEnabled === false
+                        })
+                      }
+                      style={{
+                        ...topActionBtn,
+                        width: "100%",
+                        justifyContent: "center",
+                        background:
+                          homepage.productReelsEnabled === false ? "#FEF2F2" : "#ECFDF5",
+                        color:
+                          homepage.productReelsEnabled === false ? "#DC2626" : "#059669",
+                        borderColor:
+                          homepage.productReelsEnabled === false ? "#FECACA" : "#A7F3D0"
+                      }}
+                    >
+                      {homepage.productReelsEnabled === false ? (
+                        <>
+                          <EyeOff size={14} /> Product Reels Disabled
+                        </>
+                      ) : (
+                        <>
+                          <Eye size={14} /> Product Reels Enabled
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ==================== HOMEPAGE CMS BUILDER ==================== */}
           {activeNav === "homepage" && (
             <div style={{ display: "grid", gap: "16px" }}>
@@ -3651,7 +3886,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>HOMEPAGE CMS BUILDER</h1>
                   <p style={pageSub}>
-                    Edit hero text, CALZARE logo size, colors, fonts, navbar, footer, featured product redirect, and Under ₹999 showcase slides.
+                    Edit hero text, CALZARE logo size, colors, fonts, navbar, footer, featured product redirect, and dedicated Under ₹999 showcase slides.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -3668,7 +3903,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 </div>
               </div>
 
-              {/* HERO TEXT & CALZARE LOGO SIZE */}
               <div style={cardBox}>
                 <div
                   style={{
@@ -3807,7 +4041,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 </div>
               </div>
 
-              {/* DEDICATED UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (PHOTO + PRODUCT PAGE URL) */}
+              {/* DEDICATED UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (DEDICATED SLIDE PHOTOS ONLY) */}
               <div style={cardBox}>
                 <div
                   style={{
@@ -3821,10 +4055,10 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 >
                   <div>
                     <h3 style={{ ...sectionSubTitle, margin: 0 }}>
-                      UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (PHOTO → PRODUCT PAGE URL)
+                      UNDER ₹999 HOMEPAGE SHOWCASE SLIDES (DEDICATED SLIDE PHOTOS ONLY)
                     </h3>
                     <p style={pageSub}>
-                      Upload a photo and choose a product or product page redirect URL for each slide.
+                      Upload dedicated photos for the ₹999 store slider. Product uploads under ₹999 will NOT appear here unless you upload a slide photo below.
                     </p>
                   </div>
                   <div style={{ display: "flex", gap: "8px" }}>
@@ -3944,7 +4178,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
 
                 {!(homepage.affordableStore?.customSlides || []).length ? (
                   <p style={pageSub}>
-                    No custom ₹999 slides added yet. Click <strong>+ Add ₹999 Slide</strong> to add a photo and product page URL.
+                    No dedicated ₹999 slides added yet. Click <strong>+ Add ₹999 Slide</strong> to upload a slide photo.
                   </p>
                 ) : (
                   <div style={{ display: "grid", gap: "14px" }}>
@@ -3968,7 +4202,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                           }}
                         >
                           <strong style={{ fontSize: "12px", color: "#2563EB" }}>
-                            ₹999 HOMEPAGE SLIDE #{sIdx + 1}
+                            ₹999 DEDICATED SLIDE #{sIdx + 1}
                           </strong>
                           <button
                             type="button"
@@ -4018,6 +4252,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                               }
                               style={{ ...ctrlInput, background: "#FFFFFF" }}
                             >
+                              <option value="">-- Use Custom Redirect URL --</option>
                               {products.map((p) => (
                                 <option key={p.id} value={p.id}>
                                   {p.name} ({money(p.price)})
@@ -4053,7 +4288,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         </div>
 
                         <DropZoneField
-                          label="Homepage Slide Photo"
+                          label="Dedicated ₹999 Slide Photo (Required — Independent from Product Photos)"
                           uploadKey={`u999SlideImg-${sIdx}`}
                           uploadingKey={uploading}
                           value={slide.image || ""}
@@ -5148,39 +5383,77 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     Upload vertical fit & motion reels linked directly to products, or toggle reels on/off.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextEnabled = homepage.reelsEnabled === false ? true : false;
-                    handleSaveHomepage({
-                      ...homepage,
-                      reelsEnabled: nextEnabled
-                    });
-                  }}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: "999px",
-                    border: "1px solid #CBD5E1",
-                    background: homepage.reelsEnabled === false ? "#F1F5F9" : "#ECFDF5",
-                    color: homepage.reelsEnabled === false ? "#475569" : "#059669",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px"
-                  }}
-                >
-                  {homepage.reelsEnabled === false ? (
-                    <>
-                      <EyeOff size={14} /> Reels Disabled
-                    </>
-                  ) : (
-                    <>
-                      <Eye size={14} /> Reels Enabled
-                    </>
-                  )}
-                </button>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextEnabled = homepage.reelsEnabled === false;
+                      handleSaveHomepage({
+                        ...homepage,
+                        reelsEnabled: nextEnabled
+                      });
+                    }}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: "999px",
+                      border: "1px solid #CBD5E1",
+                      background: homepage.reelsEnabled === false ? "#FEF2F2" : "#ECFDF5",
+                      color: homepage.reelsEnabled === false ? "#DC2626" : "#059669",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    {homepage.reelsEnabled === false ? (
+                      <>
+                        <EyeOff size={14} /> Homepage Reels Disabled
+                      </>
+                    ) : (
+                      <>
+                        <Eye size={14} /> Homepage Reels Enabled
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextProdReels = homepage.productReelsEnabled === false;
+                      handleSaveHomepage({
+                        ...homepage,
+                        productReelsEnabled: nextProdReels
+                      });
+                    }}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: "999px",
+                      border: "1px solid #CBD5E1",
+                      background:
+                        homepage.productReelsEnabled === false ? "#FEF2F2" : "#ECFDF5",
+                      color:
+                        homepage.productReelsEnabled === false ? "#DC2626" : "#059669",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    {homepage.productReelsEnabled === false ? (
+                      <>
+                        <EyeOff size={14} /> Product Reels Disabled
+                      </>
+                    ) : (
+                      <>
+                        <Eye size={14} /> Product Reels Enabled
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
               <form onSubmit={handleSaveReel} style={cardBox}>
                 <h3 style={sectionSubTitle}>ADD / UPDATE REEL</h3>
@@ -5677,28 +5950,38 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== CUSTOMER REVIEWS ==================== */}
+          {/* ==================== CUSTOMER REVIEWS (ADD / EDIT / REMOVE) ==================== */}
           {activeNav === "reviews" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
+                  gap: "12px"
                 }}
               >
                 <div>
-                  <h1 style={pageTitle}>CUSTOMER REVIEWS</h1>
+                  <h1 style={pageTitle}>CUSTOMER REVIEWS & COMMENTS</h1>
                   <p style={pageSub}>
-                    Approve, feature, or add verified customer reviews.
+                    Add, edit, approve, or remove customer comments and writers.
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setReviewModal(true)}
+                  onClick={() => {
+                    setEditingReviewId(null);
+                    setReviewForm({
+                      ...EMPTY_REVIEW,
+                      productId: products[0]?.id || "c-001",
+                      productName: products[0]?.name || "FORMA COURT"
+                    });
+                    setReviewModal(true);
+                  }}
                   style={primaryBlueBtn}
                 >
-                  <Plus size={14} /> Add Review
+                  <Plus size={14} /> Add Comment
                 </button>
               </div>
               <div style={cardBox}>
@@ -5724,62 +6007,94 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   ))}
                 </div>
                 {!filteredReviews.length && (
-                  <p style={pageSub}>No reviews in this view.</p>
+                  <p style={pageSub}>
+                    No comments yet. Click <strong>+ Add Comment</strong> to add one.
+                  </p>
                 )}
-                {filteredReviews.map((rev) => (
-                  <div
-                    key={rev._id || rev.id}
-                    style={{
-                      padding: "12px 0",
-                      borderBottom: "1px solid #E2E8F0",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: "12px"
-                    }}
-                  >
-                    <div>
-                      <strong>{rev.customerName}</strong> •{" "}
-                      <span style={{ color: "#F59E0B" }}>
-                        {"★".repeat(rev.rating || 5)}
-                      </span>{" "}
-                      •{" "}
-                      <span style={{ fontSize: "12px", color: "#64748B" }}>
-                        {rev.productName}
-                      </span>
-                      <p style={{ margin: "4px 0 0", fontSize: "13px" }}>{rev.comment}</p>
-                    </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      {rev.status !== "approved" && (
+                {filteredReviews.map((rev) => {
+                  const revId = rev._id || rev.id;
+                  return (
+                    <div
+                      key={revId}
+                      style={{
+                        padding: "12px 0",
+                        borderBottom: "1px solid #E2E8F0",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "12px"
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: "220px" }}>
+                        <strong>{rev.customerName}</strong> •{" "}
+                        <span style={{ color: "#F59E0B" }}>
+                          {"★".repeat(rev.rating || 5)}
+                        </span>{" "}
+                        •{" "}
+                        <span style={{ fontSize: "12px", color: "#64748B" }}>
+                          {rev.productName}
+                        </span>
+                        <p style={{ margin: "4px 0 0", fontSize: "13px" }}>
+                          {rev.comment}
+                        </p>
+                      </div>
+                      <div style={{ display: "flex", gap: "8px" }}>
                         <button
                           type="button"
-                          onClick={() =>
-                            handleReviewAction(rev._id || rev.id, { status: "approved" })
-                          }
-                          style={primaryBlueBtn}
+                          onClick={() => {
+                            setEditingReviewId(revId);
+                            setReviewForm({
+                              ...EMPTY_REVIEW,
+                              ...rev,
+                              productId: rev.productId || products[0]?.id || "c-001",
+                              rating: Number(rev.rating) || 5
+                            });
+                            setReviewModal(true);
+                          }}
+                          style={topActionBtn}
                         >
-                          Approve
+                          <Edit3 size={13} /> Edit
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteReview(rev._id || rev.id)}
-                        style={{ ...topActionBtn, color: "#DC2626" }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                        {rev.status !== "approved" && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleReviewAction(revId, { status: "approved" })
+                            }
+                            style={primaryBlueBtn}
+                          >
+                            Approve
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteReview(revId)}
+                          style={{ ...topActionBtn, color: "#DC2626" }}
+                        >
+                          <Trash2 size={13} /> Remove
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {reviewModal && (
-                <div style={modalOverlay} onClick={() => setReviewModal(false)}>
+                <div
+                  style={modalOverlay}
+                  onClick={() => {
+                    setReviewModal(false);
+                    setEditingReviewId(null);
+                  }}
+                >
                   <form
                     onSubmit={handleSaveReview}
                     style={modalCard}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <h3 style={{ marginTop: 0 }}>Add Customer Review</h3>
+                    <h3 style={{ marginTop: 0 }}>
+                      {editingReviewId ? "Edit Comment & Writer" : "Add Comment"}
+                    </h3>
                     <div style={{ display: "grid", gap: "10px" }}>
                       <select
                         value={reviewForm.productId}
@@ -5796,10 +6111,18 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       </select>
                       <input
                         required
-                        placeholder="Customer Name"
+                        placeholder="Writer Name"
                         value={reviewForm.customerName}
                         onChange={(e) =>
                           setReviewForm({ ...reviewForm, customerName: e.target.value })
+                        }
+                        style={ctrlInput}
+                      />
+                      <input
+                        placeholder="City / Location"
+                        value={reviewForm.location || ""}
+                        onChange={(e) =>
+                          setReviewForm({ ...reviewForm, location: e.target.value })
                         }
                         style={ctrlInput}
                       />
@@ -5825,7 +6148,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       <textarea
                         required
                         rows={3}
-                        placeholder="Review comment"
+                        placeholder="Comment text"
                         value={reviewForm.comment}
                         onChange={(e) =>
                           setReviewForm({ ...reviewForm, comment: e.target.value })
@@ -5833,7 +6156,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         style={ctrlInput}
                       />
                       <DropZoneField
-                        label="Customer Photo (Optional)"
+                        label="Photo (Optional)"
                         uploadKey="revImg"
                         uploadingKey={uploading}
                         value={reviewForm.photoUrl || ""}
@@ -5843,7 +6166,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         }
                       />
                       <button type="submit" style={primaryBlueBtn}>
-                        Save Review
+                        {editingReviewId ? "Save Changes" : "Save Comment"}
                       </button>
                     </div>
                   </form>
@@ -6161,7 +6484,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== SETTINGS & SECURITY ==================== */}
+          {/* ==================== SETTINGS & SECURITY (PAYMENT METHODS + PARTIAL COD) ==================== */}
           {activeNav === "settings" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -6191,7 +6514,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                     gap: "12px",
                     marginBottom: "16px"
                   }}
@@ -6220,9 +6543,24 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       style={ctrlInput}
                     />
                   </div>
+                  <div>
+                    <label style={fieldLabel}>Partial COD Advance (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={settings.partialCodAdvance ?? 299}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          partialCodAdvance: Math.max(0, Number(e.target.value) || 0)
+                        })
+                      }
+                      style={ctrlInput}
+                    />
+                  </div>
                 </div>
 
-                {/* PAYMENT METHODS (ADD & REMOVE) */}
+                {/* PAYMENT METHODS (ADD / EDIT / REMOVE) */}
                 <div
                   style={{
                     borderTop: "1px solid #E2E8F0",
@@ -6230,7 +6568,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     marginBottom: "16px"
                   }}
                 >
-                  <h3 style={sectionSubTitle}>PAYMENT METHODS (ADD / REMOVE)</h3>
+                  <h3 style={sectionSubTitle}>PAYMENT METHODS (ADD / EDIT / REMOVE)</h3>
                   <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
                     <input
                       placeholder="New payment method (e.g. UPI / Cards / NetBanking)"
@@ -6260,11 +6598,12 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   <div style={{ display: "grid", gap: "8px" }}>
                     {activePaymentMethods.map((pm, idx) => (
                       <div
-                        key={`${pm}-${idx}`}
+                        key={`${idx}`}
                         style={{
                           display: "flex",
                           justifyContent: "space-between",
                           alignItems: "center",
+                          gap: "8px",
                           padding: "8px 12px",
                           borderRadius: "8px",
                           border: "1px solid #E2E8F0",
@@ -6272,7 +6611,18 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                           fontSize: "13px"
                         }}
                       >
-                        <span>{pm}</span>
+                        <input
+                          value={pm}
+                          onChange={(e) =>
+                            setSettings((prev) => ({
+                              ...prev,
+                              paymentMethods: activePaymentMethods.map((item, i) =>
+                                i === idx ? e.target.value : item
+                              )
+                            }))
+                          }
+                          style={{ ...ctrlInput, background: "#FFFFFF" }}
+                        />
                         <button
                           type="button"
                           onClick={() =>
@@ -6404,19 +6754,12 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         placeholder="Value (e.g. +91 98765 43210 or care@calzare.in)"
                         value={item.value || ""}
                         onChange={(e) =>
-                          setSettings((prev) => {
-                            const next = prev.contactItems.map((c, i) =>
+                          setSettings((prev) => ({
+                            ...prev,
+                            contactItems: prev.contactItems.map((c, i) =>
                               i === idx ? { ...c, value: e.target.value } : c
-                            );
-                            return {
-                              ...prev,
-                              contactItems: next,
-                              supportEmail:
-                                next.find((c) => c.type === "Email")?.value || "",
-                              supportPhone:
-                                next.find((c) => c.type === "Phone")?.value || ""
-                            };
-                          })
+                            )
+                          }))
                         }
                         style={ctrlInput}
                       />
