@@ -62,6 +62,13 @@ export default function CollectionPage({
     ? allowedCollections.includes(cleanCol)
     : true;
 
+  const pageStyle = storeSettings?.pageStyles?.[cleanCol] || {};
+  const bannerHeightPx = Number(pageStyle.bannerHeightPx) || 320;
+  const imageFit = pageStyle.imageFit || "cover";
+  const posX = pageStyle.imagePosX ?? 50;
+  const posY = pageStyle.imagePosY ?? 50;
+  const imageZoom = Number(pageStyle.imageZoom) || 1;
+
   const collectionProducts = useMemo(() => {
     const list = Array.isArray(products) ? products : [];
     return list.filter((p) => {
@@ -150,7 +157,15 @@ export default function CollectionPage({
         </span>
       </nav>
 
-      <section className="collection-hero">
+      <section
+        className="collection-hero"
+        style={{
+          position: "relative",
+          height: `${bannerHeightPx}px`,
+          maxHeight: `${bannerHeightPx}px`,
+          overflow: "hidden"
+        }}
+      >
         <img
           src={activeBanner}
           onError={(e) => {
@@ -158,6 +173,15 @@ export default function CollectionPage({
             e.currentTarget.src = SAFE_IMAGE;
           }}
           alt={meta.title}
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "block",
+            objectFit: imageFit,
+            objectPosition: `${posX}% ${posY}%`,
+            transform: `scale(${imageZoom})`,
+            transformOrigin: `${posX}% ${posY}%`
+          }}
         />
         <div className="collection-hero-shade" />
         <div className="collection-hero-copy">

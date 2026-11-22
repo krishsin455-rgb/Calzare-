@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   ArrowDown,
   ArrowUp,
   ArrowUpRight,
@@ -19,6 +22,7 @@ import {
   Package,
   Plus,
   RefreshCw,
+  Ruler,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -96,7 +100,7 @@ const STOREFRONT_PAGES = [
 const ALL_COLLECTIONS = ["men", "women", "unisex", "kids"];
 
 const DEFAULT_SINGLE_PAGE_STYLE = {
-  bannerHeightPx: 380,
+  bannerHeightPx: 320,
   cardImageHeightPx: 280,
   imageFit: "cover",
   imagePosX: 50,
@@ -187,120 +191,27 @@ const NAV_GROUPS = [
 ];
 
 const REAL_HOMEPAGE_SECTIONS = [
-  {
-    key: "hero_main",
-    label: "HERO BANNER",
-    title: "Walk your own way.",
-    layout: "hero_banner",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "trust_strip",
-    label: "TRUST STRIP",
-    title: "FREE SHIPPING ₹2,999+ • 7-DAY SIZE EXCHANGE",
-    layout: "trust_strip",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "collections_strip",
-    label: "CURATED DEPARTMENTS",
-    title: "Shop by collection.",
-    layout: "4_column_tiles",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "affordable_store",
-    label: "/999 STORE",
-    title: "Your day found its footing. (/999 Store)",
-    layout: "horizontal_slider",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "editorial_slider",
-    label: "EDITORIAL SLIDER",
-    title: "Editorial Showcase Slider (Below /999 Store)",
-    layout: "full_bleed_slider",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "featured_product",
-    label: "FEATURED DROP",
-    title: "FEATURED DROP (Exclusive Spotlight)",
-    layout: "spotlight_card",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "intro_statement",
-    label: "LESS, BUT BETTER",
-    title: "Good design is felt in every step.",
-    layout: "editorial_intro",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "shop_grid",
-    label: "THE CALZARE EDIT",
-    title: "Find your form.",
-    layout: "product_grid",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "reels_motion",
-    label: "SHOPPABLE REELS",
-    title: "Calzare in motion.",
-    layout: "reels_strip",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "campaign_banner",
-    label: "A CALZARE STATE OF MIND",
-    title: "Made to move. Made to matter.",
-    layout: "split_campaign",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "our_philosophy",
-    label: "OUR PHILOSOPHY",
-    title: "Wear what moves you.",
-    layout: "story_block",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "journal_notes",
-    label: "NOTES FROM CALZARE",
-    title: "The considered life.",
-    layout: "journal_card",
-    visible: true,
-    image: ""
-  },
-  {
-    key: "newsletter",
-    label: "A NOTE, NOW AND THEN",
-    title: "Stay in the know.",
-    layout: "dark_banner",
-    visible: true,
-    image: ""
-  }
+  { key: "hero_main", label: "HERO BANNER", title: "Walk your own way.", titleAlign: "left", layout: "hero_banner", visible: true, image: "" },
+  { key: "trust_strip", label: "TRUST STRIP", title: "FREE SHIPPING ₹2,999+ • 7-DAY SIZE EXCHANGE", titleAlign: "left", layout: "trust_strip", visible: true, image: "" },
+  { key: "collections_strip", label: "CURATED DEPARTMENTS", title: "Shop by collection.", titleAlign: "left", layout: "4_column_tiles", visible: true, image: "" },
+  { key: "affordable_store", label: "/999 STORE", title: "Your day found its footing. (/999 Store)", titleAlign: "left", layout: "horizontal_slider", visible: true, image: "" },
+  { key: "editorial_slider", label: "EDITORIAL SLIDER", title: "Editorial Showcase Slider (Below /999 Store)", titleAlign: "left", layout: "full_bleed_slider", visible: true, image: "" },
+  { key: "featured_product", label: "FEATURED DROP", title: "FEATURED DROP (Exclusive Spotlight)", titleAlign: "left", layout: "spotlight_card", visible: true, image: "" },
+  { key: "intro_statement", label: "LESS, BUT BETTER", title: "Good design is felt in every step.", titleAlign: "left", layout: "editorial_intro", visible: true, image: "" },
+  { key: "shop_grid", label: "THE CALZARE EDIT", title: "Find your form.", titleAlign: "left", layout: "product_grid", visible: true, image: "" },
+  { key: "reels_motion", label: "SHOPPABLE REELS", title: "Calzare in motion.", titleAlign: "left", layout: "reels_strip", visible: true, image: "" },
+  { key: "campaign_banner", label: "A CALZARE STATE OF MIND", title: "Made to move. Made to matter.", titleAlign: "left", layout: "split_campaign", visible: true, image: "" },
+  { key: "our_philosophy", label: "OUR PHILOSOPHY", title: "Wear what moves you.", titleAlign: "left", layout: "story_block", visible: true, image: "" },
+  { key: "journal_notes", label: "NOTES FROM CALZARE", title: "The considered life.", titleAlign: "left", layout: "journal_card", visible: true, image: "" },
+  { key: "newsletter", label: "A NOTE, NOW AND THEN", title: "Stay in the know.", titleAlign: "left", layout: "dark_banner", visible: true, image: "" }
 ];
 
 function sanitizeHomepageSections(savedSections) {
   const validKeys = new Set(REAL_HOMEPAGE_SECTIONS.map((s) => s.key));
-  const defaultsByKey = Object.fromEntries(
-    REAL_HOMEPAGE_SECTIONS.map((s) => [s.key, s])
-  );
+  const defaultsByKey = Object.fromEntries(REAL_HOMEPAGE_SECTIONS.map((s) => [s.key, s]));
   const kept = (Array.isArray(savedSections) ? savedSections : [])
     .filter((s) => s && validKeys.has(s.key))
-    .map((s) => ({ ...defaultsByKey[s.key], ...s }));
+    .map((s) => ({ ...defaultsByKey[s.key], ...s, titleAlign: s.titleAlign || "left" }));
   const keptKeys = new Set(kept.map((s) => s.key));
   const missing = REAL_HOMEPAGE_SECTIONS.filter((s) => !keptKeys.has(s.key));
   return [...kept, ...missing];
@@ -309,6 +220,14 @@ function sanitizeHomepageSections(savedSections) {
 const DEFAULT_HOMEPAGE_CMS = {
   reelsEnabled: true,
   productReelsEnabled: true,
+  paragraphAlign: "left",
+  cartPromoBox: { enabled: true, position: "top" },
+  cartRewardBanner: {
+    b2g1UnlockedTemplate: "1 PAIR FREE unlocked ({freeItemName})!",
+    emptyHeadline: "Buy 2 pairs for 10% OFF • Buy 3 pairs & get 1 PAIR FREE!",
+    onePairHeadline: "Add 1 more pair to unlock 10% OFF on your order!",
+    twoPairHeadline: "10% OFF unlocked! Add 1 more pair to get 1 PAIR FREE!"
+  },
   sections: REAL_HOMEPAGE_SECTIONS,
   featuredProduct: {
     enabled: true,
@@ -529,6 +448,7 @@ const EMPTY_PRODUCT = {
   seoTitle: "",
   seoDescription: "",
   image: "",
+  images: [],
   imageFit: "cover",
   imagePosX: 50,
   imagePosY: 50,
@@ -629,6 +549,61 @@ function writeLocalPolicies(pols) {
   try {
     localStorage.setItem(POLICIES_STORAGE_KEY, JSON.stringify(pols));
   } catch (_) {}
+}
+
+function normalizeSizesAndStock(rows, existingStock = {}) {
+  const cleanRows = Array.isArray(rows) && rows.length ? rows : DEFAULT_SIZE_ROWS;
+  const sizes = cleanRows.map((r) => String(r.uk || "").trim()).filter(Boolean);
+  const nextStock = {};
+  sizes.forEach((sz) => {
+    nextStock[sz] =
+      existingStock[sz] !== undefined && existingStock[sz] !== null
+        ? Math.max(0, Number(existingStock[sz]) || 0)
+        : 15;
+  });
+  return { sizes, stockBySize: nextStock };
+}
+
+function SectionNameAlignButtons({ value = "left", onChange }) {
+  const options = [
+    { key: "left", label: "Left", Icon: AlignLeft },
+    { key: "center", label: "Centre", Icon: AlignCenter },
+    { key: "right", label: "Right", Icon: AlignRight }
+  ];
+
+  return (
+    <div
+      role="group"
+      aria-label="Section name alignment"
+      style={{ display: "inline-flex", gap: "4px" }}
+    >
+      {options.map(({ key, label, Icon }) => {
+        const active = (value || "left") === key;
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(key)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "5px 9px",
+              borderRadius: "7px",
+              border: active ? "1px solid #2563EB" : "1px solid #CBD5E1",
+              background: active ? "#2563EB" : "#FFFFFF",
+              color: active ? "#FFFFFF" : "#0F172A",
+              fontSize: "11px",
+              fontWeight: 600,
+              cursor: "pointer"
+            }}
+          >
+            <Icon size={12} /> {label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function DropZoneField({
@@ -873,7 +848,7 @@ function ImageFitControls({
   );
 }
 
-export default function AdminPanel({ onExit, onStoreUpdated }) {
+export function AdminPanelContent({ onExit, onStoreUpdated }) {
   const [token, setToken] = useState(
     () => sessionStorage.getItem("calzare_admin_token") || ""
   );
@@ -902,6 +877,14 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
         return {
           ...DEFAULT_HOMEPAGE_CMS,
           ...saved,
+          cartPromoBox: {
+            ...DEFAULT_HOMEPAGE_CMS.cartPromoBox,
+            ...(saved.cartPromoBox || {})
+          },
+          cartRewardBanner: {
+            ...DEFAULT_HOMEPAGE_CMS.cartRewardBanner,
+            ...(saved.cartRewardBanner || {})
+          },
           productPage: {
             ...DEFAULT_HOMEPAGE_CMS.productPage,
             ...(saved.productPage || {})
@@ -972,8 +955,15 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
   const [productEditorOpen, setProductEditorOpen] = useState(false);
   const [productStep, setProductStep] = useState(1);
   const [productForm, setProductForm] = useState(EMPTY_PRODUCT);
+  const [extraPhotoInput, setExtraPhotoInput] = useState("");
+
+  const [sizeModalProduct, setSizeModalProduct] = useState(null);
+  const [newSizeLabel, setNewSizeLabel] = useState("");
 
   const [editingSection, setEditingSection] = useState(null);
+  const [paragraphAlign, setParagraphAlign] = useState(
+    () => homepage?.paragraphAlign || "left"
+  );
 
   const [reelForm, setReelForm] = useState({
     id: "",
@@ -1056,11 +1046,23 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             ...DEFAULT_HOMEPAGE_CMS,
             ...p,
             ...data.homepage,
+            cartPromoBox: {
+              ...DEFAULT_HOMEPAGE_CMS.cartPromoBox,
+              ...(p.cartPromoBox || {}),
+              ...(data.homepage.cartPromoBox || {})
+            },
+            cartRewardBanner: {
+              ...DEFAULT_HOMEPAGE_CMS.cartRewardBanner,
+              ...(p.cartRewardBanner || {}),
+              ...(data.homepage.cartRewardBanner || {})
+            },
             productPage: {
               ...DEFAULT_HOMEPAGE_CMS.productPage,
               ...(p.productPage || {}),
               ...(data.homepage.productPage || {})
             },
+            paragraphAlign:
+              data.homepage.paragraphAlign || p.paragraphAlign || "left",
             sections: sanitizeHomepageSections(data.homepage.sections),
             featuredProduct: {
               ...DEFAULT_HOMEPAGE_CMS.featuredProduct,
@@ -1296,6 +1298,37 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     }
   }
 
+  function appendProductPhotoUrl(rawUrl) {
+    const cleanUrl = String(rawUrl || "").trim();
+    if (!cleanUrl) return;
+    setProductForm((prev) => {
+      const currentList = Array.isArray(prev.images) ? prev.images : [];
+      const merged = Array.from(
+        new Set([...(prev.image ? [prev.image] : []), ...currentList, cleanUrl])
+      );
+      return {
+        ...prev,
+        image: prev.image || cleanUrl,
+        images: merged
+      };
+    });
+  }
+
+  function removeProductGalleryPhoto(urlToRemove) {
+    setProductForm((prev) => {
+      const remaining = (Array.isArray(prev.images) ? prev.images : []).filter(
+        (u) => u !== urlToRemove
+      );
+      const nextPrimary =
+        prev.image === urlToRemove ? remaining[0] || FALLBACK_IMG : prev.image;
+      return {
+        ...prev,
+        image: nextPrimary,
+        images: remaining
+      };
+    });
+  }
+
   async function handleSaveProduct(e, statusOverride) {
     if (e?.preventDefault) e.preventDefault();
     if (!(productForm.name || "").trim()) {
@@ -1306,11 +1339,10 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     const activeRows = productForm.sizeChartRows?.length
       ? productForm.sizeChartRows
       : DEFAULT_SIZE_ROWS;
-    const derivedSizes = activeRows.map((r) => String(r.uk || "").trim()).filter(Boolean);
-    const parsedSizes =
-      typeof productForm.sizes === "string"
-        ? productForm.sizes.split(",").map((s) => s.trim()).filter(Boolean)
-        : productForm.sizes;
+    const { sizes: derivedSizes, stockBySize: syncedStock } = normalizeSizesAndStock(
+      activeRows,
+      productForm.stockBySize || {}
+    );
 
     const slug =
       (productForm.slug || "").trim() ||
@@ -1328,8 +1360,15 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       price: Number(productForm.price),
       oldPrice: productForm.oldPrice ? Number(productForm.oldPrice) : null,
       sizeChartRows: activeRows,
-      sizes: derivedSizes.length ? derivedSizes : parsedSizes,
+      sizes: derivedSizes,
+      stockBySize: syncedStock,
       image: (productForm.image || "").trim() || FALLBACK_IMG,
+      images: Array.from(
+        new Set([
+          (productForm.image || "").trim() || FALLBACK_IMG,
+          ...(Array.isArray(productForm.images) ? productForm.images : []).filter(Boolean)
+        ])
+      ),
       highlights:
         typeof productForm.highlights === "string"
           ? productForm.highlights.split(",").map((h) => h.trim()).filter(Boolean)
@@ -1360,6 +1399,67 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       broadcastSync();
     } catch (err) {
       notify(err.message || "Error saving product");
+    }
+  }
+
+  function openSizeEditorModal(prod) {
+    const rows =
+      Array.isArray(prod.sizeChartRows) && prod.sizeChartRows.length
+        ? prod.sizeChartRows
+        : prod.collection === "kids"
+        ? KIDS_SIZE_ROWS
+        : DEFAULT_SIZE_ROWS;
+    const { sizes, stockBySize } = normalizeSizesAndStock(rows, prod.stockBySize || {});
+    setNewSizeLabel("");
+    setSizeModalProduct({
+      ...EMPTY_PRODUCT,
+      ...prod,
+      sizeChartRows: rows,
+      sizes,
+      stockBySize
+    });
+  }
+
+  async function handleSaveProductSizes(e) {
+    if (e?.preventDefault) e.preventDefault();
+    if (!sizeModalProduct) return;
+
+    const cleanRows = (sizeModalProduct.sizeChartRows || []).filter((r) =>
+      String(r.uk || "").trim()
+    );
+    const { sizes, stockBySize } = normalizeSizesAndStock(
+      cleanRows,
+      sizeModalProduct.stockBySize || {}
+    );
+
+    const updatedProduct = {
+      ...sizeModalProduct,
+      sizeChartRows: cleanRows.length ? cleanRows : DEFAULT_SIZE_ROWS,
+      sizes,
+      stockBySize
+    };
+
+    try {
+      const res = await fetch(`${API}/admin/products`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(updatedProduct)
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to update product sizes");
+      }
+      setProducts((prev) =>
+        prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+      );
+      setSizeModalProduct(null);
+      notify(`Updated sizes (${sizes.join(", ")}) for ${updatedProduct.name}.`);
+      broadcastSync();
+    } catch (err) {
+      notify(err.message || "Could not save sizes");
     }
   }
 
@@ -1443,6 +1543,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
       broadcastSync();
     } catch (err) {
       notify(err.message || "Saved locally, but live API save failed");
+      broadcastSync();
     }
   }
 
@@ -2180,6 +2281,11 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     });
   }
 
+  const cartPromoCfg = homepage.cartPromoBox || { enabled: true, position: "top" };
+  const cartBannerCfg = homepage.cartRewardBanner || {
+    b2g1UnlockedTemplate: "1 PAIR FREE unlocked ({freeItemName})!"
+  };
+
   return (
     <div
       style={{
@@ -2202,7 +2308,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
         />
       )}
 
-      {/* SIDEBAR */}
       <aside
         style={{
           width: "250px",
@@ -2331,7 +2436,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
         </div>
       </aside>
 
-      {/* MAIN AREA */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <header
           style={{
@@ -2455,7 +2559,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             paddingBottom: productEditorOpen ? "84px" : "48px"
           }}
         >
-          {/* ==================== DASHBOARD ==================== */}
           {activeNav === "dashboard" && (
             <div style={{ display: "grid", gap: "20px" }}>
               <div
@@ -2609,7 +2712,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== ORDERS & FULFILLMENT ==================== */}
           {activeNav === "orders" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -2740,7 +2842,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== PRODUCTS & SKUS ==================== */}
           {activeNav === "products" && !productEditorOpen && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -2754,12 +2855,15 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
               >
                 <div>
                   <h1 style={pageTitle}>PRODUCTS & CATALOG</h1>
-                  <p style={pageSub}>Manage footwear models and SKUs.</p>
+                  <p style={pageSub}>
+                    Manage footwear models, SKUs, multiple product photos, and available sizes.
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => {
                     setProductForm(EMPTY_PRODUCT);
+                    setExtraPhotoInput("");
                     setProductStep(1);
                     setProductEditorOpen(true);
                   }}
@@ -2775,57 +2879,346 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   gap: "16px"
                 }}
               >
-                {products.map((p) => (
-                  <div key={p.id} style={cardBox}>
-                    <img
-                      src={p.image || FALLBACK_IMG}
-                      alt={p.name}
-                      onError={handleImgError}
+                {products.map((p) => {
+                  const activeSizes =
+                    Array.isArray(p.sizes) && p.sizes.length
+                      ? p.sizes
+                      : Object.keys(p.stockBySize || {});
+                  const photoCount = Array.from(
+                    new Set([
+                      ...(p.image ? [p.image] : []),
+                      ...(Array.isArray(p.images) ? p.images : [])
+                    ])
+                  ).length;
+                  return (
+                    <div key={p.id} style={cardBox}>
+                      <img
+                        src={p.image || FALLBACK_IMG}
+                        alt={p.name}
+                        onError={handleImgError}
+                        style={{
+                          width: "100%",
+                          height: "160px",
+                          objectFit: "cover",
+                          borderRadius: "8px",
+                          marginBottom: "10px"
+                        }}
+                      />
+                      <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>
+                        {p.sku || p.id} • {(p.collection || "unisex").toUpperCase()} •{" "}
+                        {(p.category || "sneakers").toUpperCase()} • {photoCount}{" "}
+                        {photoCount === 1 ? "photo" : "photos"}
+                      </div>
+                      <h3 style={{ margin: "4px 0 6px", fontSize: "15px" }}>{p.name}</h3>
+                      <div style={{ marginBottom: "6px" }}>
+                        <strong>{money(p.price)}</strong>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "11.5px",
+                          color: "#475569",
+                          marginBottom: "10px"
+                        }}
+                      >
+                        Sizes: {activeSizes.length ? activeSizes.join(", ") : "None set"}
+                      </div>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          onClick={() => openSizeEditorModal(p)}
+                          style={{
+                            ...topActionBtn,
+                            flex: 1,
+                            justifyContent: "center",
+                            borderColor: "#BFDBFE",
+                            color: "#1D4ED8"
+                          }}
+                        >
+                          <Ruler size={13} /> Edit Sizes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const existingImages = Array.from(
+                              new Set([
+                                ...(p.image ? [p.image] : []),
+                                ...(Array.isArray(p.images) ? p.images : [])
+                              ])
+                            );
+                            setProductForm({
+                              ...EMPTY_PRODUCT,
+                              ...p,
+                              images: existingImages,
+                              highlights: Array.isArray(p.highlights)
+                                ? p.highlights.join(", ")
+                                : p.highlights || ""
+                            });
+                            setExtraPhotoInput("");
+                            setProductStep(1);
+                            setProductEditorOpen(true);
+                          }}
+                          style={{ ...topActionBtn, flex: 1, justifyContent: "center" }}
+                        >
+                          Edit All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(p.id)}
+                          style={{ ...topActionBtn, color: "#DC2626" }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {sizeModalProduct && (
+                <div
+                  style={modalOverlay}
+                  onClick={() => setSizeModalProduct(null)}
+                >
+                  <form
+                    onSubmit={handleSaveProductSizes}
+                    style={{ ...modalCard, maxWidth: "680px" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div
                       style={{
-                        width: "100%",
-                        height: "160px",
-                        objectFit: "cover",
-                        borderRadius: "8px",
-                        marginBottom: "10px"
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "14px"
                       }}
-                    />
-                    <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>
-                      {p.sku || p.id} • {(p.collection || "unisex").toUpperCase()} •{" "}
-                      {(p.category || "sneakers").toUpperCase()}
+                    >
+                      <div>
+                        <h3 style={{ margin: 0 }}>
+                          Edit Sizes — {sizeModalProduct.name}
+                        </h3>
+                        <p style={pageSub}>
+                          Add or remove sizes, edit size chart equivalents, and set stock per
+                          size.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSizeModalProduct(null)}
+                        style={{
+                          background: "none",
+                          border: 0,
+                          cursor: "pointer"
+                        }}
+                      >
+                        <X size={18} />
+                      </button>
                     </div>
-                    <h3 style={{ margin: "4px 0 6px", fontSize: "15px" }}>{p.name}</h3>
-                    <div style={{ marginBottom: "10px" }}>
-                      <strong>{money(p.price)}</strong>
-                    </div>
-                    <div style={{ display: "flex", gap: "8px" }}>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "8px",
+                        flexWrap: "wrap",
+                        marginBottom: "14px"
+                      }}
+                    >
+                      <input
+                        placeholder="Add size (e.g. UK 11 or UK 5)"
+                        value={newSizeLabel}
+                        onChange={(e) => setNewSizeLabel(e.target.value)}
+                        style={{ ...ctrlInput, flex: 1, minWidth: "180px" }}
+                      />
                       <button
                         type="button"
                         onClick={() => {
-                          setProductForm({
-                            ...EMPTY_PRODUCT,
-                            ...p,
-                            highlights: Array.isArray(p.highlights)
-                              ? p.highlights.join(", ")
-                              : p.highlights || ""
-                          });
-                          setProductStep(1);
-                          setProductEditorOpen(true);
+                          const label = (newSizeLabel || "").trim() || "UK 11";
+                          setSizeModalProduct((prev) => ({
+                            ...prev,
+                            sizeChartRows: [
+                              ...(prev.sizeChartRows || []),
+                              { uk: label, eu: "", us: "", cm: "" }
+                            ],
+                            stockBySize: {
+                              ...(prev.stockBySize || {}),
+                              [label]: prev.stockBySize?.[label] ?? 15
+                            }
+                          }));
+                          setNewSizeLabel("");
                         }}
-                        style={{ ...topActionBtn, flex: 1, justifyContent: "center" }}
+                        style={primaryBlueBtn}
                       >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProduct(p.id)}
-                        style={{ ...topActionBtn, color: "#DC2626" }}
-                      >
-                        <Trash2 size={14} />
+                        <Plus size={14} /> Add Size
                       </button>
                     </div>
-                  </div>
-                ))}
-              </div>
+
+                    <div style={{ overflowX: "auto", marginBottom: "14px" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: "12px"
+                        }}
+                      >
+                        <thead>
+                          <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
+                            <th style={{ padding: "8px" }}>SIZE (UK)</th>
+                            <th style={{ padding: "8px" }}>EU</th>
+                            <th style={{ padding: "8px" }}>US</th>
+                            <th style={{ padding: "8px" }}>CM</th>
+                            <th style={{ padding: "8px" }}>STOCK</th>
+                            <th style={{ padding: "8px" }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(sizeModalProduct.sizeChartRows || []).map((row, idx) => {
+                            const ukKey = String(row.uk || "").trim();
+                            return (
+                              <tr key={idx} style={{ borderBottom: "1px solid #E2E8F0" }}>
+                                <td style={{ padding: "6px" }}>
+                                  <input
+                                    value={row.uk || ""}
+                                    onChange={(e) => {
+                                      const nextUk = e.target.value;
+                                      const prevUk = row.uk;
+                                      setSizeModalProduct((prev) => {
+                                        const nextStock = {
+                                          ...(prev.stockBySize || {})
+                                        };
+                                        if (prevUk && prevUk !== nextUk) {
+                                          nextStock[nextUk] =
+                                            nextStock[prevUk] ?? 15;
+                                          delete nextStock[prevUk];
+                                        }
+                                        return {
+                                          ...prev,
+                                          sizeChartRows: prev.sizeChartRows.map((r, i) =>
+                                            i === idx ? { ...r, uk: nextUk } : r
+                                          ),
+                                          stockBySize: nextStock
+                                        };
+                                      });
+                                    }}
+                                    style={ctrlInput}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px" }}>
+                                  <input
+                                    value={row.eu || ""}
+                                    onChange={(e) =>
+                                      setSizeModalProduct((prev) => ({
+                                        ...prev,
+                                        sizeChartRows: prev.sizeChartRows.map((r, i) =>
+                                          i === idx ? { ...r, eu: e.target.value } : r
+                                        )
+                                      }))
+                                    }
+                                    style={ctrlInput}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px" }}>
+                                  <input
+                                    value={row.us || ""}
+                                    onChange={(e) =>
+                                      setSizeModalProduct((prev) => ({
+                                        ...prev,
+                                        sizeChartRows: prev.sizeChartRows.map((r, i) =>
+                                          i === idx ? { ...r, us: e.target.value } : r
+                                        )
+                                      }))
+                                    }
+                                    style={ctrlInput}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px" }}>
+                                  <input
+                                    value={row.cm || ""}
+                                    onChange={(e) =>
+                                      setSizeModalProduct((prev) => ({
+                                        ...prev,
+                                        sizeChartRows: prev.sizeChartRows.map((r, i) =>
+                                          i === idx ? { ...r, cm: e.target.value } : r
+                                        )
+                                      }))
+                                    }
+                                    style={ctrlInput}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px", width: "86px" }}>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={
+                                      ukKey
+                                        ? sizeModalProduct.stockBySize?.[ukKey] ?? 15
+                                        : 0
+                                    }
+                                    onChange={(e) => {
+                                      if (!ukKey) return;
+                                      setSizeModalProduct((prev) => ({
+                                        ...prev,
+                                        stockBySize: {
+                                          ...(prev.stockBySize || {}),
+                                          [ukKey]: Math.max(
+                                            0,
+                                            Number(e.target.value) || 0
+                                          )
+                                        }
+                                      }));
+                                    }}
+                                    style={{ ...ctrlInput, textAlign: "center" }}
+                                  />
+                                </td>
+                                <td style={{ padding: "6px" }}>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setSizeModalProduct((prev) => {
+                                        const nextStock = {
+                                          ...(prev.stockBySize || {})
+                                        };
+                                        if (ukKey) delete nextStock[ukKey];
+                                        return {
+                                          ...prev,
+                                          sizeChartRows: prev.sizeChartRows.filter(
+                                            (_, i) => i !== idx
+                                          ),
+                                          stockBySize: nextStock
+                                        };
+                                      })
+                                    }
+                                    style={{ ...topActionBtn, color: "#DC2626" }}
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: "10px"
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setSizeModalProduct(null)}
+                        style={topActionBtn}
+                      >
+                        Cancel
+                      </button>
+                      <button type="submit" style={primaryBlueBtn}>
+                        <Check size={14} /> Save Sizes
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </div>
           )}
 
@@ -3006,13 +3399,162 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     >
                       <div style={{ display: "grid", gap: "10px" }}>
                         <DropZoneField
-                          label="Product Photo (Drag & Drop or Upload)"
+                          label="Primary Product Photo (Drag & Drop or Upload)"
                           uploadKey="pImg"
                           uploadingKey={uploading}
                           value={productForm.image}
                           onUploadFile={uploadMedia}
-                          onChange={(u) => setProductForm((p) => ({ ...p, image: u }))}
+                          onChange={(u) =>
+                            setProductForm((p) => {
+                              const nextImgs = Array.from(
+                                new Set([
+                                  ...(u ? [u] : []),
+                                  ...(Array.isArray(p.images) ? p.images : [])
+                                ])
+                              );
+                              return { ...p, image: u, images: nextImgs };
+                            })
+                          }
                         />
+
+                        <div
+                          style={{
+                            border: "1px solid #E2E8F0",
+                            borderRadius: "10px",
+                            padding: "12px",
+                            background: "#F8FAFC",
+                            display: "grid",
+                            gap: "8px"
+                          }}
+                        >
+                          <label style={{ ...fieldLabel, margin: 0 }}>
+                            Additional Product Photos (
+                            {Array.from(
+                              new Set([
+                                ...(productForm.image ? [productForm.image] : []),
+                                ...(Array.isArray(productForm.images)
+                                  ? productForm.images
+                                  : [])
+                              ])
+                            ).length}{" "}
+                            total)
+                          </label>
+                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                            <input
+                              placeholder="Paste extra photo URL..."
+                              value={extraPhotoInput}
+                              onChange={(e) => setExtraPhotoInput(e.target.value)}
+                              style={{ ...ctrlInput, flex: 1, minWidth: "170px", background: "#FFFFFF" }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!extraPhotoInput.trim()) return;
+                                appendProductPhotoUrl(extraPhotoInput);
+                                setExtraPhotoInput("");
+                              }}
+                              style={topActionBtn}
+                            >
+                              <Plus size={13} /> Add URL
+                            </button>
+                            <label style={topActionBtn}>
+                              <Upload size={13} />{" "}
+                              {uploading === "pExtraImg" ? "..." : "Upload Photos"}
+                              <input
+                                type="file"
+                                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                multiple
+                                hidden
+                                onChange={(e) => {
+                                  const files = Array.from(e.target.files || []);
+                                  files.forEach((file, fIdx) => {
+                                    uploadMedia(file, `pExtraImg-${fIdx}`, (url) => {
+                                      appendProductPhotoUrl(url);
+                                    });
+                                  });
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                          </div>
+
+                          {Array.from(
+                            new Set([
+                              ...(productForm.image ? [productForm.image] : []),
+                              ...(Array.isArray(productForm.images)
+                                ? productForm.images
+                                : [])
+                            ])
+                          ).length > 0 && (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "4px" }}>
+                              {Array.from(
+                                new Set([
+                                  ...(productForm.image ? [productForm.image] : []),
+                                  ...(Array.isArray(productForm.images)
+                                    ? productForm.images
+                                    : [])
+                                ])
+                              ).map((imgUrl, idx) => (
+                                <div
+                                  key={`${imgUrl}-${idx}`}
+                                  style={{
+                                    position: "relative",
+                                    width: "64px",
+                                    height: "64px",
+                                    borderRadius: "8px",
+                                    overflow: "hidden",
+                                    border:
+                                      productForm.image === imgUrl
+                                        ? "2px solid #2563EB"
+                                        : "1px solid #CBD5E1",
+                                    background: "#FFFFFF"
+                                  }}
+                                >
+                                  <img
+                                    src={imgUrl}
+                                    alt={`Product ${idx + 1}`}
+                                    onError={handleImgError}
+                                    onClick={() =>
+                                      setProductForm((prev) => ({
+                                        ...prev,
+                                        image: imgUrl
+                                      }))
+                                    }
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "cover",
+                                      cursor: "pointer"
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove photo ${idx + 1}`}
+                                    onClick={() => removeProductGalleryPhoto(imgUrl)}
+                                    style={{
+                                      position: "absolute",
+                                      top: "2px",
+                                      right: "2px",
+                                      width: "18px",
+                                      height: "18px",
+                                      borderRadius: "999px",
+                                      border: 0,
+                                      background: "rgba(15,23,42,0.8)",
+                                      color: "#FFFFFF",
+                                      display: "grid",
+                                      placeItems: "center",
+                                      cursor: "pointer",
+                                      padding: 0
+                                    }}
+                                  >
+                                    <X size={11} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
                         <ImageFitControls
                           image={productForm.image}
                           fit={productForm.imageFit}
@@ -3491,7 +4033,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </form>
           )}
 
-          {/* ==================== INVENTORY TRACKER ==================== */}
           {activeNav === "inventory" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div>
@@ -3608,7 +4149,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== COLLECTIONS & CATS ==================== */}
           {activeNav === "collections" && (
             <div style={{ display: "grid", gap: "18px" }}>
               <div
@@ -3624,7 +4164,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   <h1 style={pageTitle}>COLLECTIONS & CATEGORIES</h1>
                   <p style={pageSub}>
                     Add or remove which Collections and Categories appear on each
-                    storefront page, customize page images & colors, and manage banners.
+                    storefront page, customize banner height, page images & colors, and
+                    manage banners.
                   </p>
                 </div>
                 <button
@@ -3918,7 +4459,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 </div>
               </div>
 
-              {/* PER-PAGE IMAGE SIZE & COLOR THEME */}
               <div style={cardBox}>
                 <div
                   style={{
@@ -3932,10 +4472,10 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 >
                   <div>
                     <h3 style={{ ...sectionSubTitle, margin: 0 }}>
-                      {selectedAssignPage.toUpperCase()} PAGE — IMAGE SIZE & COLOR THEME
+                      {selectedAssignPage.toUpperCase()} PAGE — BANNER HEIGHT & COLOR THEME
                     </h3>
                     <p style={pageSub}>
-                      Set image dimensions, crop/zoom, and custom page colors for{" "}
+                      Set banner height, crop/zoom, and custom page colors for{" "}
                       <strong>{selectedAssignPage.toUpperCase()}</strong>.
                     </p>
                   </div>
@@ -3980,14 +4520,14 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   <div style={{ display: "grid", gap: "12px" }}>
                     <div>
                       <label style={fieldLabel}>
-                        Banner Height ({activePageStyle.bannerHeightPx ?? 380}px)
+                        Banner Height ({activePageStyle.bannerHeightPx ?? 320}px)
                       </label>
                       <input
                         type="range"
-                        min={200}
+                        min={180}
                         max={640}
                         step={10}
-                        value={activePageStyle.bannerHeightPx ?? 380}
+                        value={activePageStyle.bannerHeightPx ?? 320}
                         onChange={(e) =>
                           updateSelectedPageStyle({
                             bannerHeightPx: Number(e.target.value)
@@ -4111,7 +4651,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 }}
               >
                 <div style={cardBox}>
-                  <h3 style={sectionSubTitle}>AUDIENCE COLLECTIONS & BANNERS</h3>
+                  <h3 style={sectionSubTitle}>AUDIENCE COLLECTIONS, BANNER HEIGHT & IMAGES</h3>
                   <div style={{ display: "grid", gap: "14px" }}>
                     {collectionsSummary.map((c) => {
                       const colStyle =
@@ -4138,6 +4678,33 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                             <span style={{ color: "#64748B", fontSize: "12.5px" }}>
                               {c.count} {c.count === 1 ? "style" : "styles"}
                             </span>
+                          </div>
+                          <div>
+                            <label style={fieldLabel}>
+                              Banner Height ({colStyle.bannerHeightPx ?? 320}px)
+                            </label>
+                            <input
+                              type="range"
+                              min={180}
+                              max={640}
+                              step={10}
+                              value={colStyle.bannerHeightPx ?? 320}
+                              onChange={(e) => {
+                                const nextStyles = {
+                                  ...(settings.pageStyles || buildDefaultPageStyles()),
+                                  [c.key]: {
+                                    ...colStyle,
+                                    bannerHeightPx: Number(e.target.value)
+                                  }
+                                };
+                                writeLocalPageStyles(nextStyles);
+                                setSettings((prev) => ({
+                                  ...prev,
+                                  pageStyles: nextStyles
+                                }));
+                              }}
+                              style={{ width: "100%" }}
+                            />
                           </div>
                           <DropZoneField
                             label={`${c.name} Hero / Card Image`}
@@ -4320,7 +4887,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== DEDICATED MOBILE UI & NAVBAR ==================== */}
           {activeNav === "mobile_ui" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -4538,7 +5104,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== HOMEPAGE CMS BUILDER ==================== */}
           {activeNav === "homepage" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -4696,15 +5261,74 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   </div>
                 </div>
 
-                <div>
-                  <label style={fieldLabel}>Hero Subtext / Description</label>
+                <div style={{ display: "grid", gap: "8px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "8px"
+                    }}
+                  >
+                    <label style={{ ...fieldLabel, margin: 0 }}>
+                      Homepage Paragraph / Subtext
+                    </label>
+                    <div
+                      role="group"
+                      aria-label="Homepage Paragraph Alignment"
+                      style={{ display: "inline-flex", gap: "6px" }}
+                    >
+                      {[
+                        { key: "left", label: "Left", Icon: AlignLeft },
+                        { key: "center", label: "Center", Icon: AlignCenter },
+                        { key: "right", label: "Right", Icon: AlignRight }
+                      ].map(({ key, label, Icon }) => {
+                        const activeAlign =
+                          (homepage.paragraphAlign || paragraphAlign || "left") === key;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => {
+                              setParagraphAlign(key);
+                              setHomepage((prev) => ({
+                                ...prev,
+                                paragraphAlign: key
+                              }));
+                            }}
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "5px",
+                              padding: "5px 10px",
+                              borderRadius: "7px",
+                              border: activeAlign
+                                ? "1px solid #2563EB"
+                                : "1px solid #CBD5E1",
+                              background: activeAlign ? "#2563EB" : "#FFFFFF",
+                              color: activeAlign ? "#FFFFFF" : "#0F172A",
+                              fontSize: "11.5px",
+                              fontWeight: 600,
+                              cursor: "pointer"
+                            }}
+                          >
+                            <Icon size={13} /> {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <textarea
                     rows={2}
                     value={homepage.heroDescription || ""}
                     onChange={(e) =>
                       setHomepage({ ...homepage, heroDescription: e.target.value })
                     }
-                    style={ctrlInput}
+                    style={{
+                      ...ctrlInput,
+                      textAlign: homepage.paragraphAlign || paragraphAlign || "left"
+                    }}
                   />
                 </div>
               </div>
@@ -5620,7 +6244,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     gap: "12px"
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: "220px" }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                       <button
                         type="button"
@@ -5647,7 +6271,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                         <ArrowDown size={12} />
                       </button>
                     </div>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <span
                         style={{
                           fontSize: "10px",
@@ -5658,15 +6282,33 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                       >
                         {sec.label}
                       </span>
-                      <strong style={{ display: "block", fontSize: "14px" }}>
+                      <strong
+                        style={{
+                          display: "block",
+                          fontSize: "14px",
+                          textAlign: sec.titleAlign || "left"
+                        }}
+                      >
                         {sec.title}
                       </strong>
                       <span style={{ fontSize: "11px", color: "#94A3B8" }}>
-                        Key: {sec.key} • Layout: {sec.layout}
+                        Key: {sec.key} • Layout: {sec.layout} • Align:{" "}
+                        {(sec.titleAlign || "left").toUpperCase()}
                       </span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    <SectionNameAlignButtons
+                      value={sec.titleAlign || "left"}
+                      onChange={(align) =>
+                        handleSaveHomepage({
+                          ...homepage,
+                          sections: homepage.sections.map((s) =>
+                            s.key === sec.key ? { ...s, titleAlign: align } : s
+                          )
+                        })
+                      }
+                    />
                     <button
                       type="button"
                       onClick={() =>
@@ -5703,7 +6345,9 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setEditingSection(sec)}
+                      onClick={() =>
+                        setEditingSection({ ...sec, titleAlign: sec.titleAlign || "left" })
+                      }
                       style={primaryBlueBtn}
                     >
                       Edit Section
@@ -5740,7 +6384,26 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                     </div>
                     <div style={{ display: "grid", gap: "12px" }}>
                       <div>
-                        <label style={fieldLabel}>Section Heading / Title</label>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: "8px",
+                            marginBottom: "6px"
+                          }}
+                        >
+                          <label style={{ ...fieldLabel, margin: 0 }}>
+                            Section Heading / Title
+                          </label>
+                          <SectionNameAlignButtons
+                            value={editingSection.titleAlign || "left"}
+                            onChange={(align) =>
+                              setEditingSection((prev) => ({ ...prev, titleAlign: align }))
+                            }
+                          />
+                        </div>
                         <input
                           value={editingSection.title}
                           onChange={(e) =>
@@ -5749,7 +6412,10 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                               title: e.target.value
                             })
                           }
-                          style={ctrlInput}
+                          style={{
+                            ...ctrlInput,
+                            textAlign: editingSection.titleAlign || "left"
+                          }}
                         />
                       </div>
                       <DropZoneField
@@ -5814,7 +6480,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== DEDICATED ₹999 STORE SLIDES ==================== */}
           {activeNav === "under999_slider" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -6154,7 +6819,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== DEDICATED EDITORIAL SHOWCASE SLIDER (BELOW ₹999) ==================== */}
           {activeNav === "editorial_slider" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -6334,42 +6998,47 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                             />
                           </div>
                           <div>
-                            <label style={fieldLabel}>Button Label</label>
+                            <label style={fieldLabel}>Button Action</label>
                             <input
-                              placeholder="Buy Now"
-                              value={slide.ctaLabel || ""}
-                              onChange={(e) =>
-                                setHomepage((prev) => ({
-                                  ...prev,
-                                  editorialSlider: {
-                                    ...(prev.editorialSlider || {}),
-                                    slides: prev.editorialSlider.slides.map((it, i) =>
-                                      i === sIdx ? { ...it, ctaLabel: e.target.value } : it
-                                    )
-                                  }
-                                }))
-                              }
-                              style={{ ...ctrlInput, background: "#FFFFFF" }}
+                              readOnly
+                              value="Buy Now"
+                              style={{
+                                ...ctrlInput,
+                                background: "#F1F5F9",
+                                fontWeight: 700,
+                                color: "#0F172A"
+                              }}
                             />
                           </div>
                           <div>
-                            <label style={fieldLabel}>Link to Product</label>
+                            <label style={fieldLabel}>Buy Now Redirect Product Page</label>
                             <select
                               value={slide.productId || ""}
-                              onChange={(e) =>
+                              onChange={(e) => {
+                                const selectedProdId = e.target.value;
+                                const nextRedirectUrl = selectedProdId
+                                  ? `#product/${selectedProdId}`
+                                  : slide.redirectUrl || "#shop";
                                 setHomepage((prev) => ({
                                   ...prev,
                                   editorialSlider: {
                                     ...(prev.editorialSlider || {}),
                                     slides: prev.editorialSlider.slides.map((it, i) =>
-                                      i === sIdx ? { ...it, productId: e.target.value } : it
+                                      i === sIdx
+                                        ? {
+                                            ...it,
+                                            ctaLabel: "Buy Now",
+                                            productId: selectedProdId,
+                                            redirectUrl: nextRedirectUrl
+                                          }
+                                        : it
                                     )
                                   }
-                                }))
-                              }
+                                }));
+                              }}
                               style={{ ...ctrlInput, background: "#FFFFFF" }}
                             >
-                              <option value="">-- Use Redirect URL --</option>
+                              <option value="">-- Choose Product Page --</option>
                               {products.map((p) => (
                                 <option key={p.id} value={p.id}>
                                   {p.name} ({money(p.price)})
@@ -6378,22 +7047,54 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                             </select>
                           </div>
                           <div>
-                            <label style={fieldLabel}>Redirect URL (Optional)</label>
+                            <label style={fieldLabel}>Product Page Redirection URL</label>
                             <input
-                              placeholder="#men, #shop, or https://..."
-                              value={slide.redirectUrl || ""}
+                              placeholder="#product/c-001"
+                              value={slide.redirectUrl || (slide.productId ? `#product/${slide.productId}` : "#shop")}
                               onChange={(e) =>
                                 setHomepage((prev) => ({
                                   ...prev,
                                   editorialSlider: {
                                     ...(prev.editorialSlider || {}),
                                     slides: prev.editorialSlider.slides.map((it, i) =>
-                                      i === sIdx ? { ...it, redirectUrl: e.target.value } : it
+                                      i === sIdx
+                                        ? {
+                                            ...it,
+                                            ctaLabel: "Buy Now",
+                                            redirectUrl: e.target.value
+                                          }
+                                        : it
                                     )
                                   }
                                 }))
                               }
                               style={{ ...ctrlInput, background: "#FFFFFF" }}
+                            />
+                          </div>
+                          <div>
+                            <label style={fieldLabel}>
+                              Buy Now Bottom Position ({slide.ctaBottomPx ?? 14}px)
+                            </label>
+                            <input
+                              type="range"
+                              min={10}
+                              max={120}
+                              step={2}
+                              value={slide.ctaBottomPx ?? 14}
+                              onChange={(e) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  editorialSlider: {
+                                    ...(prev.editorialSlider || {}),
+                                    slides: prev.editorialSlider.slides.map((it, i) =>
+                                      i === sIdx
+                                        ? { ...it, ctaBottomPx: Number(e.target.value) }
+                                        : it
+                                    )
+                                  }
+                                }))
+                              }
+                              style={{ width: "100%" }}
                             />
                           </div>
                           <div>
@@ -6489,7 +7190,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== SHOPPABLE REELS ==================== */}
           {activeNav === "reels" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -6751,7 +7451,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== OUR STORY MANAGER ==================== */}
           {activeNav === "story" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -6885,7 +7584,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== PAGES & POLICIES ==================== */}
           {activeNav === "pages" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -7111,7 +7809,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== CUSTOMER REVIEWS ==================== */}
           {activeNav === "reviews" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -7336,7 +8033,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== COUPONS & PROMOS ==================== */}
           {activeNav === "coupons" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -7349,9 +8045,10 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                 }}
               >
                 <div>
-                  <h1 style={pageTitle}>COUPONS & PROMOS</h1>
+                  <h1 style={pageTitle}>COUPONS, PROMO BOX & CART BANNER</h1>
                   <p style={pageSub}>
-                    Manage discount codes and cart promotional rules.
+                    Manage discount codes, cart promo box placement/visibility, and upper cart
+                    reward text.
                   </p>
                 </div>
                 <button
@@ -7362,6 +8059,86 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   <Plus size={14} /> Create Coupon
                 </button>
               </div>
+
+              <div style={cardBox}>
+                <h3 style={sectionSubTitle}>CART UPPER REWARD & PROMO BOX SETTINGS</h3>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "12px",
+                    marginBottom: "12px"
+                  }}
+                >
+                  <div>
+                    <label style={fieldLabel}>Promo Box Visibility</label>
+                    <select
+                      value={cartPromoCfg.enabled === false ? "hidden" : "visible"}
+                      onChange={(e) =>
+                        handleSaveHomepage({
+                          ...homepage,
+                          cartPromoBox: {
+                            ...cartPromoCfg,
+                            enabled: e.target.value === "visible"
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    >
+                      <option value="visible">Show in Cart Drawer</option>
+                      <option value="hidden">Hide in Cart Drawer</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={fieldLabel}>Promo Box Position</label>
+                    <select
+                      value={cartPromoCfg.position || "top"}
+                      onChange={(e) =>
+                        handleSaveHomepage({
+                          ...homepage,
+                          cartPromoBox: {
+                            ...cartPromoCfg,
+                            position: e.target.value
+                          }
+                        })
+                      }
+                      style={ctrlInput}
+                    >
+                      <option value="top">Top (Above Cart Items)</option>
+                      <option value="inside-scroll">Inside Scroll List (Below Items)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={fieldLabel}>
+                    Upper Reward Text (3+ Pairs Unlocked — use {"{freeItemName}"})
+                  </label>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <input
+                      value={cartBannerCfg.b2g1UnlockedTemplate || ""}
+                      onChange={(e) =>
+                        setHomepage((prev) => ({
+                          ...prev,
+                          cartRewardBanner: {
+                            ...(prev.cartRewardBanner || {}),
+                            b2g1UnlockedTemplate: e.target.value
+                          }
+                        }))
+                      }
+                      style={{ ...ctrlInput, flex: 1, minWidth: "220px" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveHomepage(homepage)}
+                      style={primaryBlueBtn}
+                    >
+                      <Check size={14} /> Save Cart Text
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div style={cardBox}>
                 {!coupons.length && <p style={pageSub}>No active coupon codes yet.</p>}
                 {coupons.map((cp) => (
@@ -7396,6 +8173,7 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   </div>
                 ))}
               </div>
+
               {couponModal && (
                 <div style={modalOverlay} onClick={() => setCouponModal(false)}>
                   <form
@@ -7481,7 +8259,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== CUSTOMER DIRECTORY ==================== */}
           {activeNav === "customers" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div>
@@ -7555,7 +8332,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== NAVIGATION MENUS ==================== */}
           {activeNav === "navigation" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -7649,7 +8425,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
             </div>
           )}
 
-          {/* ==================== SETTINGS & SECURITY ==================== */}
           {activeNav === "settings" && (
             <div style={{ display: "grid", gap: "16px" }}>
               <div
@@ -7728,7 +8503,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   </div>
                 </div>
 
-                {/* PAYMENT METHODS */}
                 <div
                   style={{
                     borderTop: "1px solid #E2E8F0",
@@ -7810,7 +8584,6 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
                   </div>
                 </div>
 
-                {/* STORE CONTACT INFORMATION */}
                 <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "14px" }}>
                   <div
                     style={{
@@ -7986,6 +8759,8 @@ export default function AdminPanel({ onExit, onStoreUpdated }) {
     </div>
   );
 }
+
+export default AdminPanelContent;
 
 const pageTitle = {
   margin: 0,

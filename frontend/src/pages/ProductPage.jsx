@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
   ChevronLeft,
   ChevronRight,
   Droplets,
-  Edit3,
   Film,
   Headphones,
   Heart,
@@ -17,14 +16,33 @@ import {
   ShieldCheck,
   Sparkles,
   Tag,
-  Trash2,
   Truck,
   Volume2,
   VolumeX,
   X
 } from "lucide-react";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
+function resolveApiBase() {
+  try {
+    if (
+      typeof globalThis !== "undefined" &&
+      globalThis.__VITE_API_URL__
+    ) {
+      return String(globalThis.__VITE_API_URL__);
+    }
+    if (typeof window !== "undefined") {
+      if (window.__VITE_API_URL__) {
+        return String(window.__VITE_API_URL__);
+      }
+      if (window.location?.hostname === "localhost") {
+        return "http://localhost:5003/api";
+      }
+    }
+  } catch {}
+  return "http://localhost:5003/api";
+}
+
+const API = resolveApiBase();
 
 const SAFE_IMAGE_FALLBACK =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
@@ -120,9 +138,68 @@ const CALZARE_STANDARD_CARDS = [
   }
 ];
 
+const DEMO_CATALOG = [
+  {
+    id: "bayaband-army-green",
+    name: "Bayaband Clog",
+    tagline: "Signature side band • Dual-density Croslite comfort",
+    color: "Army Green / Cobblestone",
+    category: "Clogs",
+    collection: "Bayaband",
+    price: 2998,
+    oldPrice: 5995,
+    badge: "50% OFF THIS COLOR",
+    image: SAFE_IMAGE_FALLBACK,
+    images: [
+      SAFE_IMAGE_FALLBACK,
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85",
+      "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=1000&q=85"
+    ],
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    sizes: ["UK 4", "UK 5", "UK 6", "UK 7", "UK 8", "UK 9", "UK 10"],
+    highlights: [
+      "Holds up to 26 Jibbitz charms",
+      "Pivoting heel straps for a secure fit",
+      "Water-friendly and buoyant"
+    ],
+    variants: [
+      {
+        id: "var-army-cobble",
+        label: "Army Green / Cobblestone",
+        color: "Army Green / Cobblestone",
+        price: 2998,
+        oldPrice: 5995,
+        image: SAFE_IMAGE_FALLBACK
+      },
+      {
+        id: "var-black-white",
+        label: "Black / White Band",
+        color: "Black / White",
+        price: 3497,
+        oldPrice: 4995,
+        image:
+          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85"
+      },
+      {
+        id: "var-stucco-sand",
+        label: "Stucco / Bone Sand",
+        color: "Stucco / Bone Sand",
+        price: 3995,
+        oldPrice: 5495,
+        image:
+          "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=1000&q=85"
+      }
+    ]
+  }
+];
+
 function safeImgSrc(url) {
   if (!url || typeof url !== "string" || !url.trim()) return SAFE_IMAGE_FALLBACK;
   const clean = url.trim();
+  if (clean.startsWith("blob:") || clean.startsWith("data:image/")) {
+    return clean;
+  }
   const isLocalHostOnProd =
     typeof window !== "undefined" &&
     window.location.hostname !== "localhost" &&
@@ -141,22 +218,12 @@ function safeImgSrc(url) {
 
 function safeVideoSrc(url) {
   if (!url || typeof url !== "string" || !url.trim()) return "";
-  if (url.includes("assets.mixkit.co")) return "";
-  return url;
+  const clean = url.trim();
+  if (clean.includes("assets.mixkit.co")) return "";
+  return clean;
 }
 
-function createEmptyDraft(defaultSize = "UK 8") {
-  return {
-    author: "",
-    location: "",
-    size: defaultSize,
-    rating: 5,
-    quote: "",
-    body: ""
-  };
-}
-
-export default function ProductPage({
+export function ProductPage({
   homepage,
   product,
   products = [],
@@ -166,11 +233,23 @@ export default function ProductPage({
   onAddToCart,
   onSelectProduct,
   onGoBack,
-  money,
-  canManageReviews = false
+  money
 }) {
-  const current = product || products[0] || null;
+  const current = product || products[0] || DEMO_CATALOG[0];
   const productId = current?.id || current?._id || "";
+
+  const [selectedImageOverride, setSelectedImageOverride] = useState("");
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+  const [activeInfoTab, setActiveInfoTab] = useState("description");
+  const [isMobileView, setIsMobileView] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768
+  );
+
+  // PIP floats automatically whenever a PIP video is present
+  const [pipFloatingOpen, setPipFloatingOpen] = useState(true);
+  const [pipMuted, setPipMuted] = useState(true);
+  const [addedFeedback, setAddedFeedback] = useState(false);
+  const addedTimerRef = useRef(null);
 
   const variantList = useMemo(() => {
     if (!current) return [];
@@ -197,16 +276,13 @@ export default function ProductPage({
     return [];
   }, [current, productId]);
 
-  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
-  const [activeInfoTab, setActiveInfoTab] = useState("description");
-  const [isMobileView, setIsMobileView] = useState(
-    () => typeof window !== "undefined" && window.innerWidth <= 768
-  );
-
   useEffect(() => {
     const onResize = () => setIsMobileView(window.innerWidth <= 768);
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    };
   }, []);
 
   const activeVariant =
@@ -230,13 +306,7 @@ export default function ProductPage({
   const [activeClipIndex, setActiveClipIndex] = useState(null);
   const [clipMuted, setClipMuted] = useState(false);
   const [failedClipIds, setFailedClipIds] = useState({});
-
   const [backendReviews, setBackendReviews] = useState([]);
-  const [reviewFormOpen, setReviewFormOpen] = useState(false);
-  const [editingReviewId, setEditingReviewId] = useState(null);
-  const [reviewDraft, setReviewDraft] = useState(() =>
-    createEmptyDraft(sizes.includes("UK 8") ? "UK 8" : sizes[0])
-  );
 
   async function fetchBackendReviews() {
     try {
@@ -280,16 +350,16 @@ export default function ProductPage({
     const nextSizes = current?.sizes?.length ? current.sizes : DEFAULT_SIZES;
     const defaultSz = nextSizes.includes("UK 8") ? "UK 8" : nextSizes[0];
     setSelectedVariantIndex(0);
+    setSelectedImageOverride("");
     setSelectedSize(defaultSz);
     setQuantity(1);
     setShowVideo(false);
     setActiveClipIndex(null);
     setFailedClipIds({});
     setSelectedColorwayId(productId);
-    setReviewFormOpen(false);
-    setEditingReviewId(null);
-    setReviewDraft(createEmptyDraft(defaultSz));
     setActiveInfoTab("description");
+    setPipFloatingOpen(true);
+    setAddedFeedback(false);
   }, [productId]);
 
   useEffect(() => {
@@ -298,20 +368,29 @@ export default function ProductPage({
     }
   }, [sizes, selectedSize]);
 
-  useEffect(() => {
-    if (!canManageReviews) {
-      setReviewFormOpen(false);
-      setEditingReviewId(null);
-    }
-  }, [canManageReviews]);
-
   const productReelsEnabled = homepage?.productReelsEnabled !== false;
 
-  const currentImage = activeVariant ? activeVariant.image : safeImgSrc(current?.image);
+  const baseVariantOrProductImage = activeVariant
+    ? activeVariant.image
+    : safeImgSrc(current?.image);
+
+  const currentImage = selectedImageOverride
+    ? safeImgSrc(selectedImageOverride)
+    : baseVariantOrProductImage;
+
   const currentVideo = activeVariant
     ? activeVariant.videoUrl
     : safeVideoSrc(current?.videoUrl);
-  const activeColorLabel = activeVariant ? activeVariant.color : current?.color || "";
+
+  const activeColorLabel = activeVariant
+    ? activeVariant.color
+    : current?.color || "";
+
+  const activePipVideo = safeVideoSrc(
+    current?.pipVideoUrl || current?.videoUrl || ""
+  );
+  const pipVideoTitle =
+    current?.pipVideoTitle || `${current?.name || "Product"} Fit Video`;
 
   const productShortClips = useMemo(() => {
     if (!current || !productReelsEnabled) return [];
@@ -372,11 +451,13 @@ export default function ProductPage({
 
   const colorOptions = useMemo(() => {
     if (!current) return [];
-    const list = Array.isArray(products) ? products : [];
+    const list =
+      Array.isArray(products) && products.length > 0 ? products : DEMO_CATALOG;
     const sameGroup = list.filter(
       (p) =>
         p &&
-        (p.category === current.category || p.collection === current.collection)
+        (p.category === current.category ||
+          p.collection === current.collection)
     );
     const merged = [
       current,
@@ -394,7 +475,9 @@ export default function ProductPage({
   }, [products, current, productId]);
 
   const { suggestedItems, alsoBoughtItems } = useMemo(() => {
-    const list = (Array.isArray(products) ? products : []).filter((p) => {
+    const sourceList =
+      Array.isArray(products) && products.length > 0 ? products : DEMO_CATALOG;
+    const list = sourceList.filter((p) => {
       const id = p?.id || p?._id;
       return p && id && id !== productId && (p.status || "published") !== "draft";
     });
@@ -421,17 +504,6 @@ export default function ProductPage({
     };
   }, [products, productId, current?.category, current?.collection]);
 
-  if (!current) {
-    return (
-      <section className="pdp-page section-pad">
-        <p className="empty-state">Product not found.</p>
-        <button type="button" className="primary-cta-btn" onClick={onGoBack}>
-          <ArrowLeft size={15} /> BACK TO STORE
-        </button>
-      </section>
-    );
-  }
-
   const pdpCfg = homepage?.productPage || {};
 
   const formatPrice =
@@ -452,27 +524,35 @@ export default function ProductPage({
 
   const isFavorite = favorites.includes(productId);
 
-  function buildCartProductPayload() {
+  function buildCartProductPayload(qty = 1) {
     const variantSuffix =
       activeVariant && activeVariant.label ? ` — ${activeVariant.label}` : "";
     return {
       ...current,
       id: activeVariant ? `${productId}__${activeVariant.id}` : productId,
       baseProductId: productId,
+      variantId: activeVariant?.id || null,
       name: `${current.name}${variantSuffix}`,
       color: activeColorLabel || current.color,
       price: priceNum,
       oldPrice: oldPriceNum || null,
       image: currentImage,
-      videoUrl: currentVideo
+      videoUrl: currentVideo,
+      quantity: qty
     };
   }
 
+  function triggerAddedToast() {
+    setAddedFeedback(true);
+    if (addedTimerRef.current) clearTimeout(addedTimerRef.current);
+    addedTimerRef.current = setTimeout(() => setAddedFeedback(false), 1800);
+  }
+
   function handleAddSelection() {
-    const itemToAdd = buildCartProductPayload();
-    for (let i = 0; i < quantity; i += 1) {
-      onAddToCart?.(itemToAdd, selectedSize, i === quantity - 1);
-    }
+    const safeQty = Math.max(1, Number(quantity) || 1);
+    const itemToAdd = buildCartProductPayload(safeQty);
+    onAddToCart?.(itemToAdd, selectedSize, safeQty);
+    triggerAddedToast();
   }
 
   function handleExpandMedia() {
@@ -482,103 +562,6 @@ export default function ProductPage({
     }
   }
 
-  function handleOpenNewReviewForm() {
-    if (!canManageReviews) return;
-    setEditingReviewId(null);
-    setReviewDraft(createEmptyDraft(selectedSize));
-    setReviewFormOpen(true);
-  }
-
-  function handleStartEditReview(rev) {
-    if (!canManageReviews) return;
-    const rawQuote = String(rev.quote || "").replace(/^"+|"+$/g, "").trim();
-    const cleanCity = String(rev.location || "")
-      .split("•")[0]
-      .trim();
-
-    setEditingReviewId(rev.id);
-    setReviewDraft({
-      author: rev.author || "",
-      location: cleanCity === "Verified Buyer" ? "" : cleanCity,
-      size: selectedSize,
-      rating: Number(rev.rating) || 5,
-      quote: rawQuote,
-      body: rev.body || ""
-    });
-    setReviewFormOpen(true);
-  }
-
-  async function handleDeleteReview(revId) {
-    if (!canManageReviews) return;
-    const adminToken = sessionStorage.getItem("calzare_admin_token") || "";
-    try {
-      await fetch(`${API}/admin/reviews/${revId}`, {
-        method: "DELETE",
-        headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : {}
-      });
-      await fetchBackendReviews();
-      window.dispatchEvent(new Event("calzare_store_updated"));
-    } catch {}
-    if (editingReviewId === revId) {
-      setEditingReviewId(null);
-      setReviewFormOpen(false);
-    }
-  }
-
-  async function handleSaveReview(e) {
-    e.preventDefault();
-    if (!canManageReviews) return;
-
-    const author = reviewDraft.author.trim();
-    const body = reviewDraft.body.trim();
-    if (!author || !body) return;
-
-    const rawHeadline = reviewDraft.quote.trim() || `LOVED MY ${current.name}`;
-    const adminToken = sessionStorage.getItem("calzare_admin_token") || "";
-
-    const isBackendId =
-      editingReviewId &&
-      backendReviews.some((item) => String(item.id) === String(editingReviewId));
-
-    const payload = {
-      productId,
-      productName: current.name,
-      customerName: author,
-      location: reviewDraft.location.trim() || "India",
-      rating: Number(reviewDraft.rating) || 5,
-      headline: rawHeadline.toUpperCase(),
-      comment: body,
-      status: "approved",
-      verifiedBuyer: true,
-      featuredOnHomepage: true
-    };
-
-    try {
-      const endpoint = isBackendId
-        ? `${API}/admin/reviews/${editingReviewId}`
-        : `${API}/admin/reviews`;
-      const method = isBackendId ? "PATCH" : "POST";
-
-      const res = await fetch(endpoint, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        await fetchBackendReviews();
-        window.dispatchEvent(new Event("calzare_store_updated"));
-      }
-    } catch {}
-
-    setReviewDraft(createEmptyDraft(selectedSize));
-    setEditingReviewId(null);
-    setReviewFormOpen(false);
-  }
-
   const activeClip =
     productReelsEnabled &&
     activeClipIndex !== null &&
@@ -586,16 +569,38 @@ export default function ProductPage({
       ? productShortClips[activeClipIndex]
       : null;
 
+  const galleryThumbnails = [
+    baseVariantOrProductImage,
+    ...(Array.isArray(current.images) ? current.images.map(safeImgSrc) : []),
+    ...colorOptions.map((opt) => safeImgSrc(opt.image))
+  ]
+    .filter(Boolean)
+    .filter((url, idx, arr) => arr.indexOf(url) === idx)
+    .slice(0, 5);
+
   return (
     <div className="pdp-page" style={{ paddingBottom: isMobileView ? "76px" : 0 }}>
-      <div className="pdp-topbar">
-        <button type="button" className="pdp-back-btn" onClick={onGoBack}>
-          <ArrowLeft size={14} /> BACK TO COLLECTION
-        </button>
-        <span className="pdp-crumb">
-          {(current.collection || "UNISEX").toUpperCase()} /{" "}
-          {(current.category || "FOOTWEAR").toUpperCase()} / {current.name}
-        </span>
+      <div
+        className="pdp-topbar"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+          flexWrap: "wrap"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          {onGoBack && (
+            <button type="button" className="pdp-back-btn" onClick={onGoBack}>
+              <ArrowLeft size={14} /> BACK TO COLLECTION
+            </button>
+          )}
+          <span className="pdp-crumb">
+            {(current.collection || "UNISEX").toUpperCase()} /{" "}
+            {(current.category || "FOOTWEAR").toUpperCase()} / {current.name}
+          </span>
+        </div>
       </div>
 
       <div className="pdp-main-grid">
@@ -616,61 +621,54 @@ export default function ProductPage({
               flexShrink: 0
             }}
           >
-            {[
-              currentImage,
-              ...(Array.isArray(current.images) ? current.images : []),
-              ...colorOptions.map((opt) => safeImgSrc(opt.image))
-            ]
-              .filter(Boolean)
-              .filter((url, idx, arr) => arr.indexOf(url) === idx)
-              .slice(0, 5)
-              .map((thumbUrl, tIdx) => {
-                const isThumbActive = !showVideo && currentImage === thumbUrl;
-                return (
-                  <button
-                    key={`${thumbUrl}-${tIdx}`}
-                    type="button"
-                    aria-label={`View image ${tIdx + 1}`}
-                    onClick={() => {
-                      setShowVideo(false);
-                      const matchingColor = colorOptions.find(
-                        (c) => safeImgSrc(c.image) === thumbUrl
-                      );
-                      if (matchingColor) {
-                        setSelectedColorwayId(matchingColor.id || matchingColor._id);
-                      }
+            {galleryThumbnails.map((thumbUrl, tIdx) => {
+              const isThumbActive = !showVideo && currentImage === thumbUrl;
+              return (
+                <button
+                  key={`${thumbUrl}-${tIdx}`}
+                  type="button"
+                  aria-label={`View image ${tIdx + 1}`}
+                  onClick={() => {
+                    setShowVideo(false);
+                    setSelectedImageOverride(thumbUrl);
+                    const matchingColor = colorOptions.find(
+                      (c) => safeImgSrc(c.image) === thumbUrl
+                    );
+                    if (matchingColor) {
+                      setSelectedColorwayId(matchingColor.id || matchingColor._id);
+                    }
+                  }}
+                  style={{
+                    width: isMobileView ? "60px" : "68px",
+                    height: isMobileView ? "60px" : "68px",
+                    padding: "4px",
+                    borderRadius: "8px",
+                    border: isThumbActive
+                      ? "1.5px solid #0F172A"
+                      : "1px solid #E2E8F0",
+                    background: "#F5F5F5",
+                    cursor: "pointer",
+                    overflow: "hidden",
+                    flexShrink: 0
+                  }}
+                >
+                  <img
+                    src={thumbUrl}
+                    alt={`${current.name} angle ${tIdx + 1}`}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = SAFE_IMAGE_FALLBACK;
                     }}
                     style={{
-                      width: isMobileView ? "60px" : "68px",
-                      height: isMobileView ? "60px" : "68px",
-                      padding: "4px",
-                      borderRadius: "8px",
-                      border: isThumbActive
-                        ? "1.5px solid #0F172A"
-                        : "1px solid #E2E8F0",
-                      background: "#F5F5F5",
-                      cursor: "pointer",
-                      overflow: "hidden",
-                      flexShrink: 0
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      display: "block"
                     }}
-                  >
-                    <img
-                      src={thumbUrl}
-                      alt={`${current.name} angle ${tIdx + 1}`}
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                      }}
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "contain",
-                        display: "block"
-                      }}
-                    />
-                  </button>
-                );
-              })}
+                  />
+                </button>
+              );
+            })}
           </div>
 
           <div
@@ -681,6 +679,7 @@ export default function ProductPage({
               background: "#F5F5F5",
               borderRadius: "12px",
               overflow: "hidden",
+              position: "relative",
               maxHeight: isMobileView
                 ? undefined
                 : `${Number(homepage?.productPage?.galleryMaxHeightPx) || 560}px`
@@ -696,6 +695,7 @@ export default function ProductPage({
                 playsInline
                 controls
                 onError={() => setShowVideo(false)}
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
               />
             ) : (
               <img
@@ -815,6 +815,7 @@ export default function ProductPage({
                       className={isSelected ? "size-pill active" : "size-pill"}
                       onClick={() => {
                         setSelectedVariantIndex(idx);
+                        setSelectedImageOverride("");
                         setShowVideo(false);
                       }}
                     >
@@ -1019,6 +1020,7 @@ export default function ProductPage({
                       title={opt.color || opt.name}
                       onClick={() => {
                         setSelectedColorwayId(optId);
+                        setSelectedImageOverride("");
                         if (optId !== productId) {
                           onSelectProduct?.(opt);
                         }
@@ -1081,7 +1083,9 @@ export default function ProductPage({
               className="primary-cta-btn pdp-pill-cta"
               onClick={handleAddSelection}
             >
-              ADD TO CART — {formatPrice(priceNum * quantity)}
+              {addedFeedback
+                ? `ADDED (${quantity}) TO CART ✓`
+                : `ADD TO CART — ${formatPrice(priceNum * quantity)}`}
             </button>
 
             <button
@@ -1211,6 +1215,99 @@ export default function ProductPage({
         </div>
       </div>
 
+      {/* Floating PIP Video Player */}
+      {pipFloatingOpen && activePipVideo && (
+        <div
+          aria-label="Floating Picture-in-Picture Product Video"
+          style={{
+            position: "fixed",
+            right: "18px",
+            bottom: isMobileView ? "76px" : "18px",
+            width: "240px",
+            borderRadius: "14px",
+            overflow: "hidden",
+            background: "#090B0E",
+            color: "#FFFFFF",
+            border: "1px solid rgba(255,255,255,0.22)",
+            boxShadow: "0 18px 42px rgba(0,0,0,0.45)",
+            zIndex: 95
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "6px 10px",
+              background: "rgba(0,0,0,0.78)",
+              fontSize: "10.5px",
+              fontWeight: 700
+            }}
+          >
+            <span
+              style={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: "155px"
+              }}
+            >
+              {pipVideoTitle}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <button
+                type="button"
+                aria-label={pipMuted ? "Unmute PIP video" : "Mute PIP video"}
+                onClick={() => setPipMuted((m) => !m)}
+                style={{
+                  border: 0,
+                  background: "transparent",
+                  color: "#FFFFFF",
+                  cursor: "pointer",
+                  padding: "2px",
+                  display: "grid",
+                  placeItems: "center"
+                }}
+              >
+                {pipMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+              </button>
+              <button
+                type="button"
+                aria-label="Close PIP video"
+                onClick={() => setPipFloatingOpen(false)}
+                style={{
+                  border: 0,
+                  background: "transparent",
+                  color: "#FFFFFF",
+                  cursor: "pointer",
+                  padding: "2px",
+                  display: "grid",
+                  placeItems: "center"
+                }}
+              >
+                <X size={13} />
+              </button>
+            </div>
+          </div>
+          <video
+            src={activePipVideo}
+            poster={currentImage}
+            autoPlay
+            loop
+            muted={pipMuted}
+            playsInline
+            controls
+            onError={() => setPipFloatingOpen(false)}
+            style={{
+              width: "100%",
+              height: "150px",
+              objectFit: "cover",
+              display: "block"
+            }}
+          />
+        </div>
+      )}
+
       {suggestedItems.length > 0 && (
         <section className="shop-section section-pad">
           <div className="section-heading">
@@ -1255,7 +1352,7 @@ export default function ProductPage({
                       className="quick-add"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onAddToCart?.(item, defaultSz, true);
+                        onAddToCart?.({ ...item, id: itemId, quantity: 1 }, defaultSz, 1);
                       }}
                     >
                       QUICK ADD ({defaultSz})
@@ -1565,8 +1662,9 @@ export default function ProductPage({
                 <button
                   type="button"
                   onClick={() => {
-                    onAddToCart?.(buildCartProductPayload(), selectedSize, true);
+                    onAddToCart?.(buildCartProductPayload(1), selectedSize, 1);
                     setActiveClipIndex(null);
+                    triggerAddedToast();
                   }}
                   style={{
                     width: "100%",
@@ -1601,129 +1699,11 @@ export default function ProductPage({
           <p className="calzare-reviews-sub">
             Honest reviews from customers walking in real rain, heat, and city transit.
           </p>
-          {canManageReviews && (
-            <button
-              type="button"
-              className="filter active"
-              onClick={() =>
-                reviewFormOpen
-                  ? (setReviewFormOpen(false), setEditingReviewId(null))
-                  : handleOpenNewReviewForm()
-              }
-            >
-              {reviewFormOpen ? "CLOSE REVIEW EDITOR" : "MANAGE / ADD REVIEW"}
-            </button>
-          )}
         </div>
-
-        {canManageReviews && reviewFormOpen && (
-          <form
-            onSubmit={handleSaveReview}
-            style={{
-              background: "var(--surface, #f2f1eb)",
-              border: "1px solid var(--line, rgba(0,0,0,0.12))",
-              borderRadius: "14px",
-              padding: "20px",
-              margin: "0 auto 28px",
-              maxWidth: "780px",
-              display: "grid",
-              gap: "12px"
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
-                gap: "10px"
-              }}
-            >
-              <input
-                required
-                placeholder="Reviewer / Writer Name *"
-                value={reviewDraft.author}
-                onChange={(e) =>
-                  setReviewDraft({ ...reviewDraft, author: e.target.value })
-                }
-              />
-              <input
-                placeholder="City (e.g., Bengaluru, Delhi)"
-                value={reviewDraft.location}
-                onChange={(e) =>
-                  setReviewDraft({ ...reviewDraft, location: e.target.value })
-                }
-              />
-              <select
-                value={reviewDraft.size}
-                onChange={(e) =>
-                  setReviewDraft({ ...reviewDraft, size: e.target.value })
-                }
-              >
-                {sizes.map((sz) => (
-                  <option key={sz} value={sz}>
-                    Size: {sz}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={reviewDraft.rating}
-                onChange={(e) =>
-                  setReviewDraft({
-                    ...reviewDraft,
-                    rating: Number(e.target.value)
-                  })
-                }
-              >
-                <option value={5}>★★★★★ (5 / 5)</option>
-                <option value={4}>★★★★☆ (4 / 5)</option>
-                <option value={3}>★★★☆☆ (3 / 5)</option>
-                <option value={2}>★★☆☆☆ (2 / 5)</option>
-                <option value={1}>★☆☆☆☆ (1 / 5)</option>
-              </select>
-            </div>
-
-            <input
-              placeholder={`Headline for ${current.name} (optional)`}
-              value={reviewDraft.quote}
-              onChange={(e) =>
-                setReviewDraft({ ...reviewDraft, quote: e.target.value })
-              }
-            />
-
-            <textarea
-              required
-              rows={3}
-              placeholder="Write or update review comment... *"
-              value={reviewDraft.body}
-              onChange={(e) =>
-                setReviewDraft({ ...reviewDraft, body: e.target.value })
-              }
-              style={{ resize: "vertical", padding: "10px 12px" }}
-            />
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button
-                type="button"
-                className="filter"
-                onClick={() => {
-                  setReviewFormOpen(false);
-                  setEditingReviewId(null);
-                }}
-              >
-                CANCEL
-              </button>
-              <button type="submit" className="filter active">
-                {editingReviewId ? "SAVE TO BACKEND" : "PUBLISH TO BACKEND"}
-              </button>
-            </div>
-          </form>
-        )}
 
         <div className="calzare-reviews-grid">
           {productReviews.map((rev) => {
             const stars = Math.max(1, Math.min(5, Number(rev.rating) || 5));
-            const isBackendReview = backendReviews.some(
-              (item) => String(item.id) === String(rev.id)
-            );
 
             return (
               <article className="calzare-review-card" key={rev.id}>
@@ -1740,49 +1720,7 @@ export default function ProductPage({
                     <span className="calzare-reviewer-meta">{rev.meta}</span>
                     <span className="calzare-reviewer-loc">{rev.location}</span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <span className="calzare-verified-badge">✓ Verified</span>
-                    {canManageReviews && (
-                      <>
-                        <button
-                          type="button"
-                          aria-label="Edit review"
-                          onClick={() => handleStartEditReview(rev)}
-                          style={{
-                            border: "1px solid rgba(0,0,0,0.14)",
-                            background: "#FFFFFF",
-                            borderRadius: "999px",
-                            width: "28px",
-                            height: "28px",
-                            display: "grid",
-                            placeItems: "center",
-                            cursor: "pointer"
-                          }}
-                        >
-                          <Edit3 size={12} />
-                        </button>
-                        {isBackendReview && (
-                          <button
-                            type="button"
-                            aria-label="Delete review"
-                            onClick={() => handleDeleteReview(rev.id)}
-                            style={{
-                              border: "1px solid rgba(0,0,0,0.14)",
-                              background: "#FFFFFF",
-                              borderRadius: "999px",
-                              width: "28px",
-                              height: "28px",
-                              display: "grid",
-                              placeItems: "center",
-                              cursor: "pointer"
-                            }}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+                  <span className="calzare-verified-badge">✓ Verified</span>
                 </div>
               </article>
             );
@@ -1924,10 +1862,14 @@ export default function ProductPage({
             onClick={handleAddSelection}
             style={{ flex: 1, margin: 0, padding: "12px 14px", borderRadius: "999px" }}
           >
-            ADD TO CART — {formatPrice(priceNum * quantity)}
+            {addedFeedback
+              ? `ADDED (${quantity}) TO CART ✓`
+              : `ADD TO CART — ${formatPrice(priceNum * quantity)}`}
           </button>
         </div>
       )}
     </div>
   );
 }
+
+export default ProductPage;

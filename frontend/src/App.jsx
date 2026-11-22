@@ -6,14 +6,12 @@ import PolicyPage from "./pages/PolicyPage.jsx";
 import ProductPage from "./pages/ProductPage.jsx";
 import TrackOrderPage from "./pages/TrackOrderPage.jsx";
 import Header from "./components/Header.jsx";
+import CartDrawer from "./components/CartDrawer.jsx";
 import {
   ArrowRight,
   ArrowUpRight,
   Check,
   Play,
-  RefreshCw,
-  ShieldCheck,
-  Truck,
   Volume2,
   VolumeX,
   X
@@ -1732,9 +1730,39 @@ function App() {
   const freeShipMin = Number(storeSettings.freeShippingThreshold ?? 2999);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const mrpSubtotal = cart.reduce(
+    (sum, item) => sum + (Number(item.oldPrice) || item.price) * item.quantity,
+    0
+  );
 
-  const discountRate = cartCount >= 3 ? 0.15 : cartCount >= 2 ? 0.1 : 0;
-  const discountAmount = Math.round(cartSubtotal * discountRate);
+  // Sola World–style Bundle Logic: Buy 2 = 10% OFF | Buy 3+ = Cheapest 1 Pair FREE
+  const bundleTier = useMemo(() => {
+    if (cartCount >= 3) {
+      let cheapest = null;
+      for (const item of cart) {
+        if (!cheapest || Number(item.price) < Number(cheapest.price)) {
+          cheapest = item;
+        }
+      }
+      return {
+        mode: "b2g1",
+        discountAmount: cheapest ? Number(cheapest.price) || 0 : 0,
+        freeCartKey: cheapest?.cartKey || "",
+        freeItemName: cheapest?.name || ""
+      };
+    }
+    if (cartCount === 2) {
+      return {
+        mode: "b2_10off",
+        discountAmount: Math.round(cartSubtotal * 0.1),
+        freeCartKey: "",
+        freeItemName: ""
+      };
+    }
+    return { mode: "none", discountAmount: 0, freeCartKey: "", freeItemName: "" };
+  }, [cart, cartCount, cartSubtotal]);
+
+  const discountAmount = bundleTier.discountAmount;
   const afterBundleTotal = Math.max(0, cartSubtotal - discountAmount);
 
   useEffect(() => {
@@ -1777,7 +1805,7 @@ function App() {
   }, [cartCount]);
 
   const upsellProducts = useMemo(() => {
-    const inBagIds = new Set(cart.map((c) => c.id));
+    const inBagIds = new Set(cart.map((c) => c.baseProductId || c.id));
     return products.filter((p) => !inBagIds.has(p.id)).slice(0, 4);
   }, [products, cart]);
 
@@ -1840,19 +1868,31 @@ function App() {
     setReelSize(linked?.sizes?.[2] || "UK 8");
   }
 
-  function addToCart(product, size = "UK 8", openDrawer = false) {
+  function addToCart(product, size = "UK 8", qtyOrOpenDrawer = true) {
     const cleanItem = { ...product, image: safeImg(product.image) };
+    const qtyToAdd =
+      typeof qtyOrOpenDrawer === "number" && qtyOrOpenDrawer > 0
+        ? qtyOrOpenDrawer
+        : Number(cleanItem.quantity) || 1;
+    const shouldOpenDrawer =
+      typeof qtyOrOpenDrawer === "boolean" ? qtyOrOpenDrawer : true;
+
     const cartKey = `${cleanItem.id}__${size}`;
     setCart((current) => {
       const found = current.find((item) => item.cartKey === cartKey);
       return found
         ? current.map((item) =>
-            item.cartKey === cartKey ? { ...item, quantity: item.quantity + 1 } : item
+            item.cartKey === cartKey
+              ? { ...item, quantity: item.quantity + qtyToAdd }
+              : item
           )
-        : [...current, { ...cleanItem, size, cartKey, quantity: 1 }];
+        : [
+            ...current,
+            { ...cleanItem, size, cartKey, quantity: qtyToAdd }
+          ];
     });
     setNotice(`${cleanItem.name} (${size}) added to your bag.`);
-    if (openDrawer) setCartOpen(true);
+    if (shouldOpenDrawer) setCartOpen(true);
   }
 
   function changeQuantity(cartKey, amount) {
@@ -2175,12 +2215,26 @@ function App() {
     ? products.find((p) => p.id === activeReel.productId) || products[0]
     : null;
 
-  const currentProductPageProduct = productPageId ? (products.find((p) => p.id === productPageId) || products[0]) : null;
+  const currentProductPageProduct = productPageId
+    ? products.find((p) => p.id === productPageId) || products[0]
+    : null;
   const pipVideoUrl = currentProductPageProduct
     ? safeVid(currentProductPageProduct.videoUrl) ||
-      safeVid(currentProductPageProduct.shortVideos?.find((v) => safeVid(v?.videoUrl || v?.url))?.videoUrl) ||
-      safeVid(currentProductPageProduct.shortVideos?.find((v) => safeVid(v?.videoUrl || v?.url))?.url) ||
-      safeVid(reels.find((r) => r.productId === currentProductPageProduct.id && safeVid(r.videoUrl))?.videoUrl)
+      safeVid(
+        currentProductPageProduct.shortVideos?.find((v) =>
+          safeVid(v?.videoUrl || v?.url)
+        )?.videoUrl
+      ) ||
+      safeVid(
+        currentProductPageProduct.shortVideos?.find((v) =>
+          safeVid(v?.videoUrl || v?.url)
+        )?.url
+      ) ||
+      safeVid(
+        reels.find(
+          (r) => r.productId === currentProductPageProduct.id && safeVid(r.videoUrl)
+        )?.videoUrl
+      )
     : "";
 
   const navItems = useMemo(() => {
@@ -2333,7 +2387,7 @@ function App() {
                   old.includes(id) ? old.filter((item) => item !== id) : [...old, id]
                 )
               }
-              onAddToCart={addToCart}
+              onAddToCart={(prod, sz, qty) => addToCart(prod, sz, qty || 1)}
               onSelectProduct={openFullProductPage}
               onGoBack={() => {
                 setProductPageId(null);
@@ -2647,51 +2701,58 @@ function App() {
         </div>
       </footer>
 
-      {pipVisible && Boolean(productPageId && currentProductPageProduct) && homepage.pipVideo?.enabled !== false && Boolean(pipVideoUrl) && (
-        <div className="pip-widget">
-          <video
-            src={pipVideoUrl || undefined}
-            poster={safeImg(currentProductPageProduct?.image || homepage.pipVideo.poster)}
-            autoPlay
-            loop
-            muted={pipMuted}
-            playsInline
-            onError={() => setPipVisible(false)}
-            onClick={() => {
-              const target =
-                currentProductPageProduct || currentProductPageProduct || products.find((p) => p.id === homepage.pipVideo.productId) || products[0];
-              if (target) openProductModal(target, true);
-            }}
-          />
-          <div className="pip-controls">
+      {pipVisible &&
+        Boolean(productPageId && currentProductPageProduct) &&
+        homepage.pipVideo?.enabled !== false &&
+        Boolean(pipVideoUrl) && (
+          <div className="pip-widget">
+            <video
+              src={pipVideoUrl || undefined}
+              poster={safeImg(currentProductPageProduct?.image || homepage.pipVideo.poster)}
+              autoPlay
+              loop
+              muted={pipMuted}
+              playsInline
+              onError={() => setPipVisible(false)}
+              onClick={() => {
+                const target =
+                  currentProductPageProduct ||
+                  products.find((p) => p.id === homepage.pipVideo.productId) ||
+                  products[0];
+                if (target) openProductModal(target, true);
+              }}
+            />
+            <div className="pip-controls">
+              <button
+                type="button"
+                onClick={() => setPipMuted((m) => !m)}
+                aria-label={pipMuted ? "Unmute video" : "Mute video"}
+              >
+                {pipMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPipVisible(false)}
+                aria-label="Close floating video"
+              >
+                <X size={13} />
+              </button>
+            </div>
             <button
               type="button"
-              onClick={() => setPipMuted((m) => !m)}
-              aria-label={pipMuted ? "Unmute video" : "Mute video"}
+              className="pip-caption"
+              onClick={() => {
+                const target =
+                  currentProductPageProduct ||
+                  products.find((p) => p.id === homepage.pipVideo.productId) ||
+                  products[0];
+                if (target) openProductModal(target, true);
+              }}
             >
-              {pipMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPipVisible(false)}
-              aria-label="Close floating video"
-            >
-              <X size={13} />
+              {homepage.pipVideo.label} <ArrowUpRight size={12} />
             </button>
           </div>
-          <button
-            type="button"
-            className="pip-caption"
-            onClick={() => {
-              const target =
-                currentProductPageProduct || currentProductPageProduct || products.find((p) => p.id === homepage.pipVideo.productId) || products[0];
-              if (target) openProductModal(target, true);
-            }}
-          >
-            {homepage.pipVideo.label} <ArrowUpRight size={12} />
-          </button>
-        </div>
-      )}
+        )}
 
       {activeProduct && (
         <div className="modal-backdrop" onClick={() => setActiveProduct(null)}>
@@ -2895,290 +2956,43 @@ function App() {
         </div>
       )}
 
-      {cartOpen && (
-        <div className="drawer-backdrop" onClick={() => setCartOpen(false)}>
-          <aside
-            className="cart-drawer"
-            style={{ position: "relative" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="drawer-head">
-              <h2>YOUR BAG ({cartCount})</h2>
-              <button className="icon-button" onClick={() => setCartOpen(false)}>
-                <X />
-              </button>
-            </div>
-
-            {showConfetti && (
-              <div
-                aria-hidden="true"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  pointerEvents: "none",
-                  overflow: "hidden",
-                  zIndex: 25
-                }}
-              >
-                {Array.from({ length: 24 }).map((_, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      position: "absolute",
-                      top: "-10px",
-                      left: `${(i * 4.2) % 98}%`,
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: i % 2 === 0 ? "50%" : "2px",
-                      background: ["#2563EB", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"][i % 5],
-                      animation: `calzareConfettiFall ${1.1 + (i % 5) * 0.2}s ease-out forwards`,
-                      animationDelay: `${(i % 6) * 0.06}s`
-                    }}
-                  />
-                ))}
-                <style>{`
-                  @keyframes calzareConfettiFall {
-                    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-                    100% { transform: translateY(420px) rotate(360deg); opacity: 0; }
-                  }
-                `}</style>
-              </div>
-            )}
-
-            <div className="offer-bar-box">
-              <p>{tierProgress.text}</p>
-              <div className="offer-track">
-                <div className="offer-fill" style={{ width: `${tierProgress.percent}%` }} />
-              </div>
-              <div className="offer-milestones">
-                <span className={cartSubtotal >= freeShipMin ? "done" : ""}>FREE SHIP</span>
-                <span className={cartCount >= 2 ? "done" : ""}>2 PAIRS: 10% OFF</span>
-                <span className={cartCount >= 3 ? "done" : ""}>3 PAIRS: 15% OFF</span>
-              </div>
-            </div>
-
-            {cart.length ? (
-              <>
-                <div className="cart-items">
-                  {cart.map((item) => {
-                    const unitDiscounted =
-                      discountRate > 0
-                        ? Math.round(item.price * (1 - discountRate))
-                        : item.price;
-
-                    return (
-                      <div className="cart-item" key={item.cartKey}>
-                        <img
-                          src={safeImg(item.image)}
-                          alt={item.name}
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                          }}
-                        />
-                        <div className="cart-item-info">
-                          <h3>{item.name}</h3>
-                          <span className="cart-size-tag">SIZE: {item.size}</span>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                              flexWrap: "wrap",
-                              margin: "4px 0"
-                            }}
-                          >
-                            <strong style={{ fontSize: "14px" }}>
-                              {money(unitDiscounted)}
-                            </strong>
-                            {discountRate > 0 && (
-                              <>
-                                <span
-                                  style={{
-                                    fontSize: "12px",
-                                    textDecoration: "line-through",
-                                    opacity: 0.55
-                                  }}
-                                >
-                                  {money(item.price)}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: "10px",
-                                    fontWeight: 700,
-                                    background: "#DCFCE7",
-                                    color: "#166534",
-                                    padding: "2px 6px",
-                                    borderRadius: "999px"
-                                  }}
-                                >
-                                  {Math.round(discountRate * 100)}% OFF
-                                </span>
-                              </>
-                            )}
-                          </div>
-                          <div className="quantity">
-                            <button onClick={() => changeQuantity(item.cartKey, -1)}>−</button>
-                            <span>{item.quantity}</span>
-                            <button onClick={() => changeQuantity(item.cartKey, 1)}>+</button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {upsellProducts.length > 0 && (
-                    <div
-                      style={{
-                        marginTop: "16px",
-                        paddingTop: "14px",
-                        borderTop: "1px solid var(--line)"
-                      }}
-                    >
-                      <span
-                        className="upsell-title"
-                        style={{
-                          display: "block",
-                          marginBottom: "10px",
-                          fontSize: "10.5px",
-                          fontWeight: 700
-                        }}
-                      >
-                        COMPLETE THE ROTATION (UNLOCK EXTRA SAVINGS)
-                      </span>
-                      <div
-                        style={{
-                          display: "flex",
-                          gap: "10px",
-                          overflowX: "auto",
-                          paddingBottom: "6px",
-                          scrollbarWidth: "none"
-                        }}
-                      >
-                        {upsellProducts.map((u) => (
-                          <div
-                            key={u.id}
-                            style={{
-                              flex: "0 0 135px",
-                              border: "1px solid var(--line, #e2e8f0)",
-                              borderRadius: "10px",
-                              padding: "8px",
-                              background: "#FFFFFF",
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: "6px"
-                            }}
-                          >
-                            <img
-                              src={safeImg(u.image)}
-                              alt={u.name}
-                              onError={(e) => {
-                                e.currentTarget.onerror = null;
-                                e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                              }}
-                              style={{
-                                width: "100%",
-                                height: "84px",
-                                objectFit: "cover",
-                                borderRadius: "6px"
-                              }}
-                            />
-                            <strong
-                              style={{
-                                fontSize: "11px",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis"
-                              }}
-                            >
-                              {u.name}
-                            </strong>
-                            <span style={{ fontSize: "11.5px", fontWeight: 600 }}>
-                              {money(u.price)}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                addToCart(u, u.sizes?.[2] || u.sizes?.[0] || "UK 8", false)
-                              }
-                              style={{
-                                marginTop: "auto",
-                                padding: "6px 8px",
-                                borderRadius: "999px",
-                                border: "1px solid var(--ink, #1e211d)",
-                                background: "var(--ink, #1e211d)",
-                                color: "#FFFFFF",
-                                fontSize: "10px",
-                                fontWeight: 700,
-                                cursor: "pointer"
-                              }}
-                            >
-                              + ADD
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="cart-trust-strip">
-                  <span>
-                    <Truck size={13} /> Free Shipping
-                  </span>
-                  <span>
-                    <RefreshCw size={13} /> 7-Day Exchange
-                  </span>
-                  <span>
-                    <ShieldCheck size={13} /> Magic Checkout
-                  </span>
-                </div>
-
-                <div className="cart-summary">
-                  <div className="summary-line">
-                    <span>SUBTOTAL</span>
-                    <span>{money(cartSubtotal)}</span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="summary-line discount">
-                      <span>BUNDLE SAVINGS ({Math.round(discountRate * 100)}%)</span>
-                      <span>−{money(discountAmount)}</span>
-                    </div>
-                  )}
-                  {couponDiscount > 0 && appliedCoupon && (
-                    <div className="summary-line discount">
-                      <span>COUPON ({appliedCoupon.code})</span>
-                      <span>−{money(couponDiscount)}</span>
-                    </div>
-                  )}
-                  <div className="summary-line">
-                    <span>SHIPPING</span>
-                    <span>{shippingFee === 0 ? "COMPLIMENTARY" : money(shippingFee)}</span>
-                  </div>
-                  <div className="cart-total">
-                    <span>TOTAL</span>
-                    <strong>{money(cartFinalTotal)}</strong>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  className="primary-cta-btn"
-                  onClick={() => {
-                    setCartOpen(false);
-                    setOrderConfirmed(null);
-                    handlePlaceOrder(null, "Razorpay Magic Checkout");
-                  }}
-                >
-                  PROCEED TO CHECKOUT <ArrowRight size={16} />
-                </button>
-              </>
-            ) : (
-              <p className="empty-state">Your bag is currently empty.</p>
-            )}
-          </aside>
-        </div>
-      )}
+      <CartDrawer
+        isOpen={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cart={cart}
+        cartCount={cartCount}
+        cartSubtotal={cartSubtotal}
+        mrpSubtotal={mrpSubtotal}
+        bundleTier={bundleTier}
+        couponInput={couponInput}
+        setCouponInput={setCouponInput}
+        appliedCoupon={appliedCoupon}
+        couponDiscount={couponDiscount}
+        couponError={couponError}
+        onApplyCoupon={handleApplyCoupon}
+        onRemoveCoupon={() => {
+          setAppliedCoupon(null);
+          setCouponInput("");
+          setCouponError("");
+        }}
+        shippingFee={shippingFee}
+        cartFinalTotal={cartFinalTotal}
+        freeShipMin={freeShipMin}
+        showConfetti={showConfetti}
+        upsellProducts={upsellProducts}
+        onChangeQuantity={changeQuantity}
+        onRemoveItem={(cartKey) =>
+          setCart((prev) => prev.filter((item) => item.cartKey !== cartKey))
+        }
+        onAddUpsell={addToCart}
+        onCheckout={() => {
+          setCartOpen(false);
+          setOrderConfirmed(null);
+          handlePlaceOrder(null, "Razorpay Magic Checkout");
+        }}
+        money={money}
+        promoBoxSetting={homepage.cartPromoBox}
+      />
 
       {checkoutOpen && (
         <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}>

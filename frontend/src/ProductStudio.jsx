@@ -1,5 +1,53 @@
-import { useState } from "react";
-import { Check, Film, Plus, Search, Trash2, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowLeft,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Droplets,
+  Edit3,
+  Film,
+  Headphones,
+  Heart,
+  Maximize2,
+  Minus,
+  PictureInPicture2,
+  Play,
+  Plus,
+  RefreshCw,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Tag,
+  Trash2,
+  Truck,
+  Upload,
+  Volume2,
+  VolumeX,
+  X
+} from "lucide-react";
+
+function resolveApiBase() {
+  try {
+    if (
+      typeof globalThis !== "undefined" &&
+      globalThis.__VITE_API_URL__
+    ) {
+      return String(globalThis.__VITE_API_URL__);
+    }
+    if (typeof window !== "undefined") {
+      if (window.__VITE_API_URL__) {
+        return String(window.__VITE_API_URL__);
+      }
+      if (window.location?.hostname === "localhost") {
+        return "http://localhost:5003/api";
+      }
+    }
+  } catch {}
+  return "http://localhost:5003/api";
+}
+
+const API = resolveApiBase();
 
 const SAFE_IMAGE_FALLBACK =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
@@ -9,1592 +57,3077 @@ const BROKEN_IMAGE_IDS = [
   "photo-1520256862855-9981c41d8ba0"
 ];
 
+const DEFAULT_SIZES = ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"];
+
+const DEFAULT_PRODUCT_SHORT_VIDEOS = [
+  {
+    id: "pdp-clip-1",
+    label: "15s Fit Check",
+    tag: "ON-FOOT FIT",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    poster: SAFE_IMAGE_FALLBACK
+  },
+  {
+    id: "pdp-clip-2",
+    label: "Sole Flex Test",
+    tag: "CUSHION & GRIP",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+    poster: SAFE_IMAGE_FALLBACK
+  },
+  {
+    id: "pdp-clip-3",
+    label: "Street Styling",
+    tag: "DAILY LOOK",
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+    poster: SAFE_IMAGE_FALLBACK
+  }
+];
+
+const DEFAULT_REVIEWS = [
+  {
+    id: "rev-1",
+    rating: 5,
+    quote: '"WALKED 18,000 STEPS WITHOUT CALF FATIGUE"',
+    body: "Tested these across Bangalore monsoons and broken pavement. The dual-density microfoam absorbs every harsh impact without feeling mushy. Genuinely superior to standard EVA clogs.",
+    author: "Aarav Mehta",
+    meta: "Verified Owner: Apex Closed-Cell Clog",
+    location: "Bengaluru • Verified Buyer"
+  },
+  {
+    id: "rev-2",
+    rating: 5,
+    quote: '"ARCHITECTURAL SHAPE MEETS ALL-DAY ARCH SUPPORT"',
+    body: "I wear these for 10-hour hospital shifts. The sculpted arch cradle is unmatched. My feet feel fresh when clocking off.",
+    author: "Priya Sundaram",
+    meta: "Verified Owner: Apex All-Terrain Mule",
+    location: "Mumbai • Verified Buyer"
+  },
+  {
+    id: "rev-3",
+    rating: 5,
+    quote: '"100% WATERPROOF AND EFFORTLESS TO RINSE"',
+    body: "Got caught in a flash downpour. Rinsed them under tap water in 20 seconds and they looked brand new. Bold aesthetic, zero ordinary energy.",
+    author: "Rohan Kapoor",
+    meta: "Verified Owner: Urban Hydro Slide",
+    location: "Delhi • Verified Buyer"
+  }
+];
+
+const CALZARE_STANDARD_CARDS = [
+  {
+    id: "std-1",
+    title: "Fast Dispatch",
+    desc: "Shipped within 24–48 hours with live tracking across India.",
+    icon: Truck
+  },
+  {
+    id: "std-2",
+    title: "Easy 7-Day Swap",
+    desc: "Hassle-free UK size exchange if your fit needs adjusting.",
+    icon: RefreshCw
+  },
+  {
+    id: "std-3",
+    title: "100% Waterproof",
+    desc: "Closed-cell construction built for rain, heat, and daily rinse.",
+    icon: Droplets
+  },
+  {
+    id: "std-4",
+    title: "Direct Support",
+    desc: "Real sizing and order help whenever you need it.",
+    icon: Headphones
+  }
+];
+
+const DEMO_CATALOG = [
+  {
+    id: "bayaband-army-green",
+    name: "Bayaband Clog",
+    tagline: "Signature side band • Dual-density Croslite comfort",
+    color: "Army Green / Cobblestone",
+    category: "Clogs",
+    collection: "Bayaband",
+    price: 2998,
+    oldPrice: 5995,
+    badge: "50% OFF THIS COLOR",
+    image: SAFE_IMAGE_FALLBACK,
+    images: [
+      SAFE_IMAGE_FALLBACK,
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85",
+      "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=1000&q=85"
+    ],
+    videoUrl:
+      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    sizes: ["UK 4", "UK 5", "UK 6", "UK 7", "UK 8", "UK 9", "UK 10"],
+    highlights: [
+      "Holds up to 26 Jibbitz charms",
+      "Pivoting heel straps for a secure fit",
+      "Water-friendly and buoyant"
+    ],
+    variants: [
+      {
+        id: "var-army-cobble",
+        label: "Army Green / Cobblestone",
+        color: "Army Green / Cobblestone",
+        price: 2998,
+        oldPrice: 5995,
+        image: SAFE_IMAGE_FALLBACK
+      },
+      {
+        id: "var-black-white",
+        label: "Black / White Band",
+        color: "Black / White",
+        price: 3497,
+        oldPrice: 4995,
+        image:
+          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85"
+      },
+      {
+        id: "var-stucco-sand",
+        label: "Stucco / Bone Sand",
+        color: "Stucco / Bone Sand",
+        price: 3995,
+        oldPrice: 5495,
+        image:
+          "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=1000&q=85"
+      }
+    ]
+  },
+  {
+    id: "bayaband-stucco",
+    name: "Classic Crafted Stucco Clog",
+    tagline: "Textured upper • All-day arch cradle",
+    color: "Stucco / Chalk",
+    category: "Clogs",
+    collection: "Crafted",
+    price: 4495,
+    oldPrice: 5495,
+    badge: "NEW CRAFT",
+    image:
+      "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=1000&q=85",
+    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"]
+  },
+  {
+    id: "bayaband-obsidian",
+    name: "Apex Closed-Cell Clog",
+    tagline: "Monsoon-ready grip • High-rebound foam",
+    color: "Obsidian / Slate",
+    category: "Clogs",
+    collection: "Bayaband",
+    price: 3795,
+    oldPrice: 4995,
+    badge: "BESTSELLER",
+    image:
+      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85",
+    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"]
+  }
+];
+
 function safeImgSrc(url) {
   if (!url || typeof url !== "string" || !url.trim()) return SAFE_IMAGE_FALLBACK;
-  if (BROKEN_IMAGE_IDS.some((id) => url.includes(id))) return SAFE_IMAGE_FALLBACK;
-  return url;
+  const clean = url.trim();
+  if (clean.startsWith("blob:") || clean.startsWith("data:image/")) {
+    return clean;
+  }
+  const isLocalHostOnProd =
+    typeof window !== "undefined" &&
+    window.location.hostname !== "localhost" &&
+    clean.includes("localhost");
+
+  if (
+    clean.startsWith("file://") ||
+    clean.startsWith("/Users/") ||
+    isLocalHostOnProd ||
+    BROKEN_IMAGE_IDS.some((id) => clean.includes(id))
+  ) {
+    return SAFE_IMAGE_FALLBACK;
+  }
+  return clean;
 }
 
 function safeVideoSrc(url) {
   if (!url || typeof url !== "string" || !url.trim()) return "";
-  if (url.includes("assets.mixkit.co")) return "";
-  return url;
+  const clean = url.trim();
+  if (clean.includes("assets.mixkit.co")) return "";
+  return clean;
 }
 
-export const ADULT_SIZE_ROWS = [
-  { uk: "UK 6", eu: "EU 40", us: "US 7", cm: "25.0 cm" },
-  { uk: "UK 7", eu: "EU 41", us: "US 8", cm: "25.8 cm" },
-  { uk: "UK 8", eu: "EU 42", us: "US 9", cm: "26.6 cm" },
-  { uk: "UK 9", eu: "EU 43", us: "US 10", cm: "27.4 cm" },
-  { uk: "UK 10", eu: "EU 44", us: "US 11", cm: "28.2 cm" }
-];
-
-export const KIDS_SIZE_ROWS = [
-  { uk: "UK 1", eu: "EU 33", us: "US 2Y", cm: "19.8 cm" },
-  { uk: "UK 2", eu: "EU 34", us: "US 3Y", cm: "20.6 cm" },
-  { uk: "UK 3", eu: "EU 35.5", us: "US 4Y", cm: "21.5 cm" },
-  { uk: "UK 4", eu: "EU 37", us: "US 5Y", cm: "22.3 cm" },
-  { uk: "UK 5", eu: "EU 38", us: "US 6Y", cm: "23.2 cm" }
-];
-
-const INITIAL_FORM = {
-  id: "",
-  sku: "",
-  brand: "CALZARE",
-  name: "",
-  slug: "",
-  status: "published",
-  category: "sneakers",
-  collection: "unisex",
-  price: 1499,
-  oldPrice: 2499,
-  tagline: "",
-  listingSummary: "",
-  description: "",
-  badge: "NEW ARRIVAL",
-  isBestseller: false,
-  isNewArrival: true,
-  featuredOnHome: false,
-  titleOverride: "",
-  hookSubtitle: "",
-  shortSellingStatement: "",
-  offerHeading: "SPECIAL DROP DISCOUNT",
-  offerPromoCopy: "Apply code CALZARE100 at checkout for instant savings",
-  addToBagText: "ADD TO BAG",
-  buyNowText: "BUY IT NOW",
-  outOfStockText: "SOLD OUT",
-  lowStockThreshold: 5,
-  lowStockNotice: "Hurry! High demand in this size.",
-  storyBlocks: [
-    {
-      visible: true,
-      heading: "ENGINEERED FOR THE CONCRETE WILD",
-      subheading: "Closed-Cell Microfoam Technology",
-      copy: "Every contour of the silhouette is pressure-mapped against human biomechanics to absorb shock and distribute bodyweight evenly across your stride.",
-      layout: "Image on Right",
-      image: ""
-    }
-  ],
-  featureCards: [
-    {
-      title: "100% Waterproof & Hydrophobic",
-      desc: "Closed-cell EVA matrix resists water, mud, and stains. Rinses clean and dries in under 10 minutes.",
-      visible: true
-    },
-    {
-      title: "Featherweight Ergonomics",
-      desc: "Weighs under 280g per shoe, preventing foot fatigue during 12-hour city commutes.",
-      visible: true
-    },
-    {
-      title: "Deep Lug Anti-Slip Outsole",
-      desc: "Deep diamond channels provide immediate traction on slick wet surfaces.",
-      visible: true
-    },
-    {
-      title: "Antimicrobial Odor Barrier",
-      desc: "Zero bacterial absorption prevents unwanted odor even during intense daily wear.",
-      visible: true
-    }
-  ],
-  materials: "100% High-Density Closed-Cell EVA Foam Compound",
-  moldingMethod: "Monolithic Injection-Molded Ergonomic Shell",
-  fitRecommendation: "True to UK size. Roomy toe box for natural splay.",
-  careInstructions: "Hand wash with mild soap and cool water. Air dry in a shaded area.",
-  warrantyGuarantee:
-    "6-Month Manufacturer Guarantee against sole separation and material defects.",
-  specsTable: [
-    { label: "Upper", value: "Waterproof Closed-Cell EVA Foam" },
-    { label: "Outsole", value: "Dual-Density Anti-Slip Rubberized Lug Sole" },
-    { label: "Weight", value: "280g (Single Shoe UK 7)" },
-    { label: "Origin", value: "Designed in Bengaluru, India" }
-  ],
-  sizeGuideTitle: "Measurement Guide",
-  sizeGuideUnit: "Centimeters (cm)",
-  sizeGuideNote:
-    "Place your foot on a blank sheet of paper with heel against the wall. Mark the tip of your longest toe and measure in centimeters.",
-  sizeChartRows: ADULT_SIZE_ROWS,
-  color: "Oat Beige",
-  colorHex: "#D9CFBE",
-  sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"],
-  stockBySize: { "UK 6": 20, "UK 7": 20, "UK 8": 19, "UK 9": 10, "UK 10": 10 },
-  image: "",
-  videoUrl: "",
-  comparisonMode: "default",
-  shippingAccordionHeading: "Default: Shipping & Delivery",
-  dispatchNotice: "Orders processed within 1–2 business days.",
-  returnAccordionHeading: "Default: Refund, Return & Exchange Policy",
-  returnDetails: "Size exchange requests must be submitted within 7 days of delivery.",
-  faqs: [
-    { q: "Are these true to size?", a: "Yes! CALZARE silhouettes are designed with a relaxed street fit." },
-    { q: "How do I clean my CALZARE shoes?", a: "Rinse under cool tap water with mild soap and air dry in the shade." },
-    {
-      q: "What is the return and exchange policy?",
-      a: "Easy 7-day doorstep return or size exchange from delivery."
-    }
-  ],
-  relatedTitle: "YOU MIGHT ALSO LIKE",
-  relatedSubtitle: "Explore complementary silhouettes from our collection",
-  relatedIds: [],
-  seoTitle: "",
-  seoDescription: "",
-  ogTitle: "",
-  ogDescription: "",
-  ogImage: ""
-};
-
-const GROUPS = [
-  "1. Basic Info",
-  "2. Page Copy",
-  "3. Storytelling",
-  "4. Key Features",
-  "5. Materials & Care",
-  "6. Size Guide",
-  "7. Colours & Sizes",
-  "8. Brand Comparison",
-  "9. Shipping & FAQs",
-  "10. Related Items",
-  "11. SEO & Social"
-];
-
-export default function ProductStudio({
-  products = [],
-  onSaveProduct,
-  onDeleteProduct,
-  onUploadMedia,
-  uploading,
-  money
-}) {
-  const catalog = Array.isArray(products) ? products : [];
-  const formatMoney =
-    typeof money === "function"
-      ? money
-      : (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
-
-  const [mode, setMode] = useState("list");
-  const [search, setSearch] = useState("");
-  const [catFilter, setCatFilter] = useState("all");
-  const [group, setGroup] = useState(1);
-  const [form, setForm] = useState(INITIAL_FORM);
-  const [dirty, setDirty] = useState(false);
-
-  const patch = (obj) => {
-    setForm((p) => ({ ...p, ...obj }));
-    setDirty(true);
+function createEmptyDraft(defaultSize = "UK 8") {
+  return {
+    author: "",
+    location: "",
+    size: defaultSize,
+    rating: 5,
+    quote: "",
+    body: ""
   };
+}
 
-  function openNew() {
-    setForm({
-      ...INITIAL_FORM,
-      id: `c-${Date.now().toString().slice(-4)}`,
-      status: "published"
-    });
-    setGroup(1);
-    setDirty(false);
-    setMode("editor");
+export function ProductPage({
+  homepage,
+  product,
+  products = [],
+  reels = [],
+  favorites = [],
+  onToggleFavorite,
+  onAddToCart,
+  onOpenCart,
+  onSelectProduct,
+  onGoBack,
+  money,
+  canManageReviews = false,
+  onUpdateProduct,
+  onAddVariant
+}) {
+  const current = product || products[0] || DEMO_CATALOG[0];
+  const productId = current?.id || current?._id || "";
+
+  const [selectedImageOverride, setSelectedImageOverride] = useState("");
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+  const [activeInfoTab, setActiveInfoTab] = useState("description");
+  const [isMobileView, setIsMobileView] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768
+  );
+
+  // PIP Video state (product-level PIP video & drag-and-drop)
+  const [pipVideoUrl, setPipVideoUrl] = useState(() =>
+    safeVideoSrc(current?.pipVideoUrl || current?.videoUrl || "")
+  );
+  const [pipVideoTitle, setPipVideoTitle] = useState(
+    () => current?.pipVideoTitle || `${current?.name || "Product"} PIP Walkthrough`
+  );
+  const [pipVideoFileName, setPipVideoFileName] = useState("");
+  const [pipEnabled, setPipEnabled] = useState(
+    () => current?.pipEnabled !== false
+  );
+  const [pipFloatingOpen, setPipFloatingOpen] = useState(false);
+  const [pipMuted, setPipMuted] = useState(true);
+  const [isDraggingPipVideo, setIsDraggingPipVideo] = useState(false);
+  const [pipUploadError, setPipUploadError] = useState("");
+
+  // Admin panel state (Variants + Product PIP Video section)
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminTab, setAdminTab] = useState("variants");
+  const [newVariantLabel, setNewVariantLabel] = useState("");
+  const [newVariantColor, setNewVariantColor] = useState("");
+  const [newVariantPrice, setNewVariantPrice] = useState("");
+  const [newVariantOldPrice, setNewVariantOldPrice] = useState("");
+  const [newVariantImage, setNewVariantImage] = useState("");
+  const [newVariantVideo, setNewVariantVideo] = useState("");
+  const [adminSavedNotice, setAdminSavedNotice] = useState("");
+
+  const pipFileInputRef = useRef(null);
+  const blobUrlRef = useRef("");
+
+  const variantList = useMemo(() => {
+    if (!current) return [];
+    if (Array.isArray(current.variants) && current.variants.length > 0) {
+      return current.variants.map((v, idx) => ({
+        id: v.id || v._id || `${productId}-var-${idx}`,
+        label: v.label || v.name || v.color || `Variant ${idx + 1}`,
+        color: v.color || v.label || v.name || current.color || "Standard",
+        price:
+          v.price !== undefined && v.price !== null
+            ? Number(v.price)
+            : Number(current.price) || 0,
+        oldPrice:
+          v.oldPrice !== undefined && v.oldPrice !== null
+            ? Number(v.oldPrice)
+            : current.oldPrice
+            ? Number(current.oldPrice)
+            : null,
+        image: safeImgSrc(v.image || current.image),
+        videoUrl: safeVideoSrc(v.videoUrl || current.videoUrl),
+        sizes: Array.isArray(v.sizes) && v.sizes.length > 0 ? v.sizes : null
+      }));
+    }
+    return [];
+  }, [current, productId]);
+
+  useEffect(() => {
+    const onResize = () => setIsMobileView(window.innerWidth <= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+      }
+    };
+  }, []);
+
+  const activeVariant =
+    variantList.length > 0
+      ? variantList[Math.min(selectedVariantIndex, variantList.length - 1)]
+      : null;
+
+  const sizes = useMemo(() => {
+    if (activeVariant?.sizes?.length) return activeVariant.sizes;
+    if (current?.sizes?.length) return current.sizes;
+    return DEFAULT_SIZES;
+  }, [activeVariant, current?.sizes]);
+
+  const [selectedSize, setSelectedSize] = useState(
+    sizes.includes("UK 8") ? "UK 8" : sizes[0]
+  );
+  const [quantity, setQuantity] = useState(1);
+  const [showVideo, setShowVideo] = useState(false);
+  const [selectedColorwayId, setSelectedColorwayId] = useState(productId);
+
+  const [activeClipIndex, setActiveClipIndex] = useState(null);
+  const [clipMuted, setClipMuted] = useState(false);
+  const [failedClipIds, setFailedClipIds] = useState({});
+
+  const [backendReviews, setBackendReviews] = useState([]);
+  const [reviewFormOpen, setReviewFormOpen] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [reviewDraft, setReviewDraft] = useState(() =>
+    createEmptyDraft(sizes.includes("UK 8") ? "UK 8" : sizes[0])
+  );
+
+  async function fetchBackendReviews() {
+    try {
+      const res = await fetch(`${API}/reviews`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = Array.isArray(data?.reviews)
+        ? data.reviews
+        : Array.isArray(data)
+        ? data
+        : [];
+      const approved = list.filter(
+        (r) => r && (r.status || "approved") === "approved"
+      );
+      setBackendReviews(
+        approved.map((r, i) => ({
+          id: r._id || r.id || `api-rev-${i}`,
+          productId: r.productId || "",
+          rating: Number(r.rating) || 5,
+          quote: r.headline
+            ? `"${String(r.headline).replace(/^"+|"+$/g, "").toUpperCase()}"`
+            : `"VERIFIED EXPERIENCE"`,
+          body: r.comment || "",
+          author: r.customerName || "Verified Buyer",
+          meta: `Verified Owner: ${r.productName || current?.name || "CALZARE"}`,
+          location: `${r.location || "India"} • Verified Buyer`
+        }))
+      );
+    } catch {}
   }
 
-  function openEdit(p) {
-    setForm({
-      ...INITIAL_FORM,
-      ...p,
-      image: safeImgSrc(p.image),
-      videoUrl: safeVideoSrc(p.videoUrl),
-      sizeChartRows: p.sizeChartRows?.length
-        ? p.sizeChartRows
-        : p.collection === "kids"
-        ? KIDS_SIZE_ROWS
-        : ADULT_SIZE_ROWS,
-      storyBlocks: p.storyBlocks?.length ? p.storyBlocks : INITIAL_FORM.storyBlocks,
-      featureCards: p.featureCards?.length ? p.featureCards : INITIAL_FORM.featureCards,
-      specsTable: p.specsTable?.length ? p.specsTable : INITIAL_FORM.specsTable,
-      faqs: p.faqs?.length ? p.faqs : INITIAL_FORM.faqs
-    });
-    setGroup(1);
-    setDirty(false);
-    setMode("editor");
+  useEffect(() => {
+    fetchBackendReviews();
+    window.addEventListener("calzare_store_updated", fetchBackendReviews);
+    return () => {
+      window.removeEventListener("calzare_store_updated", fetchBackendReviews);
+    };
+  }, [current?.name]);
+
+  useEffect(() => {
+    const nextSizes = current?.sizes?.length ? current.sizes : DEFAULT_SIZES;
+    const defaultSz = nextSizes.includes("UK 8") ? "UK 8" : nextSizes[0];
+    setSelectedVariantIndex(0);
+    setSelectedImageOverride("");
+    setSelectedSize(defaultSz);
+    setQuantity(1);
+    setShowVideo(false);
+    setActiveClipIndex(null);
+    setFailedClipIds({});
+    setSelectedColorwayId(productId);
+    setReviewFormOpen(false);
+    setEditingReviewId(null);
+    setReviewDraft(createEmptyDraft(defaultSz));
+    setActiveInfoTab("description");
+    setPipVideoUrl(safeVideoSrc(current?.pipVideoUrl || current?.videoUrl || ""));
+    setPipVideoTitle(
+      current?.pipVideoTitle || `${current?.name || "Product"} PIP Walkthrough`
+    );
+    setPipVideoFileName(current?.pipVideoFileName || "");
+    setPipEnabled(current?.pipEnabled !== false);
+    setPipFloatingOpen(false);
+    setPipUploadError("");
+    setNewVariantPrice(String(Number(current?.price) || 2998));
+    setNewVariantOldPrice(
+      current?.oldPrice ? String(Number(current.oldPrice)) : ""
+    );
+  }, [productId]);
+
+  useEffect(() => {
+    if (!sizes.includes(selectedSize)) {
+      setSelectedSize(sizes.includes("UK 8") ? "UK 8" : sizes[0]);
+    }
+  }, [sizes, selectedSize]);
+
+  useEffect(() => {
+    if (!canManageReviews) {
+      setReviewFormOpen(false);
+      setEditingReviewId(null);
+    }
+  }, [canManageReviews]);
+
+  function notifyAdminNotice(msg) {
+    setAdminSavedNotice(msg);
+    setTimeout(() => {
+      setAdminSavedNotice((prev) => (prev === msg ? "" : prev));
+    }, 2800);
   }
 
-  async function submit(statusOverride) {
-    if (!form.name.trim()) {
-      alert("Please enter a Product Name in 1. Basic Info.");
-      setGroup(1);
+  function handlePipVideoFile(file) {
+    setPipUploadError("");
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      setPipUploadError("Please drop or choose a valid video file (MP4, WebM, MOV).");
       return;
     }
-    const cleanImage = safeImgSrc(form.image);
-    const cleanVideo = safeVideoSrc(form.videoUrl);
-    const rows = form.sizeChartRows?.length ? form.sizeChartRows : ADULT_SIZE_ROWS;
-    const derivedSizes = rows.map((r) => r.uk.trim()).filter(Boolean);
-    const slug =
-      form.slug.trim() ||
-      form.name
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/(^-|-$)/g, "");
-
-    await onSaveProduct?.({
-      ...form,
-      slug,
-      image: cleanImage,
-      videoUrl: cleanVideo,
-      status: statusOverride || form.status || "published",
-      price: Number(form.price),
-      oldPrice: form.oldPrice ? Number(form.oldPrice) : null,
-      sizeChartRows: rows,
-      sizes: derivedSizes,
-      highlights: (form.featureCards || []).filter((f) => f.visible).map((f) => f.title)
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+    }
+    const objectUrl = URL.createObjectURL(file);
+    blobUrlRef.current = objectUrl;
+    setPipVideoUrl(objectUrl);
+    setPipVideoFileName(file.name);
+    if (!pipVideoTitle.trim() || pipVideoTitle.endsWith("PIP Walkthrough")) {
+      setPipVideoTitle(file.name.replace(/\.[^/.]+$/, ""));
+    }
+    setPipEnabled(true);
+    setPipFloatingOpen(true);
+    onUpdateProduct?.(productId, {
+      pipVideoUrl: objectUrl,
+      pipVideoFileName: file.name,
+      pipEnabled: true
     });
-    setDirty(false);
-    setMode("list");
+    notifyAdminNotice(`Loaded PIP video: ${file.name}`);
   }
 
-  const activeRows = form.sizeChartRows?.length ? form.sizeChartRows : ADULT_SIZE_ROWS;
-  const savingsPct =
-    Number(form.oldPrice) > Number(form.price)
-      ? Math.round(((form.oldPrice - form.price) / form.oldPrice) * 100)
+  function handlePipDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingPipVideo(false);
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      handlePipVideoFile(files[0]);
+    }
+  }
+
+  function handleSavePipSettings(e) {
+    e.preventDefault();
+    const cleanedUrl = safeVideoSrc(pipVideoUrl);
+    onUpdateProduct?.(productId, {
+      pipVideoUrl: cleanedUrl,
+      pipVideoTitle: pipVideoTitle.trim() || `${current.name} PIP`,
+      pipVideoFileName: pipVideoFileName || "",
+      pipEnabled
+    });
+    if (cleanedUrl && pipEnabled) {
+      setPipFloatingOpen(true);
+    }
+    notifyAdminNotice("Product PIP video settings saved.");
+  }
+
+  function handleClearPipVideo() {
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = "";
+    }
+    setPipVideoUrl("");
+    setPipVideoFileName("");
+    setPipFloatingOpen(false);
+    setPipUploadError("");
+    onUpdateProduct?.(productId, {
+      pipVideoUrl: "",
+      pipVideoFileName: ""
+    });
+    notifyAdminNotice("PIP video cleared.");
+  }
+
+  function handleAddVariantSubmit(e) {
+    e.preventDefault();
+    const label = newVariantLabel.trim();
+    if (!label) return;
+
+    const color = newVariantColor.trim() || label;
+    const price = Number(newVariantPrice) || Number(current.price) || 2998;
+    const oldPrice = newVariantOldPrice ? Number(newVariantOldPrice) : null;
+    const image = safeImgSrc(newVariantImage || current.image);
+    const videoUrl = safeVideoSrc(newVariantVideo || current.videoUrl || "");
+
+    const createdVariant = {
+      id: `var-${Date.now()}`,
+      label,
+      color,
+      price,
+      oldPrice,
+      image,
+      videoUrl
+    };
+
+    const updatedVariants = [...variantList, createdVariant];
+    onAddVariant?.(productId, createdVariant);
+    onUpdateProduct?.(productId, { variants: updatedVariants });
+
+    setSelectedVariantIndex(updatedVariants.length - 1);
+    setSelectedImageOverride("");
+    setNewVariantLabel("");
+    setNewVariantColor("");
+    setNewVariantImage("");
+    setNewVariantVideo("");
+    notifyAdminNotice(`Added variant "${label}".`);
+  }
+
+  function handleRemoveVariant(idx) {
+    const updatedVariants = variantList.filter((_, i) => i !== idx);
+    onUpdateProduct?.(productId, { variants: updatedVariants });
+    setSelectedVariantIndex(0);
+    setSelectedImageOverride("");
+    notifyAdminNotice("Removed variant.");
+  }
+
+  const productReelsEnabled = homepage?.productReelsEnabled !== false;
+
+  const baseVariantOrProductImage = activeVariant
+    ? activeVariant.image
+    : safeImgSrc(current?.image);
+
+  const currentImage = selectedImageOverride
+    ? safeImgSrc(selectedImageOverride)
+    : baseVariantOrProductImage;
+
+  const currentVideo = activeVariant
+    ? activeVariant.videoUrl
+    : safeVideoSrc(current?.videoUrl);
+
+  const activeColorLabel = activeVariant
+    ? activeVariant.color
+    : current?.color || "";
+
+  const activePipVideo = safeVideoSrc(pipVideoUrl || current?.pipVideoUrl || "");
+
+  const productShortClips = useMemo(() => {
+    if (!current || !productReelsEnabled) return [];
+    const posterImg = currentImage;
+    const clips = [];
+
+    if (activePipVideo) {
+      clips.push({
+        id: `${productId}-pip-clip`,
+        label: pipVideoTitle || "PIP Preview",
+        tag: "PIP VIDEO",
+        videoUrl: activePipVideo,
+        poster: posterImg
+      });
+    }
+
+    if (currentVideo) {
+      clips.push({
+        id: `${productId}-main-clip`,
+        label: "Official Demo",
+        tag: "IN MOTION",
+        videoUrl: currentVideo,
+        poster: posterImg
+      });
+    }
+
+    const matchingReels = (Array.isArray(reels) ? reels : []).filter(
+      (r) => r && safeVideoSrc(r.videoUrl)
+    );
+    matchingReels.forEach((r, idx) => {
+      clips.push({
+        id: r.id || `reel-clip-${idx}`,
+        label: r.title || `Clip ${idx + 1}`,
+        tag: r.tag || "SHORT PLAY",
+        videoUrl: safeVideoSrc(r.videoUrl),
+        poster: safeImgSrc(r.poster || posterImg)
+      });
+    });
+
+    if (clips.length === 0) {
+      DEFAULT_PRODUCT_SHORT_VIDEOS.forEach((demo, idx) => {
+        clips.push({
+          ...demo,
+          id: `${productId}-${demo.id}-${idx}`,
+          poster: posterImg
+        });
+      });
+    }
+
+    return clips.slice(0, 5);
+  }, [
+    current,
+    productId,
+    reels,
+    productReelsEnabled,
+    currentVideo,
+    currentImage,
+    activePipVideo,
+    pipVideoTitle
+  ]);
+
+  const productReviews = useMemo(() => {
+    const matched = backendReviews.filter(
+      (r) => !r.productId || r.productId === productId
+    );
+    return matched.length > 0 ? matched : DEFAULT_REVIEWS;
+  }, [backendReviews, productId]);
+
+  const averageRating = useMemo(() => {
+    if (!productReviews.length) return "5.0";
+    const total = productReviews.reduce(
+      (sum, r) => sum + (Number(r.rating) || 5),
+      0
+    );
+    return (total / productReviews.length).toFixed(1);
+  }, [productReviews]);
+
+  const colorOptions = useMemo(() => {
+    if (!current) return [];
+    const list = Array.isArray(products) && products.length > 0 ? products : DEMO_CATALOG;
+    const sameGroup = list.filter(
+      (p) =>
+        p &&
+        (p.category === current.category || p.collection === current.collection)
+    );
+    const merged = [
+      current,
+      ...sameGroup.filter((p) => (p.id || p._id) !== productId)
+    ];
+    const seen = new Set();
+    return merged
+      .filter((item) => {
+        const id = item.id || item._id;
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      })
+      .slice(0, 4);
+  }, [products, current, productId]);
+
+  const { suggestedItems, alsoBoughtItems } = useMemo(() => {
+    const sourceList =
+      Array.isArray(products) && products.length > 0 ? products : DEMO_CATALOG;
+    const list = sourceList.filter((p) => {
+      const id = p?.id || p?._id;
+      return p && id && id !== productId && (p.status || "published") !== "draft";
+    });
+
+    const curCat = String(current?.category || "").toLowerCase();
+    const curCol = String(current?.collection || "").toLowerCase();
+
+    const similar = list.filter((p) => {
+      const pCat = String(p.category || "").toLowerCase();
+      const pCol = String(p.collection || "").toLowerCase();
+      return (curCat && pCat === curCat) || (curCol && pCol === curCol);
+    });
+
+    const primarySuggestions = (similar.length >= 3 ? similar : list).slice(0, 4);
+    const primaryIds = new Set(primarySuggestions.map((p) => p.id || p._id));
+    const secondaryAlsoBought = list
+      .filter((p) => !primaryIds.has(p.id || p._id))
+      .concat(list.filter((p) => primaryIds.has(p.id || p._id)))
+      .slice(0, 3);
+
+    return {
+      suggestedItems: primarySuggestions,
+      alsoBoughtItems: secondaryAlsoBought
+    };
+  }, [products, productId, current?.category, current?.collection]);
+
+  const pdpCfg = homepage?.productPage || {};
+
+  const formatPrice =
+    typeof money === "function"
+      ? money
+      : (val) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
+
+  const priceNum = activeVariant
+    ? Number(activeVariant.price) || 0
+    : Number(current.price) || 0;
+  const oldPriceNum = activeVariant
+    ? Number(activeVariant.oldPrice) || 0
+    : Number(current.oldPrice) || 0;
+  const discountPct =
+    oldPriceNum > priceNum && priceNum > 0
+      ? Math.round(((oldPriceNum - priceNum) / oldPriceNum) * 100)
       : 0;
 
-  const filtered = catalog.filter((p) => {
-    const mCat = catFilter === "all" || p.category === catFilter;
-    const mTerm =
-      !search.trim() ||
-      `${p.name} ${p.sku} ${p.category} ${p.color}`
-        .toLowerCase()
-        .includes(search.toLowerCase());
-    return mCat && mTerm;
-  });
+  const isFavorite = favorites.includes(productId);
 
-  if (mode === "list") {
-    return (
-      <div style={{ display: "grid", gap: "16px" }}>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "12px"
-          }}
-        >
-          <div>
-            <h1 style={h1}>PRODUCTS & CATALOG</h1>
-            <p style={sub}>
-              Manage footwear models, multi-color galleries, SKUs, and UK size stock matrices.
-            </p>
-          </div>
-          <button type="button" onClick={openNew} style={blueBtn}>
-            <Plus size={15} /> Register New Silhouette
-          </button>
-        </div>
-
-        <div style={{ ...card, display: "flex", flexWrap: "wrap", gap: "10px" }}>
-          <div style={{ position: "relative", flex: 1, minWidth: "220px" }}>
-            <Search
-              size={15}
-              color="#94A3B8"
-              style={{ position: "absolute", left: "12px", top: "11px" }}
-            />
-            <input
-              placeholder="Search by product title, SKU prefix, or category..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ ...inp, paddingLeft: "36px" }}
-            />
-          </div>
-          <select
-            value={catFilter}
-            onChange={(e) => setCatFilter(e.target.value)}
-            style={{ ...inp, width: "170px" }}
-          >
-            <option value="all">All Categories</option>
-            <option value="sneakers">Sneakers</option>
-            <option value="formal">Formal</option>
-            <option value="slides">Slides & Clogs</option>
-          </select>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(275px, 1fr))",
-            gap: "16px"
-          }}
-        >
-          {filtered.map((p) => {
-            const vid = safeVideoSrc(p.videoUrl);
-            return (
-              <div key={p.id} style={card}>
-                <div
-                  style={{
-                    position: "relative",
-                    height: "180px",
-                    borderRadius: "8px",
-                    overflow: "hidden",
-                    background: "#F1F5F9",
-                    marginBottom: "12px"
-                  }}
-                >
-                  <img
-                    src={safeImgSrc(p.image)}
-                    alt={p.name}
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                    }}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                  <span
-                    style={{
-                      position: "absolute",
-                      top: "10px",
-                      left: "10px",
-                      background: p.status === "draft" ? "#D97706" : "#059669",
-                      color: "#fff",
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      padding: "2px 8px",
-                      borderRadius: "99px",
-                      textTransform: "uppercase"
-                    }}
-                  >
-                    {p.status || "published"}
-                  </span>
-                  {vid && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        bottom: "10px",
-                        right: "10px",
-                        background: "#2563EB",
-                        color: "#fff",
-                        fontSize: "10px",
-                        fontWeight: 700,
-                        padding: "3px 8px",
-                        borderRadius: "6px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px"
-                      }}
-                    >
-                      <Film size={11} /> MOTION
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: "11px", fontWeight: 600, color: "#64748B" }}>
-                  {p.sku || p.id} • {(p.collection || "unisex").toUpperCase()}
-                </div>
-                <h3 style={{ margin: "4px 0", fontSize: "15px" }}>{p.name}</h3>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "12px"
-                  }}
-                >
-                  <strong style={{ fontSize: "15px" }}>{formatMoney(p.price)}</strong>
-                  {p.oldPrice && (
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        color: "#94A3B8",
-                        textDecoration: "line-through"
-                      }}
-                    >
-                      {formatMoney(p.oldPrice)}
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button
-                    type="button"
-                    onClick={() => openEdit(p)}
-                    style={{ ...ghostBtn, flex: 1, justifyContent: "center" }}
-                  >
-                    Edit Silhouette
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onDeleteProduct?.(p.id)}
-                    style={{ ...ghostBtn, color: "#DC2626" }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
+  function buildCartProductPayload() {
+    const variantSuffix =
+      activeVariant && activeVariant.label ? ` — ${activeVariant.label}` : "";
+    return {
+      ...current,
+      id: activeVariant ? `${productId}__${activeVariant.id}` : productId,
+      baseProductId: productId,
+      name: `${current.name}${variantSuffix}`,
+      color: activeColorLabel || current.color,
+      price: priceNum,
+      oldPrice: oldPriceNum || null,
+      image: currentImage,
+      videoUrl: currentVideo
+    };
   }
 
-  const previewVideo = safeVideoSrc(form.videoUrl);
+  function handleAddSelection(e) {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    if (e && typeof e.stopPropagation === "function") e.stopPropagation();
+
+    const itemToAdd = buildCartProductPayload();
+    onAddToCart?.(itemToAdd, selectedSize, true, quantity);
+    onOpenCart?.();
+  }
+
+  function handleExpandMedia() {
+    const el = document.querySelector(".pdp-stage");
+    if (el?.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    }
+  }
+
+  function handleOpenNewReviewForm() {
+    if (!canManageReviews) return;
+    setEditingReviewId(null);
+    setReviewDraft(createEmptyDraft(selectedSize));
+    setReviewFormOpen(true);
+  }
+
+  function handleStartEditReview(rev) {
+    if (!canManageReviews) return;
+    const rawQuote = String(rev.quote || "").replace(/^"+|"+$/g, "").trim();
+    const cleanCity = String(rev.location || "")
+      .split("•")[0]
+      .trim();
+
+    setEditingReviewId(rev.id);
+    setReviewDraft({
+      author: rev.author || "",
+      location: cleanCity === "Verified Buyer" ? "" : cleanCity,
+      size: selectedSize,
+      rating: Number(rev.rating) || 5,
+      quote: rawQuote,
+      body: rev.body || ""
+    });
+    setReviewFormOpen(true);
+  }
+
+  async function handleDeleteReview(revId) {
+    if (!canManageReviews) return;
+    const adminToken = sessionStorage.getItem("calzare_admin_token") || "";
+    try {
+      await fetch(`${API}/admin/reviews/${revId}`, {
+        method: "DELETE",
+        headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : {}
+      });
+      await fetchBackendReviews();
+      window.dispatchEvent(new Event("calzare_store_updated"));
+    } catch {}
+    if (editingReviewId === revId) {
+      setEditingReviewId(null);
+      setReviewFormOpen(false);
+    }
+  }
+
+  async function handleSaveReview(e) {
+    e.preventDefault();
+    if (!canManageReviews) return;
+
+    const author = reviewDraft.author.trim();
+    const body = reviewDraft.body.trim();
+    if (!author || !body) return;
+
+    const rawHeadline = reviewDraft.quote.trim() || `LOVED MY ${current.name}`;
+    const adminToken = sessionStorage.getItem("calzare_admin_token") || "";
+
+    const isBackendId =
+      editingReviewId &&
+      backendReviews.some((item) => String(item.id) === String(editingReviewId));
+
+    const payload = {
+      productId,
+      productName: current.name,
+      customerName: author,
+      location: reviewDraft.location.trim() || "India",
+      rating: Number(reviewDraft.rating) || 5,
+      headline: rawHeadline.toUpperCase(),
+      comment: body,
+      status: "approved",
+      verifiedBuyer: true,
+      featuredOnHomepage: true
+    };
+
+    try {
+      const endpoint = isBackendId
+        ? `${API}/admin/reviews/${editingReviewId}`
+        : `${API}/admin/reviews`;
+      const method = isBackendId ? "PATCH" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        await fetchBackendReviews();
+        window.dispatchEvent(new Event("calzare_store_updated"));
+      }
+    } catch {}
+
+    setReviewDraft(createEmptyDraft(selectedSize));
+    setEditingReviewId(null);
+    setReviewFormOpen(false);
+  }
+
+  const activeClip =
+    productReelsEnabled &&
+    activeClipIndex !== null &&
+    productShortClips[activeClipIndex]
+      ? productShortClips[activeClipIndex]
+      : null;
+
+  const galleryThumbnails = [
+    baseVariantOrProductImage,
+    ...(Array.isArray(current.images) ? current.images.map(safeImgSrc) : []),
+    ...colorOptions.map((opt) => safeImgSrc(opt.image))
+  ]
+    .filter(Boolean)
+    .filter((url, idx, arr) => arr.indexOf(url) === idx)
+    .slice(0, 5);
 
   return (
-    <div style={{ display: "grid", gap: "16px", paddingBottom: "76px" }}>
+    <div className="pdp-page" style={{ paddingBottom: isMobileView ? "76px" : 0 }}>
       <div
+        className="pdp-topbar"
         style={{
           display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
           alignItems: "center",
-          gap: "12px"
+          justifyContent: "space-between",
+          gap: "12px",
+          flexWrap: "wrap"
         }}
       >
-        <div>
-          <button
-            type="button"
-            onClick={() => setMode("list")}
-            style={{
-              background: "none",
-              border: 0,
-              color: "#2563EB",
-              fontSize: "12px",
-              fontWeight: 600,
-              cursor: "pointer",
-              padding: 0,
-              marginBottom: "4px"
-            }}
-          >
-            ← Back to Products & Catalog
-          </button>
-          <h1 style={h1}>REGISTER NEW FOOTWEAR SILHOUETTE</h1>
-          <p style={sub}>Create complete product catalog entry</p>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          {onGoBack && (
+            <button type="button" className="pdp-back-btn" onClick={onGoBack}>
+              <ArrowLeft size={14} /> BACK TO COLLECTION
+            </button>
+          )}
+          <span className="pdp-crumb">
+            {(current.collection || "UNISEX").toUpperCase()} /{" "}
+            {(current.category || "FOOTWEAR").toUpperCase()} / {current.name}
+          </span>
         </div>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button type="button" onClick={() => submit("draft")} style={ghostBtn}>
-            Save as Draft
-          </button>
-          <button type="button" onClick={() => submit("published")} style={blueBtn}>
-            Publish Product
-          </button>
-        </div>
-      </div>
 
-      {/* 11-GROUP PILLS */}
-      <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "4px" }}>
-        {GROUPS.map((label, i) => (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {activePipVideo && pipEnabled && (
+            <button
+              type="button"
+              onClick={() => setPipFloatingOpen((v) => !v)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "7px 12px",
+                borderRadius: "999px",
+                border: "1px solid rgba(15, 23, 42, 0.16)",
+                background: pipFloatingOpen ? "#0F172A" : "#FFFFFF",
+                color: pipFloatingOpen ? "#FFFFFF" : "#0F172A",
+                fontSize: "11px",
+                fontWeight: 700,
+                cursor: "pointer"
+              }}
+            >
+              <PictureInPicture2 size={13} />
+              {pipFloatingOpen ? "HIDE PIP VIDEO" : "OPEN PIP VIDEO"}
+            </button>
+          )}
+
           <button
-            key={label}
             type="button"
-            onClick={() => setGroup(i + 1)}
+            onClick={() => setAdminOpen((v) => !v)}
             style={{
-              padding: "8px 14px",
-              borderRadius: "8px",
-              border: group === i + 1 ? "1px solid #0F172A" : "1px solid #CBD5E1",
-              background: group === i + 1 ? "#0F172A" : "#fff",
-              color: group === i + 1 ? "#fff" : "#334155",
-              fontSize: "12px",
-              fontWeight: 600,
-              whiteSpace: "nowrap",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "7px 14px",
+              borderRadius: "999px",
+              border: "1px solid #0F172A",
+              background: adminOpen ? "#111827" : "#F8FAFC",
+              color: adminOpen ? "#FFFFFF" : "#0F172A",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.06em",
               cursor: "pointer"
             }}
           >
-            {label}
+            <SlidersHorizontal size={13} />
+            {adminOpen ? "CLOSE ADMIN PANEL" : "PRODUCT ADMIN (VARIANTS & PIP)"}
           </button>
-        ))}
+        </div>
       </div>
 
-      {/* GROUP 1: BASIC INFO + DIRECT MEDIA UPLOAD */}
-      {group === 1 && (
-        <div style={card}>
-          <h3 style={gTitle}>GROUP 1: BASIC CATALOG & PRICING INFORMATION</h3>
-          <div style={{ display: "grid", gap: "14px" }}>
-            <div style={grid3}>
-              <div>
-                <label style={lbl}>Product Name *</label>
-                <input
-                  placeholder="e.g. Apex Hydro Clog"
-                  value={form.name}
-                  onChange={(e) => patch({ name: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Stock Keeping Unit (SKU) *</label>
-                <input
-                  placeholder="e.g. CLZ-APX-01"
-                  value={form.sku}
-                  onChange={(e) => patch({ sku: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Brand / Line</label>
-                <input
-                  value={form.brand}
-                  onChange={(e) => patch({ brand: e.target.value })}
-                  style={inp}
-                />
-              </div>
-            </div>
-
-            <div style={grid2}>
-              <div>
-                <label style={lbl}>Footwear Category *</label>
-                <select
-                  value={form.category}
-                  onChange={(e) => patch({ category: e.target.value })}
-                  style={inp}
-                >
-                  <option value="sneakers">Sneakers</option>
-                  <option value="formal">Formal</option>
-                  <option value="slides">Slides & Clogs</option>
-                </select>
-              </div>
-              <div>
-                <label style={lbl}>Target Audience (Auto-loads Kids UK 1–5 Sizes)</label>
-                <select
-                  value={form.collection}
-                  onChange={(e) => {
-                    const col = e.target.value;
-                    const rows = col === "kids" ? KIDS_SIZE_ROWS : ADULT_SIZE_ROWS;
-                    patch({
-                      collection: col,
-                      sizeChartRows: rows,
-                      sizes: rows.map((r) => r.uk),
-                      stockBySize: Object.fromEntries(rows.map((r) => [r.uk, 15]))
-                    });
-                  }}
-                  style={inp}
-                >
-                  <option value="unisex">Unisex</option>
-                  <option value="men">Men</option>
-                  <option value="women">Women</option>
-                  <option value="kids">Kids (Junior UK 1–5)</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={grid3}>
-              <div>
-                <label style={lbl}>Selling Price (INR) *</label>
-                <input
-                  type="number"
-                  value={form.price}
-                  onChange={(e) => patch({ price: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Comparison / MRP Price (₹)</label>
-                <input
-                  type="number"
-                  value={form.oldPrice || ""}
-                  onChange={(e) => patch({ oldPrice: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div
-                style={{
-                  background: "#ECFDF5",
-                  border: "1px solid #A7F3D0",
-                  borderRadius: "8px",
-                  padding: "10px",
-                  display: "grid",
-                  placeItems: "center"
-                }}
-              >
-                <span style={{ fontSize: "10px", color: "#059669", fontWeight: 700 }}>
-                  Calculated Discount
-                </span>
-                <strong style={{ fontSize: "16px", color: "#059669" }}>
-                  {savingsPct > 0 ? `${savingsPct}% SAVINGS` : "0%"}
-                </strong>
-              </div>
-            </div>
-
-            <div
-              style={{
-                ...grid2,
-                borderTop: "1px solid #E2E8F0",
-                paddingTop: "14px"
-              }}
-            >
-              <div>
-                <label style={lbl}>Primary Product Photo (URL or Upload) *</label>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <input
-                    placeholder="https://... or upload"
-                    value={form.image}
-                    onChange={(e) => patch({ image: e.target.value })}
-                    style={inp}
-                  />
-                  <label style={blueBtn}>
-                    <Upload size={14} /> {uploading === "bImg" ? "..." : "Upload Photo"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={(e) =>
-                        onUploadMedia?.(e.target.files?.[0], "bImg", (url) =>
-                          patch({ image: url })
-                        )
-                      }
-                    />
-                  </label>
-                </div>
-                {form.image && (
-                  <img
-                    src={safeImgSrc(form.image)}
-                    alt="Preview"
-                    onError={(e) => {
-                      e.currentTarget.onerror = null;
-                      e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                    }}
-                    style={{
-                      width: "64px",
-                      height: "64px",
-                      objectFit: "cover",
-                      borderRadius: "8px",
-                      marginTop: "8px",
-                      border: "1px solid #E2E8F0"
-                    }}
-                  />
-                )}
-              </div>
-
-              <div>
-                <label style={lbl}>Hover Motion & Fit Video MP4 (Optional)</label>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <input
-                    placeholder="https://...mp4 or upload"
-                    value={form.videoUrl}
-                    onChange={(e) => patch({ videoUrl: e.target.value })}
-                    style={inp}
-                  />
-                  <label style={blueBtn}>
-                    <Upload size={14} /> {uploading === "bVid" ? "..." : "Upload MP4"}
-                    <input
-                      type="file"
-                      accept="video/mp4,video/webm"
-                      hidden
-                      onChange={(e) =>
-                        onUploadMedia?.(e.target.files?.[0], "bVid", (url) =>
-                          patch({ videoUrl: url })
-                        )
-                      }
-                    />
-                  </label>
-                </div>
-                {previewVideo && (
-                  <video
-                    src={previewVideo}
-                    muted
-                    loop
-                    autoPlay
-                    playsInline
-                    onError={() => patch({ videoUrl: "" })}
-                    style={{
-                      width: "110px",
-                      height: "64px",
-                      objectFit: "cover",
-                      borderRadius: "8px",
-                      marginTop: "8px"
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label style={lbl}>Short Product Tagline</label>
-              <input
-                value={form.tagline}
-                onChange={(e) => patch({ tagline: e.target.value })}
-                style={inp}
-              />
-            </div>
-            <div>
-              <label style={lbl}>Full Product Description</label>
-              <textarea
-                rows={3}
-                value={form.description}
-                onChange={(e) => patch({ description: e.target.value })}
-                style={inp}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* GROUP 2: PAGE COPY */}
-      {group === 2 && (
-        <div style={card}>
-          <h3 style={gTitle}>GROUP 2: PRODUCT PAGE COPY & ACTION MICROCOPY</h3>
-          <div style={{ display: "grid", gap: "12px" }}>
-            <div style={grid2}>
-              <div>
-                <label style={lbl}>Subtitle / Hook Statement</label>
-                <input
-                  value={form.hookSubtitle}
-                  onChange={(e) => patch({ hookSubtitle: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Short Selling Statement</label>
-                <input
-                  value={form.shortSellingStatement}
-                  onChange={(e) => patch({ shortSellingStatement: e.target.value })}
-                  style={inp}
-                />
-              </div>
-            </div>
-            <div style={grid2}>
-              <div>
-                <label style={lbl}>Offer Heading</label>
-                <input
-                  value={form.offerHeading}
-                  onChange={(e) => patch({ offerHeading: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Offer Description & Promo Code</label>
-                <input
-                  value={form.offerPromoCopy}
-                  onChange={(e) => patch({ offerPromoCopy: e.target.value })}
-                  style={inp}
-                />
-              </div>
-            </div>
-            <div style={grid3}>
-              <div>
-                <label style={lbl}>Add to Bag Button Text</label>
-                <input
-                  value={form.addToBagText}
-                  onChange={(e) => patch({ addToBagText: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Buy Now Button Text</label>
-                <input
-                  value={form.buyNowText}
-                  onChange={(e) => patch({ buyNowText: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Out of Stock Text</label>
-                <input
-                  value={form.outOfStockText}
-                  onChange={(e) => patch({ outOfStockText: e.target.value })}
-                  style={inp}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* GROUP 3: STORYTELLING */}
-      {group === 3 && (
-        <div style={card}>
+      {adminOpen && (
+        <section
+          aria-label="Product Admin Panel"
+          style={{
+            margin: "12px 0 22px",
+            padding: "18px",
+            borderRadius: "14px",
+            border: "1px solid #CBD5E1",
+            background: "#F8FAFC",
+            color: "#0F172A"
+          }}
+        >
           <div
             style={{
               display: "flex",
-              justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "12px"
-            }}
-          >
-            <h3 style={{ ...gTitle, margin: 0 }}>GROUP 3: PRODUCT STORYTELLING BLOCKS</h3>
-            <button
-              type="button"
-              onClick={() =>
-                patch({
-                  storyBlocks: [
-                    ...form.storyBlocks,
-                    {
-                      visible: true,
-                      heading: "NEW STORY BLOCK",
-                      subheading: "",
-                      copy: "",
-                      layout: "Image on Left",
-                      image: ""
-                    }
-                  ]
-                })
-              }
-              style={ghostBtn}
-            >
-              <Plus size={14} /> Add Story Block
-            </button>
-          </div>
-          {form.storyBlocks.map((blk, i) => (
-            <div
-              key={i}
-              style={{
-                border: "1px solid #E2E8F0",
-                borderRadius: "10px",
-                padding: "14px",
-                marginBottom: "12px",
-                display: "grid",
-                gap: "10px"
-              }}
-            >
-              <div style={grid2}>
-                <div>
-                  <label style={lbl}>Headline / Chapter Title</label>
-                  <input
-                    value={blk.heading}
-                    onChange={(e) =>
-                      patch({
-                        storyBlocks: form.storyBlocks.map((b, idx) =>
-                          idx === i ? { ...b, heading: e.target.value } : b
-                        )
-                      })
-                    }
-                    style={inp}
-                  />
-                </div>
-                <div>
-                  <label style={lbl}>Layout Arrangement</label>
-                  <select
-                    value={blk.layout}
-                    onChange={(e) =>
-                      patch({
-                        storyBlocks: form.storyBlocks.map((b, idx) =>
-                          idx === i ? { ...b, layout: e.target.value } : b
-                        )
-                      })
-                    }
-                    style={inp}
-                  >
-                    <option>Image on Right</option>
-                    <option>Image on Left</option>
-                    <option>Full Bleed Center</option>
-                  </select>
-                </div>
-              </div>
-              <textarea
-                rows={2}
-                value={blk.copy}
-                onChange={(e) =>
-                  patch({
-                    storyBlocks: form.storyBlocks.map((b, idx) =>
-                      idx === i ? { ...b, copy: e.target.value } : b
-                    )
-                  })
-                }
-                style={inp}
-              />
-              <div style={{ display: "flex", gap: "8px" }}>
-                <input
-                  placeholder="Story Editorial Photo URL"
-                  value={blk.image || ""}
-                  onChange={(e) =>
-                    patch({
-                      storyBlocks: form.storyBlocks.map((b, idx) =>
-                        idx === i ? { ...b, image: e.target.value } : b
-                      )
-                    })
-                  }
-                  style={inp}
-                />
-                <label style={blueBtn}>
-                  <Upload size={14} /> Upload Photo
-                  <input
-                    type="file"
-                    accept="image/*"
-                    hidden
-                    onChange={(e) =>
-                      onUploadMedia?.(e.target.files?.[0], `st_${i}`, (url) =>
-                        patch({
-                          storyBlocks: form.storyBlocks.map((b, idx) =>
-                            idx === i ? { ...b, image: url } : b
-                          )
-                        })
-                      )
-                    }
-                  />
-                </label>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* GROUP 4: KEY FEATURES */}
-      {group === 4 && (
-        <div style={card}>
-          <div
-            style={{
-              display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "12px"
-            }}
-          >
-            <h3 style={{ ...gTitle, margin: 0 }}>
-              GROUP 4: KEY FOOTWEAR HIGHLIGHTS & FEATURES
-            </h3>
-            <button
-              type="button"
-              onClick={() =>
-                patch({
-                  featureCards: [
-                    ...form.featureCards,
-                    { title: "New Feature", desc: "", visible: true }
-                  ]
-                })
-              }
-              style={ghostBtn}
-            >
-              <Plus size={14} /> Add Feature
-            </button>
-          </div>
-          <div style={grid2}>
-            {form.featureCards.map((fc, i) => (
-              <div
-                key={i}
-                style={{
-                  border: "1px solid #E2E8F0",
-                  borderRadius: "10px",
-                  padding: "12px",
-                  display: "grid",
-                  gap: "8px"
-                }}
-              >
-                <input
-                  value={fc.title}
-                  onChange={(e) =>
-                    patch({
-                      featureCards: form.featureCards.map((f, idx) =>
-                        idx === i ? { ...f, title: e.target.value } : f
-                      )
-                    })
-                  }
-                  style={inp}
-                />
-                <textarea
-                  rows={2}
-                  value={fc.desc}
-                  onChange={(e) =>
-                    patch({
-                      featureCards: form.featureCards.map((f, idx) =>
-                        idx === i ? { ...f, desc: e.target.value } : f
-                      )
-                    })
-                  }
-                  style={inp}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* GROUP 5: MATERIALS & CARE */}
-      {group === 5 && (
-        <div style={card}>
-          <h3 style={gTitle}>GROUP 5: MATERIALS, FIT ADVICE, CARE & SPECIFICATIONS</h3>
-          <div style={{ display: "grid", gap: "12px" }}>
-            <div style={grid2}>
-              <div>
-                <label style={lbl}>Material</label>
-                <input
-                  value={form.materials}
-                  onChange={(e) => patch({ materials: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Molding / Construction Method</label>
-                <input
-                  value={form.moldingMethod}
-                  onChange={(e) => patch({ moldingMethod: e.target.value })}
-                  style={inp}
-                />
-              </div>
-            </div>
-            <div style={grid2}>
-              <div>
-                <label style={lbl}>Fit Recommendation</label>
-                <textarea
-                  rows={2}
-                  value={form.fitRecommendation}
-                  onChange={(e) => patch({ fitRecommendation: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Washing & Care Instructions</label>
-                <textarea
-                  rows={2}
-                  value={form.careInstructions}
-                  onChange={(e) => patch({ careInstructions: e.target.value })}
-                  style={inp}
-                />
-              </div>
-            </div>
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginBottom: "8px"
-                }}
-              >
-                <label style={lbl}>Specifications Table</label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    patch({ specsTable: [...form.specsTable, { label: "Spec", value: "" }] })
-                  }
-                  style={ghostBtn}
-                >
-                  <Plus size={13} /> Add Specification Row
-                </button>
-              </div>
-              {form.specsTable.map((sp, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "180px 1fr auto",
-                    gap: "8px",
-                    marginBottom: "8px"
-                  }}
-                >
-                  <input
-                    value={sp.label}
-                    onChange={(e) =>
-                      patch({
-                        specsTable: form.specsTable.map((r, idx) =>
-                          idx === i ? { ...r, label: e.target.value } : r
-                        )
-                      })
-                    }
-                    style={inp}
-                  />
-                  <input
-                    value={sp.value}
-                    onChange={(e) =>
-                      patch({
-                        specsTable: form.specsTable.map((r, idx) =>
-                          idx === i ? { ...r, value: e.target.value } : r
-                        )
-                      })
-                    }
-                    style={inp}
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      patch({ specsTable: form.specsTable.filter((_, idx) => idx !== i) })
-                    }
-                    style={{ ...ghostBtn, color: "#DC2626" }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* GROUP 6: EDITABLE SIZE GUIDE */}
-      {group === 6 && (
-        <div style={card}>
-          <div
-            style={{
-              display: "flex",
+              gap: "12px",
               flexWrap: "wrap",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "10px",
               marginBottom: "14px"
             }}
           >
-            <h3 style={{ ...gTitle, margin: 0 }}>GROUP 6: SIZE CHART & MEASUREMENT GUIDE</h3>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <strong style={{ fontSize: "14px" }}>
+                Admin Panel — {current.name}
+              </strong>
               <button
                 type="button"
-                onClick={() => patch({ sizeChartRows: ADULT_SIZE_ROWS })}
-                style={ghostBtn}
+                onClick={() => setAdminTab("variants")}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  border: "1px solid #0F172A",
+                  background: adminTab === "variants" ? "#0F172A" : "#FFFFFF",
+                  color: adminTab === "variants" ? "#FFFFFF" : "#0F172A",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
               >
-                Adult (UK 6–10)
+                Variants ({variantList.length})
               </button>
               <button
                 type="button"
-                onClick={() => patch({ sizeChartRows: KIDS_SIZE_ROWS })}
-                style={ghostBtn}
+                onClick={() => setAdminTab("pip-video")}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  border: "1px solid #0F172A",
+                  background: adminTab === "pip-video" ? "#0F172A" : "#FFFFFF",
+                  color: adminTab === "pip-video" ? "#FFFFFF" : "#0F172A",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
               >
-                Kids (UK 1–5)
-              </button>
-              <select
-                value={form.sizeGuideUnit}
-                onChange={(e) => patch({ sizeGuideUnit: e.target.value })}
-                style={{ ...inp, width: "170px" }}
-              >
-                <option value="Centimeters (cm)">Centimeters (cm)</option>
-                <option value="Inches (in)">Inches (in)</option>
-              </select>
-              <button
-                type="button"
-                onClick={() =>
-                  patch({
-                    sizeChartRows: [...activeRows, { uk: "", eu: "", us: "", cm: "" }]
-                  })
-                }
-                style={blueBtn}
-              >
-                <Plus size={14} /> Add Size Row
+                <PictureInPicture2 size={12} /> Product PIP Video
               </button>
             </div>
-          </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12.5px" }}>
-            <thead>
-              <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
-                <th style={{ padding: "8px" }}>UK / INDIA</th>
-                <th style={{ padding: "8px" }}>EU SIZE</th>
-                <th style={{ padding: "8px" }}>US SIZE</th>
-                <th style={{ padding: "8px" }}>FOOT LENGTH</th>
-                <th style={{ padding: "8px", width: "44px" }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeRows.map((row, idx) => (
-                <tr key={idx} style={{ borderBottom: "1px solid #E2E8F0" }}>
-                  {["uk", "eu", "us", "cm"].map((f) => (
-                    <td key={f} style={{ padding: "6px" }}>
-                      <input
-                        value={row[f] || ""}
-                        onChange={(e) =>
-                          patch({
-                            sizeChartRows: activeRows.map((r, i) =>
-                              i === idx ? { ...r, [f]: e.target.value } : r
-                            )
-                          })
-                        }
-                        style={inp}
-                      />
-                    </td>
-                  ))}
-                  <td style={{ padding: "6px" }}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        patch({ sizeChartRows: activeRows.filter((_, i) => i !== idx) })
-                      }
-                      style={{ ...ghostBtn, color: "#DC2626", padding: "6px 8px" }}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
 
-      {/* GROUP 7: COLOURS & SIZES MATRIX */}
-      {group === 7 && (
-        <div style={card}>
-          <h3 style={gTitle}>GROUP 7: COLOURWAYS, GALLERY & INVENTORY MATRIX</h3>
-          <div style={{ display: "grid", gap: "14px" }}>
-            <div style={grid3}>
-              <div>
-                <label style={lbl}>Colour Name</label>
-                <input
-                  value={form.color}
-                  onChange={(e) => patch({ color: e.target.value })}
-                  style={inp}
-                />
-              </div>
-              <div>
-                <label style={lbl}>Hex Swatch</label>
-                <div style={{ display: "flex", gap: "8px" }}>
+            {adminSavedNotice && (
+              <span
+                style={{
+                  fontSize: "11.5px",
+                  fontWeight: 700,
+                  color: "#15803D",
+                  background: "#DCFCE7",
+                  padding: "4px 10px",
+                  borderRadius: "999px"
+                }}
+              >
+                {adminSavedNotice}
+              </span>
+            )}
+          </div>
+
+          {adminTab === "variants" && (
+            <div style={{ display: "grid", gap: "14px" }}>
+              <form
+                onSubmit={handleAddVariantSubmit}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: "10px",
+                  alignItems: "end"
+                }}
+              >
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
+                    Variant Label *
+                  </label>
                   <input
-                    type="color"
-                    value={form.colorHex}
-                    onChange={(e) => patch({ colorHex: e.target.value })}
-                    style={{
-                      width: "44px",
-                      height: "38px",
-                      border: "1px solid #CBD5E1",
-                      borderRadius: "6px"
-                    }}
-                  />
-                  <input
-                    value={form.colorHex}
-                    onChange={(e) => patch({ colorHex: e.target.value })}
-                    style={inp}
+                    required
+                    placeholder="e.g., Olive / Bone"
+                    value={newVariantLabel}
+                    onChange={(e) => setNewVariantLabel(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #CBD5E1", background: "#FFFFFF" }}
                   />
                 </div>
-              </div>
-              <div>
-                <label style={lbl}>Sale Price (₹)</label>
-                <input
-                  type="number"
-                  value={form.price}
-                  onChange={(e) => patch({ price: e.target.value })}
-                  style={inp}
-                />
-              </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
+                    Color Name
+                  </label>
+                  <input
+                    placeholder="e.g., Olive Green"
+                    value={newVariantColor}
+                    onChange={(e) => setNewVariantColor(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #CBD5E1", background: "#FFFFFF" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
+                    Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="2998"
+                    value={newVariantPrice}
+                    onChange={(e) => setNewVariantPrice(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #CBD5E1", background: "#FFFFFF" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
+                    MRP / Old Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="5995"
+                    value={newVariantOldPrice}
+                    onChange={(e) => setNewVariantOldPrice(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #CBD5E1", background: "#FFFFFF" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
+                    Image URL
+                  </label>
+                  <input
+                    placeholder="https://..."
+                    value={newVariantImage}
+                    onChange={(e) => setNewVariantImage(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #CBD5E1", background: "#FFFFFF" }}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  style={{
+                    padding: "9px 14px",
+                    borderRadius: "8px",
+                    border: 0,
+                    background: "#0F172A",
+                    color: "#FFFFFF",
+                    fontSize: "11.5px",
+                    fontWeight: 700,
+                    cursor: "pointer"
+                  }}
+                >
+                  + ADD VARIANT
+                </button>
+              </form>
+
+              {variantList.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {variantList.map((vr, idx) => (
+                    <div
+                      key={vr.id}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "6px 10px",
+                        borderRadius: "999px",
+                        background: "#FFFFFF",
+                        border: "1px solid #CBD5E1",
+                        fontSize: "12px"
+                      }}
+                    >
+                      <strong>{vr.label}</strong>
+                      <span>• {formatPrice(vr.price)}</span>
+                      <button
+                        type="button"
+                        aria-label={`Delete variant ${vr.label}`}
+                        onClick={() => handleRemoveVariant(idx)}
+                        style={{
+                          border: 0,
+                          background: "transparent",
+                          color: "#B91C1C",
+                          cursor: "pointer",
+                          display: "grid",
+                          placeItems: "center",
+                          padding: 0
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+          )}
+
+          {adminTab === "pip-video" && (
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
-                gap: "10px"
+                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gap: "16px",
+                alignItems: "start"
               }}
             >
-              {activeRows.map((r) => {
-                const sz = r.uk || "UK 8";
-                return (
+              {/* Video Drag & Drop Zone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingPipVideo(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingPipVideo(false);
+                }}
+                onDrop={handlePipDrop}
+                onClick={() => pipFileInputRef.current?.click()}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    pipFileInputRef.current?.click();
+                  }
+                }}
+                style={{
+                  border: isDraggingPipVideo
+                    ? "2px dashed #2563EB"
+                    : "2px dashed #94A3B8",
+                  borderRadius: "12px",
+                  padding: "20px",
+                  background: isDraggingPipVideo ? "#EFF6FF" : "#FFFFFF",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease"
+                }}
+              >
+                <input
+                  ref={pipFileInputRef}
+                  type="file"
+                  accept="video/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handlePipVideoFile(file);
+                    e.target.value = "";
+                  }}
+                />
+                <div
+                  style={{
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "999px",
+                    background: "#E2E8F0",
+                    display: "grid",
+                    placeItems: "center",
+                    margin: "0 auto 10px"
+                  }}
+                >
+                  <Upload size={18} />
+                </div>
+                <strong style={{ display: "block", fontSize: "13px", marginBottom: "4px" }}>
+                  Drag & Drop Product PIP Video Here
+                </strong>
+                <p style={{ margin: 0, fontSize: "11.5px", color: "#475569" }}>
+                  or click to browse MP4 / WebM / MOV from your device
+                </p>
+                {pipVideoFileName && (
                   <div
-                    key={sz}
                     style={{
-                      border: "1px solid #E2E8F0",
-                      borderRadius: "8px",
-                      padding: "10px",
-                      textAlign: "center"
+                      marginTop: "10px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      background: "#F1F5F9",
+                      padding: "4px 8px",
+                      borderRadius: "6px",
+                      display: "inline-block"
                     }}
                   >
-                    <strong style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>
-                      {sz}
-                    </strong>
-                    <input
-                      type="number"
-                      value={form.stockBySize?.[sz] ?? 20}
-                      onChange={(e) =>
-                        patch({
-                          stockBySize: {
-                            ...(form.stockBySize || {}),
-                            [sz]: Number(e.target.value)
-                          }
-                        })
-                      }
-                      style={{ ...inp, textAlign: "center" }}
-                    />
-                    <span style={{ fontSize: "10px", color: "#059669" }}>in stock</span>
+                    File: {pipVideoFileName}
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+                )}
+                {pipUploadError && (
+                  <p style={{ margin: "8px 0 0", fontSize: "11.5px", color: "#DC2626", fontWeight: 600 }}>
+                    {pipUploadError}
+                  </p>
+                )}
+              </div>
 
-      {/* GROUP 8: BRAND COMPARISON */}
-      {group === 8 && (
-        <div style={card}>
-          <h3 style={gTitle}>
-            GROUP 8: BRAND COMPARISON ("SEE THE DIFFERENCE") OVERRIDES
-          </h3>
-          <div style={grid2}>
-            <div
-              onClick={() => patch({ comparisonMode: "default" })}
-              style={{
-                border:
-                  form.comparisonMode === "default"
-                    ? "2px solid #2563EB"
-                    : "1px solid #CBD5E1",
-                borderRadius: "10px",
-                padding: "14px",
-                cursor: "pointer"
-              }}
-            >
-              <strong>Use Global Default (Recommended)</strong>
-              <p style={{ fontSize: "12px", color: "#64748B", margin: "4px 0 0" }}>
-                Automatically inherit the comparison configured on global Store Settings.
-              </p>
-            </div>
-            <div
-              onClick={() => patch({ comparisonMode: "custom" })}
-              style={{
-                border:
-                  form.comparisonMode === "custom"
-                    ? "2px solid #2563EB"
-                    : "1px solid #CBD5E1",
-                borderRadius: "10px",
-                padding: "14px",
-                cursor: "pointer"
-              }}
-            >
-              <strong>Custom Override for this Silhouette</strong>
-              <p style={{ fontSize: "12px", color: "#64748B", margin: "4px 0 0" }}>
-                Specify custom graphic assets and copy tailored to this product.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+              {/* PIP Video URL & Controls */}
+              <form onSubmit={handleSavePipSettings} style={{ display: "grid", gap: "10px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
+                    PIP Video Title
+                  </label>
+                  <input
+                    value={pipVideoTitle}
+                    onChange={(e) => setPipVideoTitle(e.target.value)}
+                    placeholder="On-Foot Fit & Sole Walkthrough"
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #CBD5E1", background: "#FFFFFF" }}
+                  />
+                </div>
 
-      {/* GROUP 9: SHIPPING & FAQS */}
-      {group === 9 && (
-        <div style={card}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "12px"
-            }}
-          >
-            <h3 style={{ ...gTitle, margin: 0 }}>
-              GROUP 9: SHIPPING, RETURN INFORMATION & PRODUCT FAQS
-            </h3>
-            <button
-              type="button"
-              onClick={() => patch({ faqs: [...form.faqs, { q: "", a: "" }] })}
-              style={ghostBtn}
-            >
-              <Plus size={14} /> Add FAQ Question
-            </button>
-          </div>
-          {form.faqs.map((item, idx) => (
-            <div
-              key={idx}
-              style={{
-                border: "1px solid #E2E8F0",
-                borderRadius: "8px",
-                padding: "12px",
-                marginBottom: "10px",
-                display: "grid",
-                gap: "8px"
-              }}
-            >
-              <input
-                placeholder="Question"
-                value={item.q}
-                onChange={(e) =>
-                  patch({
-                    faqs: form.faqs.map((f, i) =>
-                      i === idx ? { ...f, q: e.target.value } : f
-                    )
-                  })
-                }
-                style={inp}
-              />
-              <textarea
-                rows={2}
-                placeholder="Answer"
-                value={item.a}
-                onChange={(e) =>
-                  patch({
-                    faqs: form.faqs.map((f, i) =>
-                      i === idx ? { ...f, a: e.target.value } : f
-                    )
-                  })
-                }
-                style={inp}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 700, marginBottom: "4px" }}>
+                    PIP Video URL (MP4 / WebM)
+                  </label>
+                  <input
+                    value={pipVideoUrl}
+                    onChange={(e) => setPipVideoUrl(e.target.value)}
+                    placeholder="https://example.com/product-pip.mp4"
+                    style={{ width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #CBD5E1", background: "#FFFFFF" }}
+                  />
+                </div>
 
-      {/* GROUP 10: RELATED ITEMS */}
-      {group === 10 && (
-        <div style={card}>
-          <h3 style={gTitle}>GROUP 10: CURATED RELATED PRODUCTS & CROSS-SELLS</h3>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-              gap: "10px"
-            }}
-          >
-            {catalog
-              .filter((p) => p.id !== form.id)
-              .map((p) => (
                 <label
-                  key={p.id}
                   style={{
-                    border: "1px solid #E2E8F0",
-                    borderRadius: "8px",
-                    padding: "10px",
-                    display: "flex",
+                    display: "inline-flex",
                     alignItems: "center",
                     gap: "8px",
+                    fontSize: "12px",
+                    fontWeight: 600,
                     cursor: "pointer"
                   }}
                 >
                   <input
                     type="checkbox"
-                    checked={(form.relatedIds || []).includes(p.id)}
-                    onChange={(e) =>
-                      patch({
-                        relatedIds: e.target.checked
-                          ? [...(form.relatedIds || []), p.id]
-                          : (form.relatedIds || []).filter((id) => id !== p.id)
-                      })
-                    }
+                    checked={pipEnabled}
+                    onChange={(e) => setPipEnabled(e.target.checked)}
                   />
-                  <span style={{ fontSize: "12.5px", fontWeight: 600 }}>{p.name}</span>
+                  Show floating Picture-in-Picture (PIP) player on product page
                 </label>
-              ))}
-          </div>
-        </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "4px" }}>
+                  <button
+                    type="submit"
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: "8px",
+                      border: 0,
+                      background: "#0F172A",
+                      color: "#FFFFFF",
+                      fontSize: "11.5px",
+                      fontWeight: 700,
+                      cursor: "pointer"
+                    }}
+                  >
+                    SAVE PIP VIDEO
+                  </button>
+
+                  {activePipVideo && (
+                    <button
+                      type="button"
+                      onClick={() => setPipFloatingOpen((v) => !v)}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid #0F172A",
+                        background: "#FFFFFF",
+                        color: "#0F172A",
+                        fontSize: "11.5px",
+                        fontWeight: 700,
+                        cursor: "pointer"
+                      }}
+                    >
+                      {pipFloatingOpen ? "CLOSE PIP PREVIEW" : "PREVIEW FLOATING PIP"}
+                    </button>
+                  )}
+
+                  {activePipVideo && (
+                    <button
+                      type="button"
+                      onClick={handleClearPipVideo}
+                      style={{
+                        padding: "8px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid #FCA5A5",
+                        background: "#FEF2F2",
+                        color: "#B91C1C",
+                        fontSize: "11.5px",
+                        fontWeight: 700,
+                        cursor: "pointer"
+                      }}
+                    >
+                      REMOVE VIDEO
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+          )}
+        </section>
       )}
 
-      {/* GROUP 11: SEO & SOCIAL */}
-      {group === 11 && (
-        <div style={card}>
-          <h3 style={gTitle}>GROUP 11: SEARCH ENGINE OPTIMIZATION & SOCIAL GRAPH</h3>
-          <div style={{ display: "grid", gap: "12px" }}>
-            <div>
-              <label style={lbl}>SEO Meta Title (Recommended: &lt; 60 chars)</label>
-              <input
-                value={form.seoTitle}
-                onChange={(e) => patch({ seoTitle: e.target.value })}
-                style={inp}
-              />
-            </div>
-            <div>
-              <label style={lbl}>SEO Meta Description (Recommended: 120–160 chars)</label>
-              <textarea
-                rows={2}
-                value={form.seoDescription}
-                onChange={(e) => patch({ seoDescription: e.target.value })}
-                style={inp}
-              />
-            </div>
-            <div
-              style={{
-                background: "#F8FAFC",
-                border: "1px solid #E2E8F0",
-                borderRadius: "10px",
-                padding: "14px"
-              }}
-            >
-              <span style={{ fontSize: "10px", fontWeight: 700, color: "#64748B" }}>
-                GOOGLE SEARCH RESULT PREVIEW
-              </span>
-              <div
-                style={{
-                  color: "#1A0DAB",
-                  fontSize: "16px",
-                  fontWeight: 600,
-                  marginTop: "6px"
-                }}
-              >
-                {form.seoTitle || `${form.name || "Silhouette"} — CALZARE`}
-              </div>
-              <div style={{ color: "#006621", fontSize: "12px" }}>
-                https://calzare.in/product/{form.slug || "product-slug"}
-              </div>
-              <div style={{ color: "#4D5156", fontSize: "12.5px", marginTop: "2px" }}>
-                {form.seoDescription ||
-                  form.description ||
-                  "High-density waterproof closed-cell EVA foam footwear."}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* STICKY BOTTOM DRAFT / PUBLISH BAR */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          background: "#FFFFFF",
-          borderTop: "1px solid #E2E8F0",
-          padding: "12px 24px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          zIndex: 30
-        }}
-      >
-        <span
+      <div className="pdp-main-grid">
+        <div
           style={{
-            fontSize: "12px",
-            color: dirty ? "#D97706" : "#64748B",
-            fontWeight: 600
+            display: "flex",
+            flexDirection: isMobileView ? "column-reverse" : "row",
+            gap: "12px",
+            alignItems: "flex-start"
           }}
         >
-          {dirty ? "Unsaved changes in product draft" : "All changes synced"}
-        </span>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <button type="button" onClick={() => submit("draft")} style={ghostBtn}>
-            Save as Draft
-          </button>
-          <button type="button" onClick={() => submit("published")} style={blueBtn}>
-            <Check size={14} /> Publish Product
-          </button>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: isMobileView ? "row" : "column",
+              gap: "8px",
+              overflowX: isMobileView ? "auto" : "visible",
+              flexShrink: 0
+            }}
+          >
+            {galleryThumbnails.map((thumbUrl, tIdx) => {
+              const isThumbActive = !showVideo && currentImage === thumbUrl;
+              return (
+                <button
+                  key={`${thumbUrl}-${tIdx}`}
+                  type="button"
+                  aria-label={`View image ${tIdx + 1}`}
+                  onClick={() => {
+                    setShowVideo(false);
+                    setSelectedImageOverride(thumbUrl);
+                    const matchingColor = colorOptions.find(
+                      (c) => safeImgSrc(c.image) === thumbUrl
+                    );
+                    if (matchingColor) {
+                      setSelectedColorwayId(matchingColor.id || matchingColor._id);
+                    }
+                  }}
+                  style={{
+                    width: isMobileView ? "60px" : "68px",
+                    height: isMobileView ? "60px" : "68px",
+                    padding: "4px",
+                    borderRadius: "8px",
+                    border: isThumbActive
+                      ? "1.5px solid #0F172A"
+                      : "1px solid #E2E8F0",
+                    background: "#F5F5F5",
+                    cursor: "pointer",
+                    overflow: "hidden",
+                    flexShrink: 0
+                  }}
+                >
+                  <img
+                    src={thumbUrl}
+                    alt={`${current.name} angle ${tIdx + 1}`}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                    }}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      display: "block"
+                    }}
+                  />
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            className="pdp-stage"
+            style={{
+              flex: 1,
+              width: "100%",
+              background: "#F5F5F5",
+              borderRadius: "12px",
+              overflow: "hidden",
+              position: "relative",
+              maxHeight: isMobileView
+                ? undefined
+                : `${Number(homepage?.productPage?.galleryMaxHeightPx) || 560}px`
+            }}
+          >
+            {showVideo && currentVideo ? (
+              <video
+                src={currentVideo}
+                poster={currentImage}
+                autoPlay
+                loop
+                muted
+                playsInline
+                controls
+                onError={() => setShowVideo(false)}
+                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+              />
+            ) : (
+              <img
+                src={currentImage}
+                alt={current.name}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: current.imageFit || "contain",
+                  objectPosition: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`,
+                  transform: `scale(${Number(current.imageZoom) || 1})`,
+                  transformOrigin: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`
+                }}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                }}
+              />
+            )}
+
+            <button
+              type="button"
+              className="pdp-expand-btn"
+              aria-label="Expand product image"
+              onClick={handleExpandMedia}
+              style={{
+                position: "absolute",
+                top: "14px",
+                right: "14px",
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                border: "1px solid var(--line)",
+                background: "rgba(255, 255, 255, 0.92)",
+                color: "#111",
+                display: "grid",
+                placeItems: "center",
+                cursor: "pointer",
+                zIndex: 3
+              }}
+            >
+              <Maximize2 size={15} />
+            </button>
+
+            {currentVideo && (
+              <div className="media-switcher">
+                <button
+                  type="button"
+                  className={!showVideo ? "active" : ""}
+                  onClick={() => setShowVideo(false)}
+                >
+                  PHOTO
+                </button>
+                <button
+                  type="button"
+                  className={showVideo ? "active" : ""}
+                  onClick={() => setShowVideo(true)}
+                >
+                  <Film size={11} /> MOTION FIT
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="pdp-info-col">
+          <h1>{current.name}</h1>
+
+          {current.tagline && (
+            <p className="pdp-colorway" style={{ marginBottom: "8px" }}>
+              {current.tagline}
+            </p>
+          )}
+
+          {current.highlights?.length > 0 && (
+            <p
+              style={{
+                fontSize: "12.5px",
+                color: "var(--ink)",
+                margin: "0 0 14px",
+                fontWeight: 500
+              }}
+            >
+              {current.highlights.slice(0, 3).join(" | ")}
+            </p>
+          )}
+
+          <div className="pdp-price-row" style={{ marginBottom: "14px" }}>
+            {discountPct > 0 && (
+              <span className="pdp-discount-badge">{discountPct}% OFF</span>
+            )}
+            <strong style={{ fontSize: "24px", fontWeight: 700 }}>
+              {formatPrice(priceNum)}
+            </strong>
+            {oldPriceNum > priceNum && (
+              <span className="old-price" style={{ fontSize: "15px" }}>
+                {formatPrice(oldPriceNum)}
+              </span>
+            )}
+          </div>
+
+          {variantList.length > 0 && (
+            <div className="size-block" style={{ marginBottom: "14px" }}>
+              <span className="size-label" style={{ marginBottom: "8px" }}>
+                Variant:{" "}
+                <strong style={{ color: "var(--ink)" }}>
+                  {activeVariant?.label}
+                </strong>
+              </span>
+              <div className="size-grid" style={{ marginBottom: 0 }}>
+                {variantList.map((vr, idx) => {
+                  const isSelected = idx === selectedVariantIndex;
+                  return (
+                    <button
+                      key={vr.id}
+                      type="button"
+                      className={isSelected ? "size-pill active" : "size-pill"}
+                      onClick={() => {
+                        setSelectedVariantIndex(idx);
+                        setSelectedImageOverride("");
+                        setShowVideo(false);
+                      }}
+                    >
+                      {vr.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {productReelsEnabled && productShortClips.length > 0 && (
+            <div style={{ marginBottom: "16px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: "8px"
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "10.5px",
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "var(--ink)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  }}
+                >
+                  <Play size={11} fill="currentColor" /> SEE IT IN ACTION (SHORT PLAY)
+                </span>
+                <span style={{ fontSize: "11px", opacity: 0.65 }}>
+                  Tap to watch
+                </span>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "stretch",
+                  gap: "10px",
+                  overflowX: "auto",
+                  paddingBottom: "4px",
+                  scrollbarWidth: "none"
+                }}
+              >
+                {productShortClips.map((clip, idx) => {
+                  const clipPoster = safeImgSrc(clip.poster || currentImage);
+                  const videoBroken = Boolean(failedClipIds[clip.id]);
+                  const isSelected = activeClipIndex === idx;
+
+                  return (
+                    <button
+                      key={clip.id}
+                      type="button"
+                      onClick={() => {
+                        setClipMuted(false);
+                        setActiveClipIndex(idx);
+                      }}
+                      style={{
+                        flex: "0 0 84px",
+                        height: "126px",
+                        borderRadius: "12px",
+                        border: isSelected
+                          ? "2px solid #2563EB"
+                          : "2px solid #0645B8",
+                        padding: "2px",
+                        background: "#0B0D12",
+                        position: "relative",
+                        overflow: "hidden",
+                        cursor: "pointer"
+                      }}
+                    >
+                      {!videoBroken && clip.videoUrl ? (
+                        <video
+                          src={clip.videoUrl}
+                          poster={clipPoster}
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          onError={() =>
+                            setFailedClipIds((prev) => ({
+                              ...prev,
+                              [clip.id]: true
+                            }))
+                          }
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            borderRadius: "9px",
+                            display: "block"
+                          }}
+                        />
+                      ) : (
+                        <img
+                          src={clipPoster}
+                          alt={clip.label}
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                          }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            borderRadius: "9px",
+                            display: "block"
+                          }}
+                        />
+                      )}
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: "2px",
+                          borderRadius: "9px",
+                          background:
+                            "linear-gradient(180deg, rgba(0,0,0,0.05) 35%, rgba(0,0,0,0.85) 100%)",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "6px 4px",
+                          color: "#FFFFFF"
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: "22px",
+                            height: "22px",
+                            borderRadius: "999px",
+                            background: "rgba(255,255,255,0.92)",
+                            color: "#0F172A",
+                            display: "grid",
+                            placeItems: "center",
+                            marginTop: "28px"
+                          }}
+                        >
+                          <Play size={10} fill="currentColor" />
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            textAlign: "center",
+                            letterSpacing: "0.03em"
+                          }}
+                        >
+                          {clip.label}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="pdp-offers-box">
+            <div className="pdp-offers-head">
+              <Tag size={14} />
+              <strong>Offers</strong>
+              <span>Auto applies at checkout</span>
+            </div>
+            <div className="pdp-offer-cards">
+              <div className="pdp-offer-card blue">
+                <span className="pdp-offer-pill blue">
+                  {pdpCfg.offer1Badge || "10% OFF"}
+                </span>
+                <span>{pdpCfg.offer1Text || "Buy 2 Pairs"}</span>
+              </div>
+              <div className="pdp-offer-card green">
+                <span className="pdp-offer-pill green">
+                  {pdpCfg.offer2Badge || "15% OFF"}
+                </span>
+                <span>{pdpCfg.offer2Text || "Buy 3 Pairs"}</span>
+              </div>
+            </div>
+          </div>
+
+          {activeColorLabel && (
+            <div>
+              <span className="size-label" style={{ marginBottom: "6px" }}>
+                Colors:{" "}
+                <strong style={{ color: "var(--ink)" }}>{activeColorLabel}</strong>
+              </span>
+              <div className="pdp-swatch-row">
+                {colorOptions.map((opt) => {
+                  const optId = opt.id || opt._id;
+                  const active = optId === selectedColorwayId;
+                  return (
+                    <button
+                      key={optId}
+                      type="button"
+                      className={`pdp-swatch ${active ? "active" : ""}`}
+                      title={opt.color || opt.name}
+                      onClick={() => {
+                        setSelectedColorwayId(optId);
+                        setSelectedImageOverride("");
+                        if (optId !== productId) {
+                          onSelectProduct?.(opt);
+                        }
+                      }}
+                    >
+                      <img
+                        src={safeImgSrc(opt.image)}
+                        alt={opt.color || opt.name}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                        }}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="size-block">
+            <div className="size-head-row">
+              <span className="size-label">Select Shoe size: UK/India</span>
+            </div>
+            <div className="size-grid">
+              {sizes.map((sz) => (
+                <button
+                  key={sz}
+                  type="button"
+                  className={selectedSize === sz ? "size-pill active" : "size-pill"}
+                  onClick={() => setSelectedSize(sz)}
+                >
+                  {sz}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="pdp-qty-cta-row">
+            <div className="pdp-qty-box">
+              <button
+                type="button"
+                aria-label="Decrease quantity"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+              >
+                <Minus size={14} />
+              </button>
+              <span style={{ fontSize: "13px", fontWeight: 600 }}>{quantity}</span>
+              <button
+                type="button"
+                aria-label="Increase quantity"
+                onClick={() => setQuantity((q) => q + 1)}
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="primary-cta-btn pdp-pill-cta"
+              onClick={handleAddSelection}
+            >
+              ADD TO CART — {formatPrice(priceNum * quantity)}
+            </button>
+
+            <button
+              type="button"
+              className={`pdp-wish-btn ${isFavorite ? "selected" : ""}`}
+              aria-label="Save to wishlist"
+              onClick={() => onToggleFavorite?.(productId)}
+              style={{ borderRadius: "999px", width: "48px" }}
+            >
+              <Heart size={18} fill={isFavorite ? "currentColor" : "none"} />
+            </button>
+          </div>
+
+          <div
+            style={{
+              marginTop: "14px",
+              padding: "10px 12px",
+              borderRadius: "10px",
+              background: "var(--surface, #f2f1eb)",
+              border: "1px solid var(--line, rgba(0,0,0,0.08))",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "8px",
+              fontSize: "11px"
+            }}
+          >
+            <span style={{ fontWeight: 600, color: "var(--ink)" }}>
+              Partial COD • Ships in 24–48 hrs • 7-Day Swap
+            </span>
+            <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+              {["UPI", "RuPay", "VISA", "Mastercard", "Razorpay"].map((badge) => (
+                <span
+                  key={badge}
+                  style={{
+                    padding: "2px 7px",
+                    borderRadius: "4px",
+                    background: "#FFFFFF",
+                    border: "1px solid rgba(0,0,0,0.1)",
+                    fontSize: "9.5px",
+                    fontWeight: 700,
+                    letterSpacing: "0.04em"
+                  }}
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: "20px" }}>
+            <div
+              style={{
+                display: "flex",
+                gap: "16px",
+                borderBottom: "1px solid var(--line, rgba(0,0,0,0.12))",
+                marginBottom: "12px"
+              }}
+            >
+              {[
+                { key: "description", label: "Description" },
+                { key: "features", label: "Key Features" },
+                { key: "shipping", label: "Shipping & Returns" }
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveInfoTab(tab.key)}
+                  style={{
+                    background: "none",
+                    border: 0,
+                    borderBottom:
+                      activeInfoTab === tab.key
+                        ? "2px solid var(--ink, #1e211d)"
+                        : "2px solid transparent",
+                    padding: "8px 0",
+                    fontSize: "12px",
+                    fontWeight: activeInfoTab === tab.key ? 700 : 500,
+                    color: activeInfoTab === tab.key ? "var(--ink)" : "var(--muted)",
+                    cursor: "pointer"
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {activeInfoTab === "description" && (
+              <p className="pdp-desc" style={{ margin: 0 }}>
+                {current.description ||
+                  "Engineered for everyday comfort with lightweight cushioning and durable grip."}
+              </p>
+            )}
+
+            {activeInfoTab === "features" && (
+              <ul className="pdp-highlights" style={{ margin: 0 }}>
+                {(current.highlights?.length
+                  ? current.highlights
+                  : [
+                      "Dual-density memory footbed",
+                      "Lightweight all-day construction",
+                      "Anti-slip everyday outsole"
+                    ]
+                ).map((item, idx) => (
+                  <li key={idx}>
+                    <Check size={14} /> {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {activeInfoTab === "shipping" && (
+              <div style={{ fontSize: "12.5px", lineHeight: 1.7, color: "var(--muted)" }}>
+                <p style={{ margin: "0 0 6px" }}>
+                  <strong>Dispatch:</strong>{" "}
+                  {current.dispatchNotice || "Orders processed within 1–2 business days."}
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong>Returns & Exchange:</strong>{" "}
+                  {current.returnDetails ||
+                    "7-day easy UK size exchange on unworn pairs in original packaging."}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Floating PIP Video Player */}
+      {pipFloatingOpen && activePipVideo && pipEnabled && (
+        <div
+          aria-label="Floating Picture-in-Picture Product Video"
+          style={{
+            position: "fixed",
+            right: "18px",
+            bottom: isMobileView ? "76px" : "18px",
+            width: "240px",
+            borderRadius: "14px",
+            overflow: "hidden",
+            background: "#090B0E",
+            color: "#FFFFFF",
+            border: "1px solid rgba(255,255,255,0.22)",
+            boxShadow: "0 18px 42px rgba(0,0,0,0.45)",
+            zIndex: 95
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "6px 10px",
+              background: "rgba(0,0,0,0.78)",
+              fontSize: "10.5px",
+              fontWeight: 700
+            }}
+          >
+            <span
+              style={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: "155px"
+              }}
+            >
+              PIP: {pipVideoTitle || current.name}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <button
+                type="button"
+                aria-label={pipMuted ? "Unmute PIP video" : "Mute PIP video"}
+                onClick={() => setPipMuted((m) => !m)}
+                style={{
+                  border: 0,
+                  background: "transparent",
+                  color: "#FFFFFF",
+                  cursor: "pointer",
+                  padding: "2px",
+                  display: "grid",
+                  placeItems: "center"
+                }}
+              >
+                {pipMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+              </button>
+              <button
+                type="button"
+                aria-label="Close PIP video"
+                onClick={() => setPipFloatingOpen(false)}
+                style={{
+                  border: 0,
+                  background: "transparent",
+                  color: "#FFFFFF",
+                  cursor: "pointer",
+                  padding: "2px",
+                  display: "grid",
+                  placeItems: "center"
+                }}
+              >
+                <X size={13} />
+              </button>
+            </div>
+          </div>
+          <video
+            src={activePipVideo}
+            poster={currentImage}
+            autoPlay
+            loop
+            muted={pipMuted}
+            playsInline
+            controls
+            style={{
+              width: "100%",
+              height: "150px",
+              objectFit: "cover",
+              display: "block"
+            }}
+          />
+        </div>
+      )}
+
+      {suggestedItems.length > 0 && (
+        <section className="shop-section section-pad">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">RECOMMENDED FOR YOUR ROTATION</p>
+              <h2>
+                Suggested <em>for you.</em>
+              </h2>
+            </div>
+            <span className="product-count">CURATED PICKS</span>
+          </div>
+
+          <div
+            className="product-grid"
+            style={{
+              marginTop: "24px",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))"
+            }}
+          >
+            {suggestedItems.map((item) => {
+              const itemId = item.id || item._id;
+              const defaultSz = item.sizes?.[2] || item.sizes?.[0] || "UK 8";
+              return (
+                <article key={itemId} className="product-card">
+                  <div
+                    className="product-image-wrap clickable"
+                    onClick={() => onSelectProduct?.(item)}
+                  >
+                    <img
+                      src={safeImgSrc(item.image)}
+                      alt={item.name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                      }}
+                    />
+                    {item.badge && (
+                      <span className="product-badge">{item.badge}</span>
+                    )}
+                    <button
+                      type="button"
+                      className="quick-add"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddToCart?.(item, defaultSz, true, 1);
+                        onOpenCart?.();
+                      }}
+                    >
+                      QUICK ADD ({defaultSz})
+                    </button>
+                  </div>
+                  <div
+                    className="product-meta clickable"
+                    onClick={() => onSelectProduct?.(item)}
+                  >
+                    <div>
+                      <h3>{item.name}</h3>
+                      <p>{item.color}</p>
+                    </div>
+                    <strong>{formatPrice(item.price)}</strong>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {activeClip && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setActiveClipIndex(null)}
+          style={{ zIndex: 120 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "relative",
+              width: "min(410px, 94vw)",
+              height: "min(730px, 90svh)",
+              borderRadius: "22px",
+              overflow: "hidden",
+              background: "#090B0E",
+              color: "#FFFFFF",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+              display: "flex",
+              flexDirection: "column"
+            }}
+          >
+            <img
+              src={safeImgSrc(activeClip.poster || currentImage)}
+              alt={activeClip.label}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+              }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover"
+              }}
+            />
+
+            {!failedClipIds[activeClip.id] && activeClip.videoUrl && (
+              <video
+                key={activeClip.id}
+                src={activeClip.videoUrl}
+                poster={safeImgSrc(activeClip.poster || currentImage)}
+                autoPlay
+                loop
+                muted={clipMuted}
+                playsInline
+                onError={() =>
+                  setFailedClipIds((prev) => ({
+                    ...prev,
+                    [activeClip.id]: true
+                  }))
+                }
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover"
+                }}
+              />
+            )}
+
+            <div
+              style={{
+                position: "relative",
+                zIndex: 3,
+                padding: "12px 14px",
+                background:
+                  "linear-gradient(180deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0) 100%)"
+              }}
+            >
+              <div style={{ display: "flex", gap: "5px", marginBottom: "10px" }}>
+                {productShortClips.map((c, idx) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    aria-label={`Play clip ${idx + 1}`}
+                    onClick={() => setActiveClipIndex(idx)}
+                    style={{
+                      flex: 1,
+                      height: "3px",
+                      borderRadius: "999px",
+                      border: 0,
+                      padding: 0,
+                      background:
+                        idx === activeClipIndex
+                          ? "#FFFFFF"
+                          : "rgba(255,255,255,0.35)",
+                      cursor: "pointer"
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px"
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    background: "rgba(255,255,255,0.18)",
+                    padding: "4px 10px",
+                    borderRadius: "999px"
+                  }}
+                >
+                  {activeClip.tag} • {activeClip.label}
+                </span>
+
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    type="button"
+                    aria-label={clipMuted ? "Unmute video" : "Mute video"}
+                    onClick={() => setClipMuted((m) => !m)}
+                    style={{
+                      width: "34px",
+                      height: "34px",
+                      borderRadius: "999px",
+                      border: 0,
+                      background: "rgba(0,0,0,0.5)",
+                      color: "#FFFFFF",
+                      display: "grid",
+                      placeItems: "center",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {clipMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Close video"
+                    onClick={() => setActiveClipIndex(null)}
+                    style={{
+                      width: "34px",
+                      height: "34px",
+                      borderRadius: "999px",
+                      border: 0,
+                      background: "rgba(0,0,0,0.5)",
+                      color: "#FFFFFF",
+                      display: "grid",
+                      placeItems: "center",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {productShortClips.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous video"
+                  onClick={() =>
+                    setActiveClipIndex(
+                      (prev) =>
+                        (prev - 1 + productShortClips.length) %
+                        productShortClips.length
+                    )
+                  }
+                  style={{
+                    position: "absolute",
+                    left: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 3,
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "999px",
+                    border: 0,
+                    background: "rgba(0,0,0,0.48)",
+                    color: "#FFFFFF",
+                    display: "grid",
+                    placeItems: "center",
+                    cursor: "pointer"
+                  }}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next video"
+                  onClick={() =>
+                    setActiveClipIndex(
+                      (prev) => (prev + 1) % productShortClips.length
+                    )
+                  }
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    zIndex: 3,
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "999px",
+                    border: 0,
+                    background: "rgba(0,0,0,0.48)",
+                    color: "#FFFFFF",
+                    display: "grid",
+                    placeItems: "center",
+                    cursor: "pointer"
+                  }}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </>
+            )}
+
+            <div
+              style={{
+                marginTop: "auto",
+                position: "relative",
+                zIndex: 3,
+                padding: "16px",
+                background:
+                  "linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.92) 35%)"
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.14)",
+                  backdropFilter: "blur(10px)",
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  borderRadius: "14px",
+                  padding: "12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <img
+                    src={currentImage}
+                    alt={current.name}
+                    style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "8px",
+                      objectFit: "cover"
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <strong style={{ display: "block", fontSize: "13.5px" }}>
+                      {current.name}
+                    </strong>
+                    <span style={{ fontSize: "12px", opacity: 0.85 }}>
+                      {formatPrice(priceNum)} • Size: {selectedSize}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                  {sizes.map((sz) => (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => setSelectedSize(sz)}
+                      style={{
+                        padding: "4px 9px",
+                        borderRadius: "999px",
+                        border: "1px solid rgba(255,255,255,0.35)",
+                        background:
+                          selectedSize === sz ? "#FFFFFF" : "transparent",
+                        color: selectedSize === sz ? "#0F172A" : "#FFFFFF",
+                        fontSize: "10.5px",
+                        fontWeight: 700,
+                        cursor: "pointer"
+                      }}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAddToCart?.(buildCartProductPayload(), selectedSize, true, 1);
+                    onOpenCart?.();
+                    setActiveClipIndex(null);
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "11px 16px",
+                    borderRadius: "999px",
+                    border: 0,
+                    background: "#FFFFFF",
+                    color: "#0F172A",
+                    fontSize: "11.5px",
+                    fontWeight: 800,
+                    letterSpacing: "0.1em",
+                    cursor: "pointer"
+                  }}
+                >
+                  ADD TO BAG — {formatPrice(priceNum)}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <section className="calzare-reviews-section" id="product-reviews">
+        <div className="calzare-reviews-header">
+          <div className="calzare-rating-pill">
+            <span className="calzare-stars" aria-hidden="true">
+              ★★★★★
+            </span>
+            <strong>{averageRating} / 5.0</strong>
+            <span>({productReviews.length} Customer Reviews)</span>
+          </div>
+          <p className="calzare-reviews-sub">
+            Honest reviews from customers walking in real rain, heat, and city transit.
+          </p>
+          {canManageReviews && (
+            <button
+              type="button"
+              className="filter active"
+              onClick={() =>
+                reviewFormOpen
+                  ? (setReviewFormOpen(false), setEditingReviewId(null))
+                  : handleOpenNewReviewForm()
+              }
+            >
+              {reviewFormOpen ? "CLOSE REVIEW EDITOR" : "MANAGE / ADD REVIEW"}
+            </button>
+          )}
+        </div>
+
+        {canManageReviews && reviewFormOpen && (
+          <form
+            onSubmit={handleSaveReview}
+            style={{
+              background: "var(--surface, #f2f1eb)",
+              border: "1px solid var(--line, rgba(0,0,0,0.12))",
+              borderRadius: "14px",
+              padding: "20px",
+              margin: "0 auto 28px",
+              maxWidth: "780px",
+              display: "grid",
+              gap: "12px"
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))",
+                gap: "10px"
+              }}
+            >
+              <input
+                required
+                placeholder="Reviewer / Writer Name *"
+                value={reviewDraft.author}
+                onChange={(e) =>
+                  setReviewDraft({ ...reviewDraft, author: e.target.value })
+                }
+              />
+              <input
+                placeholder="City (e.g., Bengaluru, Delhi)"
+                value={reviewDraft.location}
+                onChange={(e) =>
+                  setReviewDraft({ ...reviewDraft, location: e.target.value })
+                }
+              />
+              <select
+                value={reviewDraft.size}
+                onChange={(e) =>
+                  setReviewDraft({ ...reviewDraft, size: e.target.value })
+                }
+              >
+                {sizes.map((sz) => (
+                  <option key={sz} value={sz}>
+                    Size: {sz}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={reviewDraft.rating}
+                onChange={(e) =>
+                  setReviewDraft({
+                    ...reviewDraft,
+                    rating: Number(e.target.value)
+                  })
+                }
+              >
+                <option value={5}>★★★★★ (5 / 5)</option>
+                <option value={4}>★★★★☆ (4 / 5)</option>
+                <option value={3}>★★★☆☆ (3 / 5)</option>
+                <option value={2}>★★☆☆☆ (2 / 5)</option>
+                <option value={1}>★☆☆☆☆ (1 / 5)</option>
+              </select>
+            </div>
+
+            <input
+              placeholder={`Headline for ${current.name} (optional)`}
+              value={reviewDraft.quote}
+              onChange={(e) =>
+                setReviewDraft({ ...reviewDraft, quote: e.target.value })
+              }
+            />
+
+            <textarea
+              required
+              rows={3}
+              placeholder="Write or update review comment... *"
+              value={reviewDraft.body}
+              onChange={(e) =>
+                setReviewDraft({ ...reviewDraft, body: e.target.value })
+              }
+              style={{ resize: "vertical", padding: "10px 12px" }}
+            />
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button
+                type="button"
+                className="filter"
+                onClick={() => {
+                  setReviewFormOpen(false);
+                  setEditingReviewId(null);
+                }}
+              >
+                CANCEL
+              </button>
+              <button type="submit" className="filter active">
+                {editingReviewId ? "SAVE TO BACKEND" : "PUBLISH TO BACKEND"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        <div className="calzare-reviews-grid">
+          {productReviews.map((rev) => {
+            const stars = Math.max(1, Math.min(5, Number(rev.rating) || 5));
+            const isBackendReview = backendReviews.some(
+              (item) => String(item.id) === String(rev.id)
+            );
+
+            return (
+              <article className="calzare-review-card" key={rev.id}>
+                <div className="calzare-stars" aria-hidden="true">
+                  {"★".repeat(stars)}
+                  {"☆".repeat(5 - stars)}
+                </div>
+                <h3 className="calzare-review-quote">{rev.quote}</h3>
+                <p className="calzare-review-body">{rev.body}</p>
+                <div className="calzare-review-divider" />
+                <div className="calzare-review-footer">
+                  <div>
+                    <strong className="calzare-reviewer-name">{rev.author}</strong>
+                    <span className="calzare-reviewer-meta">{rev.meta}</span>
+                    <span className="calzare-reviewer-loc">{rev.location}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span className="calzare-verified-badge">✓ Verified</span>
+                    {canManageReviews && (
+                      <>
+                        <button
+                          type="button"
+                          aria-label="Edit review"
+                          onClick={() => handleStartEditReview(rev)}
+                          style={{
+                            border: "1px solid rgba(0,0,0,0.14)",
+                            background: "#FFFFFF",
+                            borderRadius: "999px",
+                            width: "28px",
+                            height: "28px",
+                            display: "grid",
+                            placeItems: "center",
+                            cursor: "pointer"
+                          }}
+                        >
+                          <Edit3 size={12} />
+                        </button>
+                        {isBackendReview && (
+                          <button
+                            type="button"
+                            aria-label="Delete review"
+                            onClick={() => handleDeleteReview(rev.id)}
+                            style={{
+                              border: "1px solid rgba(0,0,0,0.14)",
+                              background: "#FFFFFF",
+                              borderRadius: "999px",
+                              width: "28px",
+                              height: "28px",
+                              display: "grid",
+                              placeItems: "center",
+                              cursor: "pointer"
+                            }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+
+        <div className="calzare-standard-block">
+          <h2 className="calzare-standard-title">
+            {pdpCfg.standardTitle || "THE CALZARE STANDARD"}
+          </h2>
+          <p className="calzare-standard-sub">
+            {pdpCfg.standardSubtitle || "Built with science. Tested with life."}
+          </p>
+
+          <div className="calzare-standard-grid">
+            {CALZARE_STANDARD_CARDS.map((item) => {
+              const IconComp = item.icon;
+              return (
+                <div className="calzare-standard-card" key={item.id}>
+                  <div className="calzare-standard-icon">
+                    <IconComp size={20} />
+                  </div>
+                  <strong>{item.title}</strong>
+                  <p>{item.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <div className="pdp-guarantees-4col">
+        <div className="pdp-guarantee-cell">
+          <ShieldCheck size={22} />
+          <strong>Secure payment</strong>
+          <span>UPI, cards & partial COD available</span>
+        </div>
+        <div className="pdp-guarantee-cell">
+          <Truck size={22} />
+          <strong>Delivery</strong>
+          <span>Ships within 24–48 hours across India</span>
+        </div>
+        <div className="pdp-guarantee-cell">
+          <RefreshCw size={22} />
+          <strong>Returns</strong>
+          <span>7-day easy UK size exchange</span>
+        </div>
+        <div className="pdp-guarantee-cell">
+          <Sparkles size={22} />
+          <strong>Customer Service</strong>
+          <span>Dedicated support for sizing & orders</span>
+        </div>
+      </div>
+
+      {alsoBoughtItems.length > 0 && (
+        <section className="shop-section section-pad">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">COMPLETE THE EDIT</p>
+              <h2>
+                People <em>Also Bought.</em>
+              </h2>
+            </div>
+          </div>
+
+          <div className="product-grid" style={{ marginTop: "24px" }}>
+            {alsoBoughtItems.map((item) => {
+              const itemId = item.id || item._id;
+              return (
+                <article
+                  key={itemId}
+                  className="product-card clickable"
+                  onClick={() => onSelectProduct?.(item)}
+                >
+                  <div className="product-image-wrap">
+                    <img
+                      src={safeImgSrc(item.image)}
+                      alt={item.name}
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                      }}
+                    />
+                  </div>
+                  <div className="product-meta">
+                    <div>
+                      <h3>{item.name}</h3>
+                      <p>{item.color}</p>
+                    </div>
+                    <strong>{formatPrice(item.price)}</strong>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {isMobileView && (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 80,
+            background: "#FFFFFF",
+            borderTop: "1px solid rgba(0,0,0,0.12)",
+            padding: "10px 14px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            boxShadow: "0 -6px 20px rgba(0,0,0,0.08)"
+          }}
+        >
+          <select
+            aria-label="Select size"
+            value={selectedSize}
+            onChange={(e) => setSelectedSize(e.target.value)}
+            style={{
+              padding: "10px 8px",
+              borderRadius: "8px",
+              border: "1px solid rgba(0,0,0,0.2)",
+              background: "#F8FAFC",
+              fontSize: "12px",
+              fontWeight: 700
+            }}
+          >
+            {sizes.map((sz) => (
+              <option key={sz} value={sz}>
+                {sz}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            className="primary-cta-btn"
+            onClick={handleAddSelection}
+            style={{ flex: 1, margin: 0, padding: "12px 14px", borderRadius: "999px" }}
+          >
+            ADD TO CART — {formatPrice(priceNum * quantity)}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
 
-const h1 = { margin: 0, fontSize: "20px", fontWeight: 800, color: "#0F172A" };
-const sub = { margin: "4px 0 0", fontSize: "12.5px", color: "#64748B" };
-const gTitle = {
-  margin: "0 0 14px",
-  fontSize: "12px",
-  fontWeight: 700,
-  letterSpacing: "0.8px",
-  color: "#334155"
-};
-const card = {
-  background: "#FFFFFF",
-  border: "1px solid #E2E8F0",
-  borderRadius: "12px",
-  padding: "18px"
-};
-const lbl = {
-  display: "block",
-  fontSize: "11px",
-  fontWeight: 600,
-  color: "#475569",
-  marginBottom: "4px"
-};
-const inp = {
-  width: "100%",
-  padding: "9px 12px",
-  borderRadius: "8px",
-  border: "1px solid #CBD5E1",
-  fontSize: "13px",
-  boxSizing: "border-box",
-  fontFamily: "inherit"
-};
-const blueBtn = {
-  background: "#2563EB",
-  color: "#FFFFFF",
-  border: 0,
-  borderRadius: "8px",
-  padding: "9px 14px",
-  fontSize: "12px",
-  fontWeight: 600,
-  cursor: "pointer",
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "6px",
-  whiteSpace: "nowrap"
-};
-const ghostBtn = {
-  background: "#FFFFFF",
-  color: "#0F172A",
-  border: "1px solid #CBD5E1",
-  borderRadius: "8px",
-  padding: "8px 12px",
-  fontSize: "12px",
-  fontWeight: 600,
-  cursor: "pointer",
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "6px"
-};
-const grid2 = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "12px"
-};
-const grid3 = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: "12px"
-};
+export default function App() {
+  const [catalog, setCatalog] = useState(DEMO_CATALOG);
+  const [selectedId, setSelectedId] = useState(DEMO_CATALOG[0].id);
+  const [favorites, setFavorites] = useState([]);
+  const [cart, setCart] = useState([]);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+
+  const activeProduct =
+    catalog.find((item) => (item.id || item._id) === selectedId) || catalog[0];
+
+  function handleToggleFavorite(id) {
+    setFavorites((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  }
+
+  function handleAddToCart(item, size, shouldOpenDrawer = true, qty = 1) {
+    const count = Math.max(1, Number(qty) || 1);
+    setCart((prev) => {
+      const existingIdx = prev.findIndex(
+        (entry) => entry.productId === item.id && entry.size === size
+      );
+      if (existingIdx > -1) {
+        return prev.map((entry, idx) =>
+          idx === existingIdx
+            ? { ...entry, quantity: entry.quantity + count }
+            : entry
+        );
+      }
+      return [
+        ...prev,
+        {
+          id: `${item.id}-${size}`,
+          productId: item.id,
+          name: item.name,
+          size,
+          price: Number(item.price) || 0,
+          image: safeImgSrc(item.image),
+          quantity: count
+        }
+      ];
+    });
+
+    if (shouldOpenDrawer) {
+      setCartDrawerOpen(true);
+    }
+  }
+
+  function handleUpdateCartQty(lineId, delta) {
+    setCart((prev) =>
+      prev
+        .map((entry) =>
+          entry.id === lineId
+            ? { ...entry, quantity: entry.quantity + delta }
+            : entry
+        )
+        .filter((entry) => entry.quantity > 0)
+    );
+  }
+
+  function handleRemoveCartItem(lineId) {
+    setCart((prev) => prev.filter((entry) => entry.id !== lineId));
+  }
+
+  function handleUpdateProduct(prodId, patch) {
+    setCatalog((prev) =>
+      prev.map((p) =>
+        (p.id || p._id) === prodId ? { ...p, ...patch } : p
+      )
+    );
+  }
+
+  function handleAddVariant(prodId, variantObj) {
+    setCatalog((prev) =>
+      prev.map((p) => {
+        if ((p.id || p._id) !== prodId) return p;
+        const existing = Array.isArray(p.variants) ? p.variants : [];
+        return { ...p, variants: [...existing, variantObj] };
+      })
+    );
+  }
+
+  const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
+
+  return (
+    <div>
+      <div
+        style={{
+          background: "#0F172A",
+          color: "#FFFFFF",
+          padding: "8px 18px",
+          fontSize: "12px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}
+      >
+        <span>Cart items: {totalCount}</span>
+        <button
+          type="button"
+          onClick={() => setCartDrawerOpen(true)}
+          style={{
+            background: "#FFFFFF",
+            color: "#0F172A",
+            border: 0,
+            borderRadius: "999px",
+            padding: "4px 12px",
+            fontSize: "11px",
+            fontWeight: 700,
+            cursor: "pointer"
+          }}
+        >
+          OPEN CART ({totalCount})
+        </button>
+      </div>
+
+      <ProductPage
+        product={activeProduct}
+        products={catalog}
+        favorites={favorites}
+        onToggleFavorite={handleToggleFavorite}
+        onAddToCart={handleAddToCart}
+        onOpenCart={() => setCartDrawerOpen(true)}
+        onSelectProduct={(p) => setSelectedId(p.id || p._id)}
+        canManageReviews
+        onUpdateProduct={handleUpdateProduct}
+        onAddVariant={handleAddVariant}
+      />
+
+      {cartDrawerOpen && (
+        <>
+          <div
+            onClick={() => setCartDrawerOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(15, 23, 42, 0.55)",
+              backdropFilter: "blur(2px)",
+              zIndex: 140
+            }}
+          />
+          <aside
+            aria-label="Slide-over Cart Drawer"
+            style={{
+              position: "fixed",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: "min(410px, 94vw)",
+              background: "#FFFFFF",
+              color: "#0F172A",
+              zIndex: 150,
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "-12px 0 36px rgba(0, 0, 0, 0.22)",
+              transform: "translateX(0)",
+              transition: "transform 0.25s ease"
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px 18px",
+                borderBottom: "1px solid #E2E8F0"
+              }}
+            >
+              <strong style={{ fontSize: "14px" }}>
+                Your Cart ({totalCount})
+              </strong>
+              <button
+                type="button"
+                aria-label="Close cart drawer"
+                onClick={() => setCartDrawerOpen(false)}
+                style={{
+                  border: "1px solid #CBD5E1",
+                  background: "#F8FAFC",
+                  borderRadius: "999px",
+                  width: "32px",
+                  height: "32px",
+                  display: "grid",
+                  placeItems: "center",
+                  cursor: "pointer"
+                }}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+              {cart.length === 0 ? (
+                <p style={{ fontSize: "13px", color: "#64748B" }}>
+                  Your cart is currently empty.
+                </p>
+              ) : (
+                <div style={{ display: "grid", gap: "12px" }}>
+                  {cart.map((item) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        display: "flex",
+                        gap: "12px",
+                        alignItems: "center",
+                        padding: "10px",
+                        border: "1px solid #E2E8F0",
+                        borderRadius: "10px"
+                      }}
+                    >
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        style={{
+                          width: "56px",
+                          height: "56px",
+                          objectFit: "cover",
+                          borderRadius: "8px"
+                        }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <strong style={{ display: "block", fontSize: "13px" }}>
+                          {item.name}
+                        </strong>
+                        <span style={{ fontSize: "11.5px", color: "#64748B" }}>
+                          Size: {item.size} • ₹
+                          {Number(item.price).toLocaleString("en-IN")}
+                        </span>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            marginTop: "6px"
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCartQty(item.id, -1)}
+                            style={{
+                              width: "24px",
+                              height: "24px",
+                              borderRadius: "6px",
+                              border: "1px solid #CBD5E1",
+                              background: "#F8FAFC",
+                              cursor: "pointer"
+                            }}
+                          >
+                            -
+                          </button>
+                          <span style={{ fontSize: "12px", fontWeight: 700 }}>
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCartQty(item.id, 1)}
+                            style={{
+                              width: "24px",
+                              height: "24px",
+                              borderRadius: "6px",
+                              border: "1px solid #CBD5E1",
+                              background: "#F8FAFC",
+                              cursor: "pointer"
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={`Remove ${item.name}`}
+                        onClick={() => handleRemoveCartItem(item.id)}
+                        style={{
+                          border: 0,
+                          background: "transparent",
+                          color: "#B91C1C",
+                          cursor: "pointer"
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                padding: "16px 18px",
+                borderTop: "1px solid #E2E8F0",
+                background: "#F8FAFC"
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "12px",
+                  fontSize: "14px",
+                  fontWeight: 700
+                }}
+              >
+                <span>Subtotal</span>
+                <span>₹{subtotal.toLocaleString("en-IN")}</span>
+              </div>
+              <button
+                type="button"
+                className="primary-cta-btn"
+                onClick={() => setCartDrawerOpen(false)}
+                style={{ width: "100%", borderRadius: "999px" }}
+              >
+                CONTINUE SHOPPING
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
+    </div>
+  );
+}

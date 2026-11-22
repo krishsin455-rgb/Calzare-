@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowRight,
@@ -17,6 +17,7 @@ import {
 const SAFE_IMAGE_FALLBACK =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
 
+const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
 const DEFAULT_SIZES = ["UK 7", "UK 8", "UK 9", "UK 10"];
 
 const COLLECTIONS_STRIP = [
@@ -97,9 +98,39 @@ const DEFAULT_SECTION_ORDER = [
   "newsletter"
 ];
 
+function getBlockAlignStyle(align = "left") {
+  const norm = align === "centre" ? "center" : align || "left";
+  if (norm === "center") {
+    return {
+      textAlign: "center",
+      alignItems: "center",
+      justifyContent: "center",
+      marginLeft: "auto",
+      marginRight: "auto"
+    };
+  }
+  if (norm === "right") {
+    return {
+      textAlign: "right",
+      alignItems: "flex-end",
+      justifyContent: "flex-end",
+      marginLeft: "auto",
+      marginRight: "0"
+    };
+  }
+  return {
+    textAlign: "left",
+    alignItems: "flex-start",
+    justifyContent: "flex-start",
+    marginLeft: "0",
+    marginRight: "auto"
+  };
+}
+
 function EditorialShowcaseSlider({
   slides,
   products,
+  titleAlign = "center",
   onOpenProductPage,
   onNavigateCollection
 }) {
@@ -110,6 +141,7 @@ function EditorialShowcaseSlider({
     Array.isArray(slides) && slides.length > 0 ? slides : DEFAULT_EDITORIAL_SLIDES;
   const safeIndex = Math.min(activeIndex, list.length - 1);
   const current = list[safeIndex];
+  const alignStyle = getBlockAlignStyle(titleAlign);
 
   const handlePrev = () =>
     setActiveIndex((prev) => (prev - 1 + list.length) % list.length);
@@ -200,10 +232,10 @@ function EditorialShowcaseSlider({
             inset: 0,
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
+            alignItems: alignStyle.alignItems,
             justifyContent: "center",
-            textAlign: "center",
-            padding: "24px",
+            textAlign: alignStyle.textAlign,
+            padding: "24px clamp(24px, 6vw, 72px)",
             color: "#FFFFFF"
           }}
         >
@@ -215,7 +247,8 @@ function EditorialShowcaseSlider({
                 fontSize: "clamp(32px, 5vw, 58px)",
                 fontWeight: 500,
                 lineHeight: 1.08,
-                color: "#FFFFFF"
+                color: "#FFFFFF",
+                textAlign: alignStyle.textAlign
               }}
             >
               {current.title}
@@ -228,7 +261,8 @@ function EditorialShowcaseSlider({
                 maxWidth: "540px",
                 fontSize: "clamp(13px, 1.4vw, 16px)",
                 lineHeight: 1.55,
-                color: "rgba(255,255,255,0.9)"
+                color: "rgba(255,255,255,0.9)",
+                textAlign: alignStyle.textAlign
               }}
             >
               {current.subtitle}
@@ -366,6 +400,37 @@ export default function HomePage({
   const [hoveredProductId, setHoveredProductId] = useState(null);
   const [campaignVideoFailed, setCampaignVideoFailed] = useState(false);
   const [selectedSizes, setSelectedSizes] = useState({});
+  const [localAlignMap, setLocalAlignMap] = useState(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null");
+      const map = {};
+      (raw?.sections || []).forEach((s) => {
+        if (s?.key && s?.titleAlign) map[s.key] = s.titleAlign;
+      });
+      return map;
+    } catch (_) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    const syncAlign = () => {
+      try {
+        const raw = JSON.parse(localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null");
+        const map = {};
+        (raw?.sections || []).forEach((s) => {
+          if (s?.key && s?.titleAlign) map[s.key] = s.titleAlign;
+        });
+        setLocalAlignMap(map);
+      } catch (_) {}
+    };
+    window.addEventListener("calzare_store_updated", syncAlign);
+    window.addEventListener("storage", syncAlign);
+    return () => {
+      window.removeEventListener("calzare_store_updated", syncAlign);
+      window.removeEventListener("storage", syncAlign);
+    };
+  }, []);
 
   const displayedProducts = visibleProducts || [];
 
@@ -393,6 +458,9 @@ export default function HomePage({
   const cmsSections = Array.isArray(homepage?.sections) ? homepage.sections : [];
   const sectionMap = Object.fromEntries(cmsSections.map((s) => [s.key, s]));
 
+  const getAlign = (key, fallback = "left") =>
+    sectionMap[key]?.titleAlign || localAlignMap[key] || fallback;
+
   const isVisible = (key) => {
     if (sectionMap[key] && sectionMap[key].visible === false) return false;
     return true;
@@ -407,98 +475,140 @@ export default function HomePage({
   })();
 
   const sectionRenderers = {
-    hero_main: () => (
-      <section className="hero" key="hero_main">
-        <img
-          className="hero-image"
-          src={
-            homepage?.heroImage ||
-            sectionMap.hero_main?.image ||
-            SAFE_IMAGE_FALLBACK
-          }
-          onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-          }}
-          alt={homepage?.heroTitle || "Minimal footwear editorial"}
-        />
-        <div className="hero-shade" />
-        <div className="hero-copy">
-          <p className="eyebrow light">{homepage?.heroEyebrow}</p>
-          <h1>
-            {homepage?.heroTitle}
-            <br />
-            <em>{homepage?.heroTitleEmphasis}</em>
-          </h1>
-          <p className="hero-sub">{homepage?.heroDescription}</p>
-          <div className="hero-cta-row">
-            <a className="light-link" href="#shop">
-              DISCOVER THE COLLECTION <ArrowUpRight size={16} />
-            </a>
-            {homepage?.reelsEnabled !== false &&
-              isVisible("reels_motion") &&
-              reels.length > 0 && (
-                <a className="light-link" href="#reels">
-                  WATCH IN MOTION <Play size={14} />
-                </a>
-              )}
+    hero_main: () => {
+      const a = getBlockAlignStyle(getAlign("hero_main", "left"));
+      return (
+        <section className="hero" key="hero_main">
+          <img
+            className="hero-image"
+            src={
+              homepage?.heroImage ||
+              sectionMap.hero_main?.image ||
+              SAFE_IMAGE_FALLBACK
+            }
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+            }}
+            alt={homepage?.heroTitle || "Minimal footwear editorial"}
+          />
+          <div className="hero-shade" />
+          <div
+            className="hero-copy"
+            style={{
+              textAlign: a.textAlign,
+              alignItems: a.alignItems,
+              width: "100%",
+              maxWidth: "1360px",
+              margin: "0 auto"
+            }}
+          >
+            <p className="eyebrow light" style={{ textAlign: a.textAlign }}>
+              {homepage?.heroEyebrow}
+            </p>
+            <h1 style={{ textAlign: a.textAlign }}>
+              {homepage?.heroTitle}
+              <br />
+              <em>{homepage?.heroTitleEmphasis}</em>
+            </h1>
+            <p
+              className="hero-sub"
+              style={{
+                textAlign: a.textAlign,
+                marginLeft: a.marginLeft,
+                marginRight: a.marginRight
+              }}
+            >
+              {homepage?.heroDescription}
+            </p>
+            <div className="hero-cta-row" style={{ justifyContent: a.justifyContent }}>
+              <a className="light-link" href="#shop">
+                DISCOVER THE COLLECTION <ArrowUpRight size={16} />
+              </a>
+              {homepage?.reelsEnabled !== false &&
+                isVisible("reels_motion") &&
+                reels.length > 0 && (
+                  <a className="light-link" href="#reels">
+                    WATCH IN MOTION <Play size={14} />
+                  </a>
+                )}
+            </div>
           </div>
-        </div>
 
-        <a className="scroll-cue" href="#shop">
-          <ArrowDown size={15} /> SCROLL TO EXPLORE
-        </a>
-      </section>
-    ),
+          <a className="scroll-cue" href="#shop">
+            <ArrowDown size={15} /> SCROLL TO EXPLORE
+          </a>
+        </section>
+      );
+    },
 
-    trust_strip: () => (
-      <section
-        key="trust_strip"
-        className={`trust-strip ${trustLayoutClass}`}
-        aria-label="Store highlights"
-      >
-        <div className="trust-item">
-          <Truck size={18} />
-          <div>
-            <strong>FREE SHIPPING ₹2,999+</strong>
-            <span>Fast dispatch across India</span>
+    trust_strip: () => {
+      const a = getBlockAlignStyle(getAlign("trust_strip", "left"));
+      return (
+        <section
+          key="trust_strip"
+          className={`trust-strip ${trustLayoutClass}`}
+          style={{ textAlign: a.textAlign, justifyContent: a.justifyContent }}
+          aria-label="Store highlights"
+        >
+          <div className="trust-item">
+            <Truck size={18} />
+            <div style={{ textAlign: a.textAlign }}>
+              <strong>FREE SHIPPING ₹2,999+</strong>
+              <span>Fast dispatch across India</span>
+            </div>
           </div>
-        </div>
-        <div className="trust-item">
-          <RefreshCw size={18} />
-          <div>
-            <strong>7-DAY SIZE EXCHANGE</strong>
-            <span>Hassle-free UK size swaps</span>
+          <div className="trust-item">
+            <RefreshCw size={18} />
+            <div style={{ textAlign: a.textAlign }}>
+              <strong>7-DAY SIZE EXCHANGE</strong>
+              <span>Hassle-free UK size swaps</span>
+            </div>
           </div>
-        </div>
-        <div className="trust-item">
-          <Sparkles size={18} />
-          <div>
-            <strong>ZERO BREAK-IN COMFORT</strong>
-            <span>Cushioned for long days</span>
+          <div className="trust-item">
+            <Sparkles size={18} />
+            <div style={{ textAlign: a.textAlign }}>
+              <strong>ZERO BREAK-IN COMFORT</strong>
+              <span>Cushioned for long days</span>
+            </div>
           </div>
-        </div>
-        <div className="trust-item">
-          <ShieldCheck size={18} />
-          <div>
-            <strong>PARTIAL COD & UPI</strong>
-            <span>Flexible, secure checkout</span>
+          <div className="trust-item">
+            <ShieldCheck size={18} />
+            <div style={{ textAlign: a.textAlign }}>
+              <strong>PARTIAL COD & UPI</strong>
+              <span>Flexible, secure checkout</span>
+            </div>
           </div>
-        </div>
-      </section>
-    ),
+        </section>
+      );
+    },
 
-    collections_strip: () =>
-      visibleCollectionCards.length > 0 ? (
+    collections_strip: () => {
+      const a = getBlockAlignStyle(getAlign("collections_strip", "left"));
+      return visibleCollectionCards.length > 0 ? (
         <section
           className="collections-strip section-pad"
           id="collections"
           key="collections_strip"
         >
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">CURATED DEPARTMENTS</p>
-              <h2>
+          <div
+            className="section-heading"
+            style={{
+              flexDirection: a.textAlign === "right" ? "row-reverse" : "row",
+              textAlign: a.textAlign
+            }}
+          >
+            <div
+              style={{
+                textAlign: a.textAlign,
+                marginLeft: a.marginLeft,
+                marginRight: a.marginRight
+              }}
+            >
+              <p className="eyebrow" style={{ textAlign: a.textAlign }}>
+                CURATED DEPARTMENTS
+              </p>
+              <h2 style={{ textAlign: a.textAlign }}>
                 Shop by <em>collection.</em>
               </h2>
             </div>
@@ -518,6 +628,7 @@ export default function HomePage({
                 type="button"
                 key={col.key}
                 className="collection-tile"
+                style={{ textAlign: a.textAlign }}
                 onClick={() => onNavigateCollection?.(col.key)}
               >
                 <img
@@ -530,20 +641,36 @@ export default function HomePage({
                   }}
                 />
                 <div className="collection-tile-scrim" />
-                <div className="collection-tile-copy">
-                  <strong>{col.label}</strong>
-                  <span>{col.subtitle}</span>
+                <div
+                  className="collection-tile-copy"
+                  style={{ textAlign: a.textAlign, alignItems: a.alignItems }}
+                >
+                  <strong style={{ textAlign: a.textAlign }}>{col.label}</strong>
+                  <span style={{ textAlign: a.textAlign }}>{col.subtitle}</span>
                 </div>
               </button>
             ))}
           </div>
         </section>
-      ) : null,
+      ) : null;
+    },
 
-    affordable_store: () =>
-      homepage?.affordableStore?.enabled !== false ? (
-        <div key="affordable_store">{under999Section}</div>
-      ) : null,
+    affordable_store: () => {
+      const a = getBlockAlignStyle(getAlign("affordable_store", "left"));
+      return homepage?.affordableStore?.enabled !== false ? (
+        <div
+          key="affordable_store"
+          style={{
+            textAlign: a.textAlign,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: a.alignItems
+          }}
+        >
+          {under999Section}
+        </div>
+      ) : null;
+    },
 
     editorial_slider: () =>
       homepage?.editorialSlider?.enabled !== false ? (
@@ -551,13 +678,15 @@ export default function HomePage({
           key="editorial_slider"
           slides={homepage?.editorialSlider?.slides}
           products={products}
+          titleAlign={getAlign("editorial_slider", "center")}
           onOpenProductPage={onOpenProductPage}
           onNavigateCollection={onNavigateCollection}
         />
       ) : null,
 
-    featured_product: () =>
-      homepage?.featuredProduct?.enabled !== false && homepage?.featuredProduct ? (
+    featured_product: () => {
+      const a = getBlockAlignStyle(getAlign("featured_product", "left"));
+      return homepage?.featuredProduct?.enabled !== false && homepage?.featuredProduct ? (
         <section className="exclusive-spotlight section-pad" key="featured_product">
           <div className="exclusive-card" onClick={onFeaturedClick}>
             <div className="exclusive-media">
@@ -573,195 +702,260 @@ export default function HomePage({
                 alt={homepage.featuredProduct.title}
               />
             </div>
-            <div className="exclusive-info">
-              <p className="eyebrow">FEATURED DROP</p>
-              <h2>{homepage.featuredProduct.title}</h2>
-              <p className="exclusive-price">{money(homepage.featuredProduct.price)}</p>
-              <span className="dark-link">
+            <div
+              className="exclusive-info"
+              style={{
+                textAlign: a.textAlign,
+                alignItems: a.alignItems,
+                marginLeft: a.marginLeft,
+                marginRight: a.marginRight
+              }}
+            >
+              <p className="eyebrow" style={{ textAlign: a.textAlign }}>
+                FEATURED DROP
+              </p>
+              <h2 style={{ textAlign: a.textAlign }}>{homepage.featuredProduct.title}</h2>
+              <p className="exclusive-price" style={{ textAlign: a.textAlign }}>
+                {money(homepage.featuredProduct.price)}
+              </p>
+              <span className="dark-link" style={{ justifyContent: a.justifyContent }}>
                 VIEW & SELECT SIZE <ArrowUpRight size={15} />
               </span>
             </div>
           </div>
         </section>
-      ) : null,
+      ) : null;
+    },
 
-    intro_statement: () => (
-      <section className="intro section-pad" key="intro_statement">
-        <p className="eyebrow">LESS, BUT BETTER</p>
-        <h2>
-          Good design is felt
-          <br />
-          in <em>every step.</em>
-        </h2>
-        <p>
-          We believe the things you wear every day should be considered, comfortable and made to
-          last. Meet the new language of everyday footwear.
-        </p>
-      </section>
-    ),
+    intro_statement: () => {
+      const a = getBlockAlignStyle(getAlign("intro_statement", "center"));
+      return (
+        <section
+          className="intro section-pad"
+          key="intro_statement"
+          style={{
+            textAlign: a.textAlign,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: a.alignItems
+          }}
+        >
+          <p className="eyebrow" style={{ textAlign: a.textAlign }}>
+            LESS, BUT BETTER
+          </p>
+          <h2 style={{ textAlign: a.textAlign }}>
+            Good design is felt
+            <br />
+            in <em>every step.</em>
+          </h2>
+          <p
+            style={{
+              textAlign: a.textAlign,
+              marginLeft: a.marginLeft,
+              marginRight: a.marginRight
+            }}
+          >
+            We believe the things you wear every day should be considered, comfortable and made to
+            last. Meet the new language of everyday footwear.
+          </p>
+        </section>
+      );
+    },
 
-    shop_grid: () => (
-      <section className="shop-section section-pad" id="shop" key="shop_grid">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">THE CALZARE EDIT</p>
-            <h2>
-              Find your <em>form.</em>
-            </h2>
-          </div>
-          <span className="product-count">
-            {displayedProducts.length.toString().padStart(2, "0")} PRODUCTS
-          </span>
-        </div>
-
-        <div className="filters">
-          {categoryFilterPills.map((item) => (
-            <button
-              type="button"
-              key={item.key}
-              className={category === item.key ? "filter active" : "filter"}
-              onClick={() => setCategory(item.key)}
+    shop_grid: () => {
+      const a = getBlockAlignStyle(getAlign("shop_grid", "left"));
+      return (
+        <section className="shop-section section-pad" id="shop" key="shop_grid">
+          <div
+            className="section-heading"
+            style={{
+              flexDirection: a.textAlign === "right" ? "row-reverse" : "row",
+              textAlign: a.textAlign
+            }}
+          >
+            <div
+              style={{
+                textAlign: a.textAlign,
+                marginLeft: a.marginLeft,
+                marginRight: a.marginRight
+              }}
             >
-              {item.label}
-            </button>
-          ))}
-        </div>
+              <p className="eyebrow" style={{ textAlign: a.textAlign }}>
+                THE CALZARE EDIT
+              </p>
+              <h2 style={{ textAlign: a.textAlign }}>
+                Find your <em>form.</em>
+              </h2>
+            </div>
+            <span className="product-count">
+              {displayedProducts.length.toString().padStart(2, "0")} PRODUCTS
+            </span>
+          </div>
 
-        <div className="product-grid">
-          {displayedProducts.map((product) => {
-            const sizes =
-              Array.isArray(product.sizes) && product.sizes.length > 0
-                ? product.sizes
-                : DEFAULT_SIZES;
-            const activeSize = selectedSizes[product.id] || sizes[1] || sizes[0];
-
-            return (
-              <article
-                className="product-card"
-                key={product.id}
-                onMouseEnter={() => setHoveredProductId(product.id)}
-                onMouseLeave={() => setHoveredProductId(null)}
+          <div className="filters" style={{ justifyContent: a.justifyContent }}>
+            {categoryFilterPills.map((item) => (
+              <button
+                type="button"
+                key={item.key}
+                className={category === item.key ? "filter active" : "filter"}
+                onClick={() => setCategory(item.key)}
               >
-                <div
-                  className="product-image-wrap clickable"
-                  onClick={() => onOpenProductPage(product)}
-                >
-                  {hoveredProductId === product.id && product.videoUrl ? (
-                    <video
-                      src={product.videoUrl}
-                      poster={product.image || SAFE_IMAGE_FALLBACK}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="card-hover-video"
-                    />
-                  ) : (
-                    <img
-                      src={product.image || SAFE_IMAGE_FALLBACK}
-                      onError={(e) => {
-                        e.currentTarget.onerror = null;
-                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                      }}
-                      alt={product.name}
-                      loading="lazy"
-                    />
-                  )}
-                  {product.badge && (
-                    <span className="product-badge">{product.badge}</span>
-                  )}
+                {item.label}
+              </button>
+            ))}
+          </div>
 
-                  {product.videoUrl && (
+          <div className="product-grid">
+            {displayedProducts.map((product) => {
+              const sizes =
+                Array.isArray(product.sizes) && product.sizes.length > 0
+                  ? product.sizes
+                  : DEFAULT_SIZES;
+              const activeSize = selectedSizes[product.id] || sizes[1] || sizes[0];
+
+              return (
+                <article
+                  className="product-card"
+                  key={product.id}
+                  onMouseEnter={() => setHoveredProductId(product.id)}
+                  onMouseLeave={() => setHoveredProductId(null)}
+                >
+                  <div
+                    className="product-image-wrap clickable"
+                    onClick={() => onOpenProductPage(product)}
+                  >
+                    {hoveredProductId === product.id && product.videoUrl ? (
+                      <video
+                        src={product.videoUrl}
+                        poster={product.image || SAFE_IMAGE_FALLBACK}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="card-hover-video"
+                      />
+                    ) : (
+                      <img
+                        src={product.image || SAFE_IMAGE_FALLBACK}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                        }}
+                        alt={product.name}
+                        loading="lazy"
+                      />
+                    )}
+                    {product.badge && (
+                      <span className="product-badge">{product.badge}</span>
+                    )}
+
+                    {product.videoUrl && (
+                      <button
+                        type="button"
+                        className="video-pill"
+                        title="Watch product video"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenQuickView(product, true);
+                        }}
+                      >
+                        <Film size={12} /> VIDEO
+                      </button>
+                    )}
+
                     <button
                       type="button"
-                      className="video-pill"
-                      title="Watch product video"
+                      className={`favorite ${favorites.includes(product.id) ? "selected" : ""}`}
+                      aria-label="Add to wishlist"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onOpenQuickView(product, true);
+                        onToggleFavorite(product.id);
                       }}
                     >
-                      <Film size={12} /> VIDEO
+                      <Heart
+                        size={18}
+                        fill={favorites.includes(product.id) ? "currentColor" : "none"}
+                      />
                     </button>
-                  )}
 
-                  <button
-                    type="button"
-                    className={`favorite ${favorites.includes(product.id) ? "selected" : ""}`}
-                    aria-label="Add to wishlist"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleFavorite(product.id);
-                    }}
-                  >
-                    <Heart
-                      size={18}
-                      fill={favorites.includes(product.id) ? "currentColor" : "none"}
-                    />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="quick-add"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onDirectAddToCart) {
-                        onDirectAddToCart(product, activeSize);
-                      } else {
-                        onOpenQuickView(product, false);
-                      }
-                    }}
-                  >
-                    QUICK ADD ({activeSize}) <ArrowUpRight size={15} />
-                  </button>
-                </div>
-
-                <div className="product-meta" onClick={() => onOpenProductPage(product)}>
-                  <div>
-                    <h3>{product.name}</h3>
-                    <p>{product.color}</p>
-                  </div>
-                  <strong>{money(product.price)}</strong>
-                </div>
-                {product.oldPrice && <p className="old-price">{money(product.oldPrice)}</p>}
-
-                <div
-                  className="card-size-row"
-                  style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {sizes.map((sz) => (
                     <button
                       type="button"
-                      key={sz}
-                      className={activeSize === sz ? "size-pill active" : "size-pill"}
-                      style={{ padding: "4px 8px", fontSize: "10px" }}
-                      onClick={() =>
-                        setSelectedSizes((prev) => ({ ...prev, [product.id]: sz }))
-                      }
+                      className="quick-add"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onDirectAddToCart) {
+                          onDirectAddToCart(product, activeSize);
+                        } else {
+                          onOpenQuickView(product, false);
+                        }
+                      }}
                     >
-                      {sz.replace("UK ", "")}
+                      QUICK ADD ({activeSize}) <ArrowUpRight size={15} />
                     </button>
-                  ))}
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                  </div>
 
-        {!displayedProducts.length && (
-          <p className="empty-state">No pieces found. Try another category or search.</p>
-        )}
-      </section>
-    ),
+                  <div className="product-meta" onClick={() => onOpenProductPage(product)}>
+                    <div>
+                      <h3>{product.name}</h3>
+                      <p>{product.color}</p>
+                    </div>
+                    <strong>{money(product.price)}</strong>
+                  </div>
+                  {product.oldPrice && <p className="old-price">{money(product.oldPrice)}</p>}
 
-    reels_motion: () =>
-      homepage?.reelsEnabled !== false && reels.length > 0 ? (
+                  <div
+                    className="card-size-row"
+                    style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {sizes.map((sz) => (
+                      <button
+                        type="button"
+                        key={sz}
+                        className={activeSize === sz ? "size-pill active" : "size-pill"}
+                        style={{ padding: "4px 8px", fontSize: "10px" }}
+                        onClick={() =>
+                          setSelectedSizes((prev) => ({ ...prev, [product.id]: sz }))
+                        }
+                      >
+                        {sz.replace("UK ", "")}
+                      </button>
+                    ))}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          {!displayedProducts.length && (
+            <p className="empty-state">No pieces found. Try another category or search.</p>
+          )}
+        </section>
+      );
+    },
+
+    reels_motion: () => {
+      const a = getBlockAlignStyle(getAlign("reels_motion", "left"));
+      return homepage?.reelsEnabled !== false && reels.length > 0 ? (
         <section className="reels-section section-pad" id="reels" key="reels_motion">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">SHOPPABLE REELS</p>
-              <h2>
+          <div
+            className="section-heading"
+            style={{
+              flexDirection: a.textAlign === "right" ? "row-reverse" : "row",
+              textAlign: a.textAlign
+            }}
+          >
+            <div
+              style={{
+                textAlign: a.textAlign,
+                marginLeft: a.marginLeft,
+                marginRight: a.marginRight
+              }}
+            >
+              <p className="eyebrow" style={{ textAlign: a.textAlign }}>
+                SHOPPABLE REELS
+              </p>
+              <h2 style={{ textAlign: a.textAlign }}>
                 Calzare in <em>motion.</em>
               </h2>
             </div>
@@ -793,8 +987,11 @@ export default function HomePage({
                   )}
                   <div className="reel-overlay">
                     <span className="reel-tag">{reel.tag}</span>
-                    <div className="reel-bottom">
-                      <h3>{reel.title}</h3>
+                    <div
+                      className="reel-bottom"
+                      style={{ textAlign: a.textAlign, alignItems: a.alignItems }}
+                    >
+                      <h3 style={{ textAlign: a.textAlign }}>{reel.title}</h3>
                       {linkedProduct && (
                         <div className="reel-product-chip">
                           <img
@@ -819,137 +1016,217 @@ export default function HomePage({
             })}
           </div>
         </section>
-      ) : null,
+      ) : null;
+    },
 
-    campaign_banner: () => (
-      <section className="campaign" key="campaign_banner">
-        <div className="campaign-image">
-          {homepage?.campaignVideoUrl && !campaignVideoFailed ? (
-            <video
-              src={homepage.campaignVideoUrl}
-              poster={sectionMap.campaign_banner?.image || SAFE_IMAGE_FALLBACK}
-              autoPlay
-              loop
-              muted
-              playsInline
-              onError={() => setCampaignVideoFailed(true)}
-            />
-          ) : (
-            <img
-              src={sectionMap.campaign_banner?.image || SAFE_IMAGE_FALLBACK}
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-              }}
-              alt="Footwear and everyday styling"
-              loading="lazy"
-            />
-          )}
-        </div>
-        <div className="campaign-copy">
-          <p className="eyebrow">A CALZARE STATE OF MIND</p>
-          <h2>
-            Made to move.
-            <br />
-            <em>Made to matter.</em>
-          </h2>
-          <p>From slow mornings to the long way home, find pieces that feel like you.</p>
-          <a
-            className="dark-link"
-            href="#collections"
-            onClick={(e) => {
-              e.preventDefault();
-              document
-                .getElementById("collections")
-                ?.scrollIntoView({ behavior: "smooth" });
+    campaign_banner: () => {
+      const a = getBlockAlignStyle(getAlign("campaign_banner", "left"));
+      return (
+        <section className="campaign" key="campaign_banner">
+          <div className="campaign-image">
+            {homepage?.campaignVideoUrl && !campaignVideoFailed ? (
+              <video
+                src={homepage.campaignVideoUrl}
+                poster={sectionMap.campaign_banner?.image || SAFE_IMAGE_FALLBACK}
+                autoPlay
+                loop
+                muted
+                playsInline
+                onError={() => setCampaignVideoFailed(true)}
+              />
+            ) : (
+              <img
+                src={sectionMap.campaign_banner?.image || SAFE_IMAGE_FALLBACK}
+                onError={(e) => {
+                  e.currentTarget.onerror = null;
+                  e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                }}
+                alt="Footwear and everyday styling"
+                loading="lazy"
+              />
+            )}
+          </div>
+          <div
+            className="campaign-copy"
+            style={{
+              textAlign: a.textAlign,
+              alignItems: a.alignItems
             }}
           >
-            SHOP THE EDIT <ArrowRight size={16} />
-          </a>
-        </div>
-      </section>
-    ),
-
-    our_philosophy: () => (
-      <section className="story section-pad" id="story" key="our_philosophy">
-        <p className="eyebrow">
-          {customStoryBlocks[0]?.eyebrow || "OUR PHILOSOPHY"}
-        </p>
-        <h2>
-          {customStoryBlocks[0]?.heading || (
-            <>
-              Wear what
+            <p className="eyebrow" style={{ textAlign: a.textAlign }}>
+              A CALZARE STATE OF MIND
+            </p>
+            <h2 style={{ textAlign: a.textAlign }}>
+              Made to move.
               <br />
-              moves <em>you.</em>
-            </>
-          )}
-        </h2>
-        <p>
-          {customStoryBlocks[0]?.body ||
-            "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention. We bring together considered silhouettes, versatile details and a point of view that never needs to shout."}
-        </p>
-        <button
-          type="button"
-          className="dark-link"
-          style={{
-            background: "none",
-            border: 0,
-            borderBottom: "1px solid currentColor",
-            cursor: "pointer"
-          }}
-          onClick={() => onNavigateCollection?.("story")}
-        >
-          GET TO KNOW US <ArrowUpRight size={16} />
-        </button>
-      </section>
-    ),
-
-    journal_notes: () => (
-      <section className="journal section-pad" id="journal" key="journal_notes">
-        <div>
-          <p className="eyebrow">NOTES FROM CALZARE</p>
-          <h2>
-            The considered <em>life.</em>
-          </h2>
-        </div>
-        <div className="journal-card">
-          <img
-            src={
-              sectionMap.journal_notes?.image ||
-              "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=85"
-            }
-            alt="Minimal design studio"
-            loading="lazy"
-          />
-          <div>
-            <span>01 — THE JOURNAL</span>
-            <h3>On choosing fewer, better things.</h3>
-            <a href="#story">
-              READ THE STORY <ArrowUpRight size={14} />
+              <em>Made to matter.</em>
+            </h2>
+            <p style={{ textAlign: a.textAlign }}>
+              From slow mornings to the long way home, find pieces that feel like you.
+            </p>
+            <a
+              className="dark-link"
+              href="#collections"
+              style={{ justifyContent: a.justifyContent }}
+              onClick={(e) => {
+                e.preventDefault();
+                document
+                  .getElementById("collections")
+                  ?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              SHOP THE EDIT <ArrowRight size={16} />
             </a>
           </div>
-        </div>
-      </section>
-    ),
+        </section>
+      );
+    },
 
-    newsletter: () => (
-      <section className="newsletter" key="newsletter">
-        <p className="eyebrow light">A NOTE, NOW AND THEN</p>
-        <h2>
-          Stay in the <em>know.</em>
-        </h2>
-        <p>New collections, thoughtful stories and a little inspiration for the everyday.</p>
-        <form onSubmit={onSubscribe}>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Your email address"
-          />
-        </form>
-      </section>
-    )
+    our_philosophy: () => {
+      const a = getBlockAlignStyle(getAlign("our_philosophy", "center"));
+      return (
+        <section
+          className="story section-pad"
+          id="story"
+          key="our_philosophy"
+          style={{
+            textAlign: a.textAlign,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: a.alignItems
+          }}
+        >
+          <p className="eyebrow" style={{ textAlign: a.textAlign }}>
+            {customStoryBlocks[0]?.eyebrow || "OUR PHILOSOPHY"}
+          </p>
+          <h2 style={{ textAlign: a.textAlign }}>
+            {customStoryBlocks[0]?.heading || (
+              <>
+                Wear what
+                <br />
+                moves <em>you.</em>
+              </>
+            )}
+          </h2>
+          <p
+            style={{
+              textAlign: a.textAlign,
+              marginLeft: a.marginLeft,
+              marginRight: a.marginRight
+            }}
+          >
+            {customStoryBlocks[0]?.body ||
+              "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention. We bring together considered silhouettes, versatile details and a point of view that never needs to shout."}
+          </p>
+          <button
+            type="button"
+            className="dark-link"
+            style={{
+              background: "none",
+              border: 0,
+              borderBottom: "1px solid currentColor",
+              cursor: "pointer",
+              justifyContent: a.justifyContent
+            }}
+            onClick={() => onNavigateCollection?.("story")}
+          >
+            GET TO KNOW US <ArrowUpRight size={16} />
+          </button>
+        </section>
+      );
+    },
+
+    journal_notes: () => {
+      const a = getBlockAlignStyle(getAlign("journal_notes", "left"));
+      return (
+        <section
+          className="journal section-pad"
+          id="journal"
+          key="journal_notes"
+          style={{
+            textAlign: a.textAlign,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: a.alignItems
+          }}
+        >
+          <div style={{ textAlign: a.textAlign, width: "100%" }}>
+            <p className="eyebrow" style={{ textAlign: a.textAlign }}>
+              NOTES FROM CALZARE
+            </p>
+            <h2 style={{ textAlign: a.textAlign }}>
+              The considered <em>life.</em>
+            </h2>
+          </div>
+          <div className="journal-card" style={{ width: "100%" }}>
+            <img
+              src={
+                sectionMap.journal_notes?.image ||
+                "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=85"
+              }
+              alt="Minimal design studio"
+              loading="lazy"
+            />
+            <div
+              style={{
+                textAlign: a.textAlign,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: a.alignItems
+              }}
+            >
+              <span>01 — THE JOURNAL</span>
+              <h3 style={{ textAlign: a.textAlign }}>On choosing fewer, better things.</h3>
+              <a href="#story" style={{ justifyContent: a.justifyContent }}>
+                READ THE STORY <ArrowUpRight size={14} />
+              </a>
+            </div>
+          </div>
+        </section>
+      );
+    },
+
+    newsletter: () => {
+      const a = getBlockAlignStyle(getAlign("newsletter", "center"));
+      return (
+        <section
+          className="newsletter"
+          key="newsletter"
+          style={{
+            textAlign: a.textAlign,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: a.alignItems
+          }}
+        >
+          <p className="eyebrow light" style={{ textAlign: a.textAlign }}>
+            A NOTE, NOW AND THEN
+          </p>
+          <h2 style={{ textAlign: a.textAlign }}>
+            Stay in the <em>know.</em>
+          </h2>
+          <p
+            style={{
+              textAlign: a.textAlign,
+              marginLeft: a.marginLeft,
+              marginRight: a.marginRight
+            }}
+          >
+            New collections, thoughtful stories and a little inspiration for the everyday.
+          </p>
+          <form onSubmit={onSubscribe} style={{ justifyContent: a.justifyContent }}>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Your email address"
+              style={{ textAlign: a.textAlign }}
+            />
+          </form>
+        </section>
+      );
+    }
   };
 
   return (
