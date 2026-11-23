@@ -43,6 +43,7 @@ function readCartRewardBannerCfg() {
     twoPairHeadline: "10% OFF unlocked! Add 1 more pair to get 1 PAIR FREE!"
   };
 }
+
 const SAFE_IMAGE_FALLBACK =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
 
@@ -126,11 +127,15 @@ export function CartDrawer({
   onAddUpsell,
   onCheckout,
   money,
-  promoBoxSetting
+  promoBoxSetting,
+  rewardBannerSetting
 }) {
   const [upsellSizes, setUpsellSizes] = useState({});
   const [localCoupons, setLocalCoupons] = useState(() => readStoredCoupons());
   const [localPromoCfg, setLocalPromoCfg] = useState(() => readPromoBoxConfig());
+  const [localRewardCfg, setLocalRewardCfg] = useState(() =>
+    readCartRewardBannerCfg()
+  );
   const [localInput, setLocalInput] = useState("");
   const [localApplied, setLocalApplied] = useState(null);
   const [localError, setLocalError] = useState("");
@@ -139,6 +144,7 @@ export function CartDrawer({
     const sync = () => {
       setLocalCoupons(readStoredCoupons());
       setLocalPromoCfg(readPromoBoxConfig());
+      setLocalRewardCfg(readCartRewardBannerCfg());
     };
     window.addEventListener("calzare_store_updated", sync);
     window.addEventListener("storage", sync);
@@ -235,32 +241,47 @@ export function CartDrawer({
     setLocalError("");
   }
 
+  const activeRewardCfg = {
+    ...localRewardCfg,
+    ...(rewardBannerSetting || {})
+  };
+
   const rewardProgress = useMemo(() => {
     if (cartCount === 0) {
       return {
         percent: 10,
-        headline: "Buy 2 pairs for 10% OFF • Buy 3 pairs & get 1 PAIR FREE!"
+        headline:
+          activeRewardCfg.emptyHeadline ||
+          "Buy 2 pairs for 10% OFF • Buy 3 pairs & get 1 PAIR FREE!"
       };
     }
     if (cartCount === 1) {
       return {
         percent: 48,
-        headline: "Add 1 more pair to unlock 10% OFF on your order!"
+        headline:
+          activeRewardCfg.onePairHeadline ||
+          "Add 1 more pair to unlock 10% OFF on your order!"
       };
     }
     if (cartCount === 2) {
       return {
         percent: 78,
-        headline: "10% OFF unlocked! Add 1 more pair to get 1 PAIR FREE!"
+        headline:
+          activeRewardCfg.twoPairHeadline ||
+          "10% OFF unlocked! Add 1 more pair to get 1 PAIR FREE!"
       };
     }
+    const rawTemplate =
+      activeRewardCfg.b2g1UnlockedTemplate !== undefined &&
+      activeRewardCfg.b2g1UnlockedTemplate !== ""
+        ? activeRewardCfg.b2g1UnlockedTemplate
+        : "1 PAIR FREE unlocked ({freeItemName})!";
+
     return {
       percent: 100,
-      headline: `1 PAIR FREE unlocked${
-        bundleTier.freeItemName ? ` (${bundleTier.freeItemName})` : ""
-      }!`
+      headline: rawTemplate.replace("{freeItemName}", bundleTier.freeItemName || "")
     };
-  }, [cartCount, bundleTier.freeItemName]);
+  }, [cartCount, bundleTier.freeItemName, activeRewardCfg]);
 
   const mrpSavings = Math.max(
     0,

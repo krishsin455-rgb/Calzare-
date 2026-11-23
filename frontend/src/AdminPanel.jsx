@@ -43,6 +43,21 @@ const CATEGORIES_STORAGE_KEY = "calzare_custom_categories";
 const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
 const PAGE_STYLES_STORAGE_KEY = "calzare_page_styles_v1";
 const POLICIES_STORAGE_KEY = "calzare_store_policies_v1";
+const SETTINGS_STORAGE_KEY = "calzare_settings_v1";
+
+function readLocalSettings() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || "null");
+    if (parsed && typeof parsed === "object") return parsed;
+  } catch (_) {}
+  return {};
+}
+
+function writeLocalSettings(settingsObj) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsObj));
+  } catch (_) {}
+}
 
 const DEFAULT_PAYMENT_METHODS = [
   "Partial COD (₹299 Advance)",
@@ -301,6 +316,8 @@ const DEFAULT_HOMEPAGE_CMS = {
         title: "Forma Court",
         subtitle: "Minimal architectural court silhouette built for long city days.",
         ctaLabel: "Buy Now",
+        ctaAlign: "left",
+        ctaBottomPx: 14,
         image: FALLBACK_IMG,
         slideHeightPx: 460,
         imageFit: "cover",
@@ -308,7 +325,7 @@ const DEFAULT_HOMEPAGE_CMS = {
         imagePosY: 50,
         imageZoom: 1,
         productId: "c-001",
-        redirectUrl: "#shop"
+        redirectUrl: "#product/c-001"
       }
     ]
   },
@@ -689,7 +706,10 @@ function DropZoneField({
               accept={accept}
               hidden
               disabled={isBusy}
-              onChange={(e) => handleSelectedFile(e.target.files?.[0])}
+              onChange={(e) => {
+                handleSelectedFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
             />
           </label>
         </div>
@@ -925,8 +945,14 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       pageAssignments: readLocalPageAssignments(mergedCats),
       pageStyles: readLocalPageStyles(),
       policies: readLocalPolicies(),
-      collectionImages: { men: "", women: "", unisex: "", kids: "" },
-      categoryImages: {},
+      collectionImages: {
+        men: "",
+        women: "",
+        unisex: "",
+        kids: "",
+        ...(readLocalSettings().collectionImages || {})
+      },
+      categoryImages: { ...(readLocalSettings().categoryImages || {}) },
       navigation: [
         { label: "HOME", url: "#home" },
         { label: "MEN", url: "#men" },
@@ -1742,6 +1768,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
     if (Array.isArray(updated.policies)) {
       writeLocalPolicies(updated.policies);
     }
+    writeLocalSettings(updated);
 
     if (!token) {
       setSettings(updated);
@@ -1815,6 +1842,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       if (nextSettings.policies) {
         writeLocalPolicies(nextSettings.policies);
       }
+      writeLocalSettings(nextSettings);
       setSettings(nextSettings);
       notify(successMsg);
       broadcastSync();
@@ -2521,15 +2549,21 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         {toast && (
           <div
             style={{
-              margin: "16px 24px 0",
-              padding: "10px 16px",
+              position: "fixed",
+              bottom: "20px",
+              right: "20px",
+              zIndex: 9999,
+              maxWidth: "420px",
+              padding: "12px 16px",
               background: "#0F172A",
               color: "#fff",
-              borderRadius: "8px",
+              borderRadius: "10px",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.28)",
               fontSize: "12.5px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between"
+              justifyContent: "space-between",
+              gap: "12px"
             }}
           >
             <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -3443,7 +3477,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                             <input
                               placeholder="Paste extra photo URL..."
                               value={extraPhotoInput}
-                              onChange={(e) => setExtraPhotoInput(e.target.value)}
+                              onChange={(e) =>setExtraPhotoInput(e.target.value)}
                               style={{ ...ctrlInput, flex: 1, minWidth: "170px", background: "#FFFFFF" }}
                             />
                             <button
@@ -6834,7 +6868,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   <h1 style={pageTitle}>EDITORIAL SHOWCASE SLIDES (BELOW ₹999)</h1>
                   <p style={pageSub}>
                     Manage the full-width Sola World–style slider directly below the ₹999 Store
-                    section, including per-slide height.
+                    section, including per-slide height and Buy Now button alignment.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -6852,6 +6886,8 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                               title: "New Drop",
                               subtitle: "Engineered for everyday movement.",
                               ctaLabel: "Buy Now",
+                              ctaAlign: "left",
+                              ctaBottomPx: 14,
                               image: "",
                               slideHeightPx: 460,
                               imageFit: "cover",
@@ -6859,7 +6895,9 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                               imagePosY: 50,
                               imageZoom: 1,
                               productId: products[0]?.id || "",
-                              redirectUrl: "#shop"
+                              redirectUrl: products[0]?.id
+                                ? `#product/${products[0].id}`
+                                : "#shop"
                             }
                           ]
                         }
@@ -7095,6 +7133,25 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                                 }))
                               }
                               style={{ width: "100%" }}
+                            />
+                          </div>
+                          <div>
+                            <label style={fieldLabel}>
+                              Buy Now Button Alignment (Left / Centre / Right)
+                            </label>
+                            <SectionNameAlignButtons
+                              value={slide.ctaAlign || "left"}
+                              onChange={(align) =>
+                                setHomepage((prev) => ({
+                                  ...prev,
+                                  editorialSlider: {
+                                    ...(prev.editorialSlider || {}),
+                                    slides: prev.editorialSlider.slides.map((it, i) =>
+                                      i === sIdx ? { ...it, ctaAlign: align } : it
+                                    )
+                                  }
+                                }))
+                              }
                             />
                           </div>
                           <div>

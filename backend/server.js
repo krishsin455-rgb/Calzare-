@@ -821,7 +821,6 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
       return res.status(400).json({ message: "Invalid payment amount." });
     }
 
-HEAD
     const items = Array.isArray(req.body.items) ? req.body.items : [];
     const lineItems = items.map((item, idx) => {
       const unitPaise = Math.max(100, Math.round((Number(item.price) || 0) * 100));

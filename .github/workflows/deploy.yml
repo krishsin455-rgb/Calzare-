@@ -47,7 +47,7 @@ jobs:
           echo "===== INSTALLING FRONTEND ====="
           npm --prefix frontend ci
           echo "===== BUILDING FRONTEND ====="
-          npm --prefix frontend run build
+          VITE_API_URL=https://api.calzare.in/api npm --prefix frontend run build
           echo "===== RESTARTING BACKEND ====="
           pm2 restart calzare-new --update-env
           sleep 3

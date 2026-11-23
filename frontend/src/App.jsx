@@ -21,6 +21,17 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
 const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
 const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
 const PAGE_STYLES_STORAGE_KEY = "calzare_page_styles_v1";
+const PRODUCTS_STORAGE_KEY = "calzare_products_v1";
+const REELS_STORAGE_KEY = "calzare_reels_v1";
+const SETTINGS_STORAGE_KEY = "calzare_settings_v1";
+
+function readCache(key, fallback) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    if (parsed !== null && parsed !== undefined) return parsed;
+  } catch (_) {}
+  return fallback;
+}
 
 const SAFE_IMAGE_FALLBACK =
   "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
@@ -572,6 +583,18 @@ function applyHomepagePayload(hp, setHomepage) {
           ...hp.theme
         }
       : prev.theme,
+    cartPromoBox: hp.cartPromoBox
+      ? {
+          ...(prev.cartPromoBox || {}),
+          ...hp.cartPromoBox
+        }
+      : prev.cartPromoBox,
+    cartRewardBanner: hp.cartRewardBanner
+      ? {
+          ...(prev.cartRewardBanner || {}),
+          ...hp.cartRewardBanner
+        }
+      : prev.cartRewardBanner,
     navbar: hp.navbar
       ? {
           ...prev.navbar,
@@ -1314,11 +1337,19 @@ export function ShortVideoReelsSection({
 function App() {
   const initialRoute = parseRouteState();
 
-  const [products, setProducts] = useState(FALLBACK_PRODUCTS);
-  const [reels, setReels] = useState(FALLBACK_REELS);
-  const [homepage, setHomepage] = useState(DEFAULT_HOMEPAGE);
+  const [products, setProducts] = useState(() =>
+    readCache(PRODUCTS_STORAGE_KEY, FALLBACK_PRODUCTS)
+  );
+  const [reels, setReels] = useState(() =>
+    readCache(REELS_STORAGE_KEY, FALLBACK_REELS)
+  );
+  const [homepage, setHomepage] = useState(() => ({
+    ...DEFAULT_HOMEPAGE,
+    ...readCache(HOMEPAGE_STORAGE_KEY, {})
+  }));
   const [storeSettings, setStoreSettings] = useState(() => ({
     ...DEFAULT_SETTINGS,
+    ...readCache(SETTINGS_STORAGE_KEY, {}),
     pageAssignments: readLocalPageAssignments(),
     pageStyles: readLocalPageStyles()
   }));
@@ -1527,8 +1558,18 @@ function App() {
       }
     } catch {}
 
+    const cachedSettings = readCache(SETTINGS_STORAGE_KEY, {});
     setStoreSettings((prev) => ({
       ...prev,
+      ...cachedSettings,
+      collectionImages: {
+        ...(prev.collectionImages || {}),
+        ...(cachedSettings.collectionImages || {})
+      },
+      categoryImages: {
+        ...(prev.categoryImages || {}),
+        ...(cachedSettings.categoryImages || {})
+      },
       pageAssignments: {
         ...(prev.pageAssignments || DEFAULT_PAGE_ASSIGNMENTS),
         ...readLocalPageAssignments()
@@ -1544,13 +1585,15 @@ function App() {
       .then((data) => {
         const list = data?.products || (Array.isArray(data) ? data : null);
         if (list?.length) {
-          setProducts(
-            list.filter(Boolean).map((p) => ({
-              ...p,
-              image: safeImg(p.image),
-              videoUrl: safeVid(p.videoUrl)
-            }))
-          );
+          const mapped = list.filter(Boolean).map((p) => ({
+            ...p,
+            image: safeImg(p.image),
+            videoUrl: safeVid(p.videoUrl)
+          }));
+          setProducts(mapped);
+          try {
+            localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(mapped));
+          } catch {}
         }
       })
       .catch(() => {});
@@ -1575,13 +1618,15 @@ function App() {
       .then((data) => {
         const list = data?.reels || (Array.isArray(data) ? data : null);
         if (list?.length) {
-          setReels(
-            list.filter(Boolean).map((r) => ({
-              ...r,
-              poster: safeImg(r.poster),
-              videoUrl: safeVid(r.videoUrl)
-            }))
-          );
+          const mapped = list.filter(Boolean).map((r) => ({
+            ...r,
+            poster: safeImg(r.poster),
+            videoUrl: safeVid(r.videoUrl)
+          }));
+          setReels(mapped);
+          try {
+            localStorage.setItem(REELS_STORAGE_KEY, JSON.stringify(mapped));
+          } catch {}
         }
       })
       .catch(() => {});
@@ -1591,31 +1636,45 @@ function App() {
       .then((data) => {
         const incoming = data?.settings || data;
         if (incoming && typeof incoming === "object") {
-          setStoreSettings((prev) => ({
-            ...prev,
-            ...incoming,
-            categories: incoming.categories?.length ? incoming.categories : prev.categories,
-            pageAssignments:
-              incoming.pageAssignments && typeof incoming.pageAssignments === "object"
-                ? {
-                    ...(prev.pageAssignments || DEFAULT_PAGE_ASSIGNMENTS),
-                    ...incoming.pageAssignments,
-                    ...readLocalPageAssignments()
-                  }
-                : prev.pageAssignments || readLocalPageAssignments(),
-            pageStyles:
-              incoming.pageStyles && typeof incoming.pageStyles === "object"
-                ? {
-                    ...(prev.pageStyles || {}),
-                    ...incoming.pageStyles,
-                    ...readLocalPageStyles()
-                  }
-                : prev.pageStyles || readLocalPageStyles(),
-            navigation: incoming.navigation?.length ? incoming.navigation : prev.navigation,
-            storySections: incoming.storySections?.length
-              ? incoming.storySections
-              : prev.storySections
-          }));
+          setStoreSettings((prev) => {
+            const next = {
+              ...prev,
+              ...incoming,
+              collectionImages: {
+                ...(prev.collectionImages || {}),
+                ...(incoming.collectionImages || {})
+              },
+              categoryImages: {
+                ...(prev.categoryImages || {}),
+                ...(incoming.categoryImages || {})
+              },
+              categories: incoming.categories?.length ? incoming.categories : prev.categories,
+              pageAssignments:
+                incoming.pageAssignments && typeof incoming.pageAssignments === "object"
+                  ? {
+                      ...(prev.pageAssignments || DEFAULT_PAGE_ASSIGNMENTS),
+                      ...incoming.pageAssignments,
+                      ...readLocalPageAssignments()
+                    }
+                  : prev.pageAssignments || readLocalPageAssignments(),
+              pageStyles:
+                incoming.pageStyles && typeof incoming.pageStyles === "object"
+                  ? {
+                      ...(prev.pageStyles || {}),
+                      ...incoming.pageStyles,
+                      ...readLocalPageStyles()
+                    }
+                  : prev.pageStyles || readLocalPageStyles(),
+              navigation: incoming.navigation?.length ? incoming.navigation : prev.navigation,
+              storySections: incoming.storySections?.length
+                ? incoming.storySections
+                : prev.storySections
+            };
+            try {
+              localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+            } catch {}
+            return next;
+          });
         }
       })
       .catch(() => {});
@@ -1629,7 +1688,8 @@ function App() {
         e.key === "calzare_store_sync" ||
         e.key === HOMEPAGE_STORAGE_KEY ||
         e.key === PAGE_ASSIGNMENTS_STORAGE_KEY ||
-        e.key === PAGE_STYLES_STORAGE_KEY
+        e.key === PAGE_STYLES_STORAGE_KEY ||
+        e.key === SETTINGS_STORAGE_KEY
       ) {
         refreshStore();
       }
@@ -2992,6 +3052,7 @@ function App() {
         }}
         money={money}
         promoBoxSetting={homepage.cartPromoBox}
+        rewardBannerSetting={homepage.cartRewardBanner}
       />
 
       {checkoutOpen && (

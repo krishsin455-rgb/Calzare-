@@ -57,20 +57,24 @@ const DEFAULT_EDITORIAL_SLIDES = [
     title: "Forma Court",
     subtitle: "Minimal architectural court silhouette built for long city days.",
     ctaLabel: "Buy Now",
+    ctaAlign: "left",
+    ctaBottomPx: 14,
     image:
       "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1600&q=85",
     imageFit: "cover",
     imagePosX: 50,
     imagePosY: 50,
     imageZoom: 1,
-    productId: "",
-    redirectUrl: "#shop"
+    productId: "c-001",
+    redirectUrl: "#product/c-001"
   },
   {
     id: "ed-2",
     title: "Everyday Rotation",
     subtitle: "Featherweight cushioning with zero break-in from day one.",
     ctaLabel: "Shop Now",
+    ctaAlign: "left",
+    ctaBottomPx: 14,
     image:
       "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1600&q=85",
     imageFit: "cover",
@@ -142,6 +146,7 @@ function EditorialShowcaseSlider({
   const safeIndex = Math.min(activeIndex, list.length - 1);
   const current = list[safeIndex];
   const alignStyle = getBlockAlignStyle(titleAlign);
+  const ctaAlignStyle = getBlockAlignStyle(current.ctaAlign || "left");
 
   const handlePrev = () =>
     setActiveIndex((prev) => (prev - 1 + list.length) % list.length);
@@ -149,24 +154,45 @@ function EditorialShowcaseSlider({
 
   const handleSlideAction = (slide) => {
     if (slide.productId) {
-      const found = (products || []).find((p) => p.id === slide.productId);
+      const found = (products || []).find(
+        (p) => String(p.id) === String(slide.productId)
+      );
       if (found) {
         onOpenProductPage?.(found);
         return;
       }
+      window.location.hash = `#product/${encodeURIComponent(String(slide.productId))}`;
+      return;
     }
+
     const url = (slide.redirectUrl || "").trim();
     if (!url) return;
+
+    if (url.toLowerCase().startsWith("#product/")) {
+      const prodId = decodeURIComponent(url.slice("#product/".length)).trim();
+      const found = (products || []).find((p) => String(p.id) === String(prodId));
+      if (found) {
+        onOpenProductPage?.(found);
+      } else {
+        window.location.hash = url;
+      }
+      return;
+    }
+
     if (["#men", "#women", "#unisex", "#kids", "#story"].includes(url.toLowerCase())) {
       onNavigateCollection?.(url.replace("#", "").toLowerCase());
       return;
     }
+
     if (url.startsWith("#")) {
       window.location.hash = url;
-      const target = document.querySelector(url);
-      target?.scrollIntoView({ behavior: "smooth" });
+      try {
+        const target = document.querySelector(url);
+        target?.scrollIntoView({ behavior: "smooth" });
+      } catch (_) {}
       return;
     }
+
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
@@ -196,7 +222,9 @@ function EditorialShowcaseSlider({
         style={{
           position: "relative",
           width: "100%",
-          height: "clamp(420px, 68vh, 640px)",
+          height: current.slideHeightPx
+            ? `${Number(current.slideHeightPx)}px`
+            : "clamp(420px, 68vh, 640px)",
           overflow: "hidden"
         }}
       >
@@ -235,8 +263,9 @@ function EditorialShowcaseSlider({
             alignItems: alignStyle.alignItems,
             justifyContent: "center",
             textAlign: alignStyle.textAlign,
-            padding: "24px clamp(24px, 6vw, 72px)",
-            color: "#FFFFFF"
+            padding: "24px clamp(24px, 6vw, 72px) 96px",
+            color: "#FFFFFF",
+            pointerEvents: "none"
           }}
         >
           {current.title && (
@@ -257,7 +286,7 @@ function EditorialShowcaseSlider({
           {current.subtitle && (
             <p
               style={{
-                margin: "0 0 22px",
+                margin: 0,
                 maxWidth: "540px",
                 fontSize: "clamp(13px, 1.4vw, 16px)",
                 lineHeight: 1.55,
@@ -268,6 +297,20 @@ function EditorialShowcaseSlider({
               {current.subtitle}
             </p>
           )}
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: `${(Number(current.ctaBottomPx) || 14) + (list.length > 1 ? 26 : 0)}px`,
+            padding: "0 clamp(24px, 6vw, 72px)",
+            display: "flex",
+            justifyContent: ctaAlignStyle.justifyContent,
+            zIndex: 3
+          }}
+        >
           <button
             type="button"
             onClick={() => handleSlideAction(current)}
@@ -307,7 +350,8 @@ function EditorialShowcaseSlider({
                 color: "#FFFFFF",
                 display: "grid",
                 placeItems: "center",
-                cursor: "pointer"
+                cursor: "pointer",
+                zIndex: 4
               }}
             >
               <ChevronLeft size={18} />
@@ -329,7 +373,8 @@ function EditorialShowcaseSlider({
                 color: "#FFFFFF",
                 display: "grid",
                 placeItems: "center",
-                cursor: "pointer"
+                cursor: "pointer",
+                zIndex: 4
               }}
             >
               <ChevronRight size={18} />
@@ -340,10 +385,11 @@ function EditorialShowcaseSlider({
                 position: "absolute",
                 left: 0,
                 right: 0,
-                bottom: "18px",
+                bottom: "14px",
                 display: "flex",
                 justifyContent: "center",
-                gap: "8px"
+                gap: "8px",
+                zIndex: 4
               }}
             >
               {list.map((s, idx) => (
