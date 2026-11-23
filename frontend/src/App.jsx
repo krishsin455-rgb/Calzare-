@@ -1336,6 +1336,7 @@ export function ShortVideoReelsSection({
 
 function App() {
   const initialRoute = parseRouteState();
+  const [storeReady, setStoreReady] = useState(false);
 
   const [products, setProducts] = useState(() =>
     readCache(PRODUCTS_STORAGE_KEY, FALLBACK_PRODUCTS)
@@ -1551,6 +1552,12 @@ function App() {
   }
 
   function refreshStore() {
+    let pendingInitialRequests = 4;
+    const finishInitialRequest = () => {
+      pendingInitialRequests -= 1;
+      if (pendingInitialRequests === 0) setStoreReady(true);
+    };
+
     try {
       const cachedHp = JSON.parse(localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null");
       if (cachedHp) {
@@ -1596,7 +1603,8 @@ function App() {
           } catch {}
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(finishInitialRequest);
 
     fetch(`${API}/homepage`)
       .then((res) => (res.ok ? res.json() : null))
@@ -1611,7 +1619,8 @@ function App() {
           } catch {}
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(finishInitialRequest);
 
     fetch(`${API}/reels`)
       .then((res) => (res.ok ? res.json() : null))
@@ -1629,7 +1638,8 @@ function App() {
           } catch {}
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(finishInitialRequest);
 
     fetch(`${API}/settings`)
       .then((res) => (res.ok ? res.json() : null))
@@ -1677,7 +1687,8 @@ function App() {
           });
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(finishInitialRequest);
   }
 
   useEffect(() => {
@@ -2337,6 +2348,27 @@ function App() {
         }}
         onStoreUpdated={refreshStore}
       />
+    );
+  }
+
+  if (!storeReady) {
+    return (
+      <div
+        role="status"
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          background: "#f7f6f2",
+          color: "#252a22",
+          fontFamily: "'DM Sans', sans-serif",
+          letterSpacing: "0.12em",
+          fontSize: "12px",
+          fontWeight: 600
+        }}
+      >
+        CALZARE
+      </div>
     );
   }
 
