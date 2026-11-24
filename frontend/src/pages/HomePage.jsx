@@ -14,77 +14,17 @@ import {
   Truck
 } from "lucide-react";
 
-const SAFE_IMAGE_FALLBACK =
-  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
-
 const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
 const DEFAULT_SIZES = ["UK 7", "UK 8", "UK 9", "UK 10"];
 
 const COLLECTIONS_STRIP = [
-  {
-    key: "men",
-    label: "MEN",
-    subtitle: "Structured formals & daily pairs",
-    image:
-      "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=900&q=80"
-  },
-  {
-    key: "women",
-    label: "WOMEN",
-    subtitle: "Versatile lows & relaxed slides",
-    image:
-      "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=900&q=80"
-  },
-  {
-    key: "unisex",
-    label: "UNISEX",
-    subtitle: "Clean courts & everyday runners",
-    image:
-      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=900&q=80"
-  },
-  {
-    key: "kids",
-    label: "KIDS",
-    subtitle: "Easy-strap playground staples",
-    image:
-      "https://images.unsplash.com/photo-1514989940723-e8e51635b782?auto=format&fit=crop&w=900&q=80"
-  }
+  { key: "men", label: "MEN", subtitle: "Structured formals & daily pairs" },
+  { key: "women", label: "WOMEN", subtitle: "Versatile lows & relaxed slides" },
+  { key: "unisex", label: "UNISEX", subtitle: "Clean courts & everyday runners" },
+  { key: "kids", label: "KIDS", subtitle: "Easy-strap playground staples" }
 ];
 
-const DEFAULT_EDITORIAL_SLIDES = [
-  {
-    id: "ed-1",
-    title: "Forma Court",
-    subtitle: "Minimal architectural court silhouette built for long city days.",
-    ctaLabel: "Buy Now",
-    ctaAlign: "left",
-    ctaBottomPx: 14,
-    image:
-      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1600&q=85",
-    imageFit: "cover",
-    imagePosX: 50,
-    imagePosY: 50,
-    imageZoom: 1,
-    productId: "c-001",
-    redirectUrl: "#product/c-001"
-  },
-  {
-    id: "ed-2",
-    title: "Everyday Rotation",
-    subtitle: "Featherweight cushioning with zero break-in from day one.",
-    ctaLabel: "Shop Now",
-    ctaAlign: "left",
-    ctaBottomPx: 14,
-    image:
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1600&q=85",
-    imageFit: "cover",
-    imagePosX: 50,
-    imagePosY: 50,
-    imageZoom: 1,
-    productId: "",
-    redirectUrl: "#unisex"
-  }
-];
+const DEFAULT_EDITORIAL_SLIDES = [];
 
 const DEFAULT_SECTION_ORDER = [
   "hero_main",
@@ -141,8 +81,10 @@ function EditorialShowcaseSlider({
   const [activeIndex, setActiveIndex] = useState(0);
   const touchStartX = useRef(0);
 
-  const list =
-    Array.isArray(slides) && slides.length > 0 ? slides : DEFAULT_EDITORIAL_SLIDES;
+  const list = (Array.isArray(slides) ? slides : []).filter(
+    (slide) => typeof slide?.image === "string" && slide.image.trim()
+  );
+  if (!list.length) return null;
   const safeIndex = Math.min(activeIndex, list.length - 1);
   const current = list[safeIndex];
   const alignStyle = getBlockAlignStyle(titleAlign);
@@ -229,11 +171,10 @@ function EditorialShowcaseSlider({
         }}
       >
         <img
-          src={current.image || SAFE_IMAGE_FALLBACK}
+          src={current.image}
           alt={current.title || "Calzare Showcase"}
           onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+            e.currentTarget.style.display = "none";
           }}
           style={{
             width: "100%",
@@ -527,14 +468,9 @@ export default function HomePage({
         <section className="hero" key="hero_main">
           <img
             className="hero-image"
-            src={
-              homepage?.heroImage ||
-              sectionMap.hero_main?.image ||
-              SAFE_IMAGE_FALLBACK
-            }
+            src={homepage?.heroImage || sectionMap.hero_main?.image || undefined}
             onError={(e) => {
-              e.currentTarget.onerror = null;
-              e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+              e.currentTarget.style.display = "none";
             }}
             alt={homepage?.heroTitle || "Minimal footwear editorial"}
           />
@@ -677,15 +613,16 @@ export default function HomePage({
                 style={{ textAlign: a.textAlign }}
                 onClick={() => onNavigateCollection?.(col.key)}
               >
-                <img
-                  src={storeSettings?.collectionImages?.[col.key] || col.image}
-                  alt={col.label}
-                  loading="lazy"
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                  }}
-                />
+                {storeSettings?.collectionImages?.[col.key] ? (
+                  <img
+                    src={storeSettings.collectionImages[col.key]}
+                    alt={col.label}
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : null}
                 <div className="collection-tile-scrim" />
                 <div
                   className="collection-tile-copy"
@@ -740,10 +677,9 @@ export default function HomePage({
                 {homepage.featuredProduct.sectionType || "EXCLUSIVE"}
               </span>
               <img
-                src={homepage.featuredProduct.image || SAFE_IMAGE_FALLBACK}
+                src={homepage.featuredProduct.image || undefined}
                 onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                  e.currentTarget.style.display = "none";
                 }}
                 alt={homepage.featuredProduct.title}
               />
@@ -873,7 +809,7 @@ export default function HomePage({
                     {hoveredProductId === product.id && product.videoUrl ? (
                       <video
                         src={product.videoUrl}
-                        poster={product.image || SAFE_IMAGE_FALLBACK}
+                        poster={product.image || undefined}
                         autoPlay
                         loop
                         muted
@@ -882,10 +818,9 @@ export default function HomePage({
                       />
                     ) : (
                       <img
-                        src={product.image || SAFE_IMAGE_FALLBACK}
+                        src={product.image || undefined}
                         onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                          e.currentTarget.style.display = "none";
                         }}
                         alt={product.name}
                         loading="lazy"
@@ -1017,7 +952,7 @@ export default function HomePage({
                   {reel.videoUrl ? (
                     <video
                       src={reel.videoUrl}
-                      poster={reel.poster || SAFE_IMAGE_FALLBACK}
+                      poster={reel.poster || undefined}
                       muted
                       loop
                       playsInline
@@ -1026,8 +961,11 @@ export default function HomePage({
                     />
                   ) : (
                     <img
-                      src={reel.poster || SAFE_IMAGE_FALLBACK}
+                      src={reel.poster || undefined}
                       alt={reel.title}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
                       style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   )}
@@ -1041,10 +979,9 @@ export default function HomePage({
                       {linkedProduct && (
                         <div className="reel-product-chip">
                           <img
-                            src={linkedProduct.image || SAFE_IMAGE_FALLBACK}
+                            src={linkedProduct.image || undefined}
                             onError={(e) => {
-                              e.currentTarget.onerror = null;
-                              e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                              e.currentTarget.style.display = "none";
                             }}
                             alt={linkedProduct.name}
                           />
@@ -1073,7 +1010,7 @@ export default function HomePage({
             {homepage?.campaignVideoUrl && !campaignVideoFailed ? (
               <video
                 src={homepage.campaignVideoUrl}
-                poster={sectionMap.campaign_banner?.image || SAFE_IMAGE_FALLBACK}
+                poster={sectionMap.campaign_banner?.image || undefined}
                 autoPlay
                 loop
                 muted
@@ -1081,15 +1018,16 @@ export default function HomePage({
                 onError={() => setCampaignVideoFailed(true)}
               />
             ) : (
-              <img
-                src={sectionMap.campaign_banner?.image || SAFE_IMAGE_FALLBACK}
-                onError={(e) => {
-                  e.currentTarget.onerror = null;
-                  e.currentTarget.src = SAFE_IMAGE_FALLBACK;
-                }}
-                alt="Footwear and everyday styling"
-                loading="lazy"
-              />
+              sectionMap.campaign_banner?.image ? (
+                <img
+                  src={sectionMap.campaign_banner.image}
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                  alt="Footwear and everyday styling"
+                  loading="lazy"
+                />
+              ) : null
             )}
           </div>
           <div
@@ -1205,14 +1143,16 @@ export default function HomePage({
             </h2>
           </div>
           <div className="journal-card" style={{ width: "100%" }}>
-            <img
-              src={
-                sectionMap.journal_notes?.image ||
-                "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=85"
-              }
-              alt="Minimal design studio"
-              loading="lazy"
-            />
+            {sectionMap.journal_notes?.image ? (
+              <img
+                src={sectionMap.journal_notes.image}
+                alt="Minimal design studio"
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            ) : null}
             <div
               style={{
                 textAlign: a.textAlign,

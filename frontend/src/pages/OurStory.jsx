@@ -1,9 +1,6 @@
 import { useEffect } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
-const SAFE_IMAGE_FALLBACK =
-  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
-
 export default function StoryPage({
   homepage,
   storeSettings,
@@ -58,11 +55,11 @@ export default function StoryPage({
                 }}
               >
                 <img
-                  src={st.image}
+                  src={st.image || undefined}
                   alt={st.heading || "Calzare Story"}
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                    e.currentTarget.style.display = "none";
                   }}
                   style={{
                     width: "100%",

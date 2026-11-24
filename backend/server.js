@@ -18,8 +18,18 @@ const MONGO_URI =
 const adminSessions = new Set();
 
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({
+  limit: "25mb",
+  verify: (req, res, buf) => {
+    if (String(req.originalUrl || "").split("?")[0] === "/api/webhooks/razorpay") {
+      req.rawBody = Buffer.from(buf);
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
+
+// Serve existing uploaded media files.
+app.use("/uploads", express.static("/var/www/calzare-new/backend/uploads"));
 
 // --- SCHEMAS ---
 const productSchema = new mongoose.Schema(
@@ -262,6 +272,46 @@ const orderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+
+orderSchema.index(
+  { razorpayOrderId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      razorpayOrderId: { $type: "string", $gt: "" }
+    }
+  }
+);
+
+orderSchema.index(
+  { razorpayPaymentId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      razorpayPaymentId: { $type: "string", $gt: "" }
+    }
+  }
+);
+
+const pendingPaymentSchema = new mongoose.Schema(
+  {
+    razorpayOrderId: { type: String, required: true, unique: true },
+    razorpayPaymentId: { type: String, default: "" },
+    expectedAmountPaise: { type: Number, required: true },
+    currency: { type: String, default: "INR" },
+    paymentMethod: { type: String, required: true },
+    checkoutSnapshot: { type: mongoose.Schema.Types.Mixed, required: true },
+    status: {
+      type: String,
+      enum: ["pending", "processing", "paid", "failed"],
+      default: "pending"
+    },
+    orderId: { type: String, default: "" },
+    expiresAt: { type: Date, required: true }
+  },
+  { timestamps: true }
+);
+
 const couponSchema = new mongoose.Schema(
   {
     code: { type: String, required: true, unique: true, uppercase: true },
@@ -382,6 +432,9 @@ const Homepage = mongoose.models.Homepage || mongoose.model("Homepage", homepage
 const Collection = mongoose.models.Collection || mongoose.model("Collection", collectionSchema);
 const Category = mongoose.models.Category || mongoose.model("Category", categorySchema);
 const Order = mongoose.models.Order || mongoose.model("Order", orderSchema);
+const PendingPayment =
+  mongoose.models.PendingPayment ||
+  mongoose.model("PendingPayment", pendingPaymentSchema);
 const Coupon = mongoose.models.Coupon || mongoose.model("Coupon", couponSchema);
 const Review = mongoose.models.Review || mongoose.model("Review", reviewSchema);
 const CmsPage = mongoose.models.CmsPage || mongoose.model("CmsPage", cmsPageSchema);
@@ -558,90 +611,187 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// --- RAZORPAY WEBHOOK (RAW BODY REQUIRED FOR SIGNATURE VERIFICATION) ---
+
+async function finalizeCapturedRazorpayPayment(payment, customerOverride = {}, req = null) {
+  const rzpOrderId = String(payment?.order_id || "").trim();
+  const rzpPaymentId = String(payment?.id || "").trim();
+
+  if (!rzpOrderId || !rzpPaymentId || payment?.status !== "captured") {
+    throw new Error("Razorpay payment is not captured.");
+  }
+
+  const pending = await PendingPayment.findOne({ razorpayOrderId: rzpOrderId });
+  if (!pending) throw new Error("No matching pending checkout was found.");
+
+  if (
+    Number(payment.amount) !== Number(pending.expectedAmountPaise) ||
+    String(payment.currency || "").toUpperCase() !== pending.currency
+  ) {
+    throw new Error("Payment amount or currency does not match the checkout.");
+  }
+
+  const existingOrders = await Order.find({
+    $or: [
+      { razorpayOrderId: rzpOrderId },
+      { razorpayPaymentId: rzpPaymentId },
+      { orderId: pending.orderId }
+    ]
+  }).limit(2).lean();
+
+  if (existingOrders.length) {
+    const existing = existingOrders[0];
+
+    const exactMatch =
+      existingOrders.length === 1 &&
+      String(existing.orderId) === String(pending.orderId) &&
+      String(existing.razorpayOrderId || "") === rzpOrderId &&
+      String(existing.razorpayPaymentId || "") === rzpPaymentId;
+
+    if (!exactMatch) {
+      throw new Error("Payment identifiers conflict with an existing order.");
+    }
+
+    await PendingPayment.updateOne(
+      { _id: pending._id },
+      { $set: { status: "paid", razorpayPaymentId: rzpPaymentId, orderId: existing.orderId } }
+    );
+
+    return existing;
+  }
+
+  const snapshot = pending.checkoutSnapshot || {};
+  const oldCustomer = snapshot.customer || {};
+  const allowed = ["name", "phone", "email", "address", "city", "pincode"];
+  const customer = {};
+
+  for (const field of allowed) {
+    const value = customerOverride?.[field] ?? oldCustomer[field] ?? "";
+    customer[field] = String(value).trim().slice(0, field === "address" ? 500 : 120);
+  }
+
+  const isPartial = pending.paymentMethod.includes("Partial COD");
+  const paidNow = Number(pending.expectedAmountPaise) / 100;
+  const total = Number(snapshot.total || 0);
+
+  const orderData = {
+    ...snapshot,
+    customer,
+    orderId: pending.orderId,
+    paymentMethod: pending.paymentMethod,
+    paymentStatus: isPartial
+      ? `Partial Advance Paid (₹${paidNow})`
+      : "Paid Online",
+    amountPaidNow: paidNow,
+    balanceDueOnDelivery: Math.max(0, total - paidNow),
+    razorpayOrderId: rzpOrderId,
+    razorpayPaymentId: rzpPaymentId,
+    status: "Confirmed"
+  };
+
+  let created = false;
+  let order;
+
+  try {
+    order = await Order.create(orderData);
+    created = true;
+  } catch (err) {
+    if (err?.code !== 11000) throw err;
+    order = await Order.findOne({ orderId: pending.orderId });
+
+    if (
+      !order ||
+      String(order.razorpayOrderId || "") !== rzpOrderId ||
+      String(order.razorpayPaymentId || "") !== rzpPaymentId
+    ) {
+      throw err;
+    }
+  }
+
+  await PendingPayment.updateOne(
+    { _id: pending._id },
+    { $set: { status: "paid", razorpayPaymentId: rzpPaymentId } }
+  );
+
+  if (created && snapshot.couponCode) {
+    await Coupon.updateOne(
+      { code: String(snapshot.couponCode).toUpperCase() },
+      { $inc: { usedCount: 1 } }
+    );
+  }
+
+  if (created && req) {
+    await logAudit(
+      "RAZORPAY_PAYMENT_CONFIRMED",
+      `${order.orderId} (${rzpPaymentId})`,
+      req
+    );
+  }
+
+  return order;
+}
+
+// --- RAZORPAY WEBHOOK ---
+
+
 app.post(
   "/api/webhooks/razorpay",
   express.raw({ type: "application/json" }),
   async (req, res) => {
     try {
       const secret = String(process.env.RAZORPAY_WEBHOOK_SECRET || "").trim();
-      const receivedSignature = String(req.headers["x-razorpay-signature"] || "").trim();
+      const received = String(req.headers["x-razorpay-signature"] || "").trim();
+      const raw = Buffer.isBuffer(req.rawBody)
+        ? req.rawBody
+        : Buffer.isBuffer(req.body)
+          ? req.body
+          : null;
 
-      if (!secret || !receivedSignature) {
-        return res.status(400).json({ message: "Missing webhook secret or signature." });
+      if (!secret || !received || !raw) {
+        return res.status(400).json({ message: "Webhook signature data is missing." });
       }
 
-      const rawBody = Buffer.isBuffer(req.body)
-        ? req.body
-        : Buffer.from(JSON.stringify(req.body || {}));
+      const expected = crypto.createHmac("sha256", secret).update(raw).digest("hex");
+      const a = Buffer.from(expected);
+      const b = Buffer.from(received);
 
-      const expectedSignature = crypto
-        .createHmac("sha256", secret)
-        .update(rawBody)
-        .digest("hex");
-
-      const expectedBuf = Buffer.from(expectedSignature);
-      const receivedBuf = Buffer.from(receivedSignature);
-      if (
-        expectedBuf.length !== receivedBuf.length ||
-        !crypto.timingSafeEqual(expectedBuf, receivedBuf)
-      ) {
-        return res.status(400).json({ message: "Invalid Razorpay webhook signature." });
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return res.status(400).json({ message: "Invalid webhook signature." });
       }
 
-      const event = JSON.parse(rawBody.toString("utf8"));
-      const eventAgeSeconds = Date.now() / 1000 - Number(event?.created_at || 0);
-      if (event?.created_at && eventAgeSeconds > 300) {
-        return res.status(200).json({ received: true, stale: true });
-      }
-
-      if (event.event === "payment.captured" || event.event === "order.paid") {
-        const paymentEntity = event?.payload?.payment?.entity;
-        const rzpOrderId = String(paymentEntity?.order_id || "").trim();
-        const rzpPaymentId = String(paymentEntity?.id || "").trim();
-
-        if (rzpOrderId || rzpPaymentId) {
-          const updated = await Order.findOneAndUpdate(
-            {
-              $or: [
-                ...(rzpOrderId ? [{ razorpayOrderId: rzpOrderId }] : []),
-                ...(rzpPaymentId ? [{ razorpayPaymentId: rzpPaymentId }] : [])
-              ]
-            },
-            {
-              $set: {
-                paymentStatus: "Paid Online",
-                status: "Confirmed",
-                ...(rzpPaymentId ? { razorpayPaymentId: rzpPaymentId } : {})
-              }
-            },
-            { new: true }
-          );
-
-          if (updated) {
-            await logAudit(
-              "RAZORPAY_WEBHOOK_PAID",
-              `${updated.orderId} (${rzpPaymentId || rzpOrderId})`,
-              req
-            );
-          }
-        }
+      const event = JSON.parse(raw.toString("utf8"));
+      if (event.event === "payment.captured") {
+        const payment = event?.payload?.payment?.entity;
+        if (payment) await finalizeCapturedRazorpayPayment(payment, {}, req);
       }
 
       return res.status(200).json({ received: true });
     } catch (err) {
-      return res.status(500).json({ message: err.message || "Webhook error." });
+      console.error("Razorpay webhook error:", err.message);
+      return res.status(500).json({ message: "Webhook processing failed." });
     }
   }
 );
+
 
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // Memory storage only: never writes uploaded files to your Mac or Render disk
+const ALLOWED_MEDIA_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/svg+xml",
+  "video/mp4",
+  "video/webm"
+]);
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    cb(null, ALLOWED_MEDIA_TYPES.has(file.mimetype));
+  }
 });
 
 // --- PUBLIC STOREFRONT ROUTES ---
@@ -799,177 +949,252 @@ app.post("/api/payments/razorpay/shipping-info", async (req, res) => {
   }
 });
 
+
 app.post("/api/payments/razorpay/create-order", async (req, res) => {
   try {
     const keyId = String(process.env.RAZORPAY_KEY_ID || "").trim();
     const keySecret = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
-
     if (!keyId || !keySecret) {
-      return res
-        .status(400)
-        .json({ message: "Razorpay keys not configured in backend environment." });
+      return res.status(503).json({ message: "Razorpay is not configured." });
     }
 
-    const rawPaise =
-      req.body?.amountInPaise ??
-      req.body?.amount ??
-      (req.body?.totalAmount != null ? Number(req.body.totalAmount) * 100 : NaN);
-
-    const amount = Math.round(Number(rawPaise));
-
-    if (!Number.isSafeInteger(amount) || amount < 100) {
-      return res.status(400).json({ message: "Invalid payment amount." });
+    const paymentMethod = String(req.body?.paymentMethod || "");
+    const isPartial = paymentMethod === "Partial COD (₹299 Advance)";
+    if (paymentMethod !== "Razorpay Magic Checkout" && !isPartial) {
+      return res.status(400).json({ message: "Unsupported payment method." });
     }
 
-    const items = Array.isArray(req.body.items) ? req.body.items : [];
-    const lineItems = items.map((item, idx) => {
-      const unitPaise = Math.max(100, Math.round((Number(item.price) || 0) * 100));
+    const requested = req.body?.items;
+    if (!Array.isArray(requested) || !requested.length || requested.length > 30) {
+      return res.status(400).json({ message: "Cart is empty or invalid." });
+    }
+
+    const clean = requested.map(x => ({
+      id: String(x?.id || "").trim(),
+      size: String(x?.size || "").trim(),
+      quantity: Number(x?.quantity)
+    }));
+
+    if (clean.some(x => !x.id || !x.size ||
+        !Number.isSafeInteger(x.quantity) || x.quantity < 1 || x.quantity > 10) ||
+        clean.reduce((n, x) => n + x.quantity, 0) > 20) {
+      return res.status(400).json({ message: "Invalid cart item or quantity." });
+    }
+
+    const products = await Product.find({
+      id: { $in: [...new Set(clean.map(x => x.id))] },
+      status: { $ne: "draft" }
+    }).lean();
+
+    const productMap = new Map(products.map(p => [String(p.id), p]));
+    const items = clean.map(x => {
+      const p = productMap.get(x.id);
+      if (!p || !Array.isArray(p.sizes) || !p.sizes.includes(x.size) ||
+          !Number.isFinite(Number(p.price)) || Number(p.price) <= 0) {
+        throw new Error("A product or selected size is unavailable. Refresh your cart.");
+      }
       return {
-        sku: String(item.sku || item.id || `item_${idx + 1}`),
-        variant_id: String(item.size || "default"),
-        other_product_codes: {},
-        price: unitPaise,
-        offer_price: unitPaise,
-        tax_amount: 0,
-        quantity: Math.max(1, Number(item.quantity) || 1),
-        name: String(item.name || "CALZARE Footwear"),
-        description: `${item.name || "CALZARE Footwear"} (${item.size || "UK 8"})`,
-        image_url:
-          item.image && String(item.image).startsWith("https://")
-            ? String(item.image)
-            : "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85",
-        product_url: "https://calzare.in"
+        id: p.id,
+        name: String(p.name || "CALZARE Footwear"),
+        size: x.size,
+        price: Number(p.price),
+        quantity: x.quantity
       };
     });
 
-    const rzp = new Razorpay({
-      key_id: keyId,
-      key_secret: keySecret
-    });
+    const count = items.reduce((n, x) => n + x.quantity, 0);
+    const subtotal = items.reduce((n, x) => n + x.price * x.quantity, 0);
+    let bundleDiscount = 0;
+    if (count >= 3) bundleDiscount = Math.min(...items.map(x => x.price));
+    else if (count === 2) bundleDiscount = Math.round(subtotal * 0.1);
 
-    const orderPayload = {
-      amount,
-      currency: "INR",
-      receipt: `rcpt_${Date.now()}`,
-      ...(lineItems.length
-        ? {
-            line_items_total: lineItems.reduce(
-              (sum, li) => sum + li.offer_price * li.quantity,
-              0
-            ),
-            line_items: lineItems
-          }
-        : {})
+    const afterBundle = Math.max(0, subtotal - bundleDiscount);
+    const couponCode = String(req.body?.couponCode || "").trim().toUpperCase();
+    let couponDiscount = 0;
+    let savedCoupon = null;
+
+    if (couponCode) {
+      const coupon = await Coupon.findOne({ code: couponCode, active: true }).lean();
+      if (!coupon || (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) ||
+          (coupon.usageLimit > 0 && Number(coupon.usedCount || 0) >= coupon.usageLimit) ||
+          subtotal < Number(coupon.minOrderValue || 0)) {
+        return res.status(400).json({ message: "Coupon is invalid, expired, or its conditions are not met." });
+      }
+      couponDiscount = coupon.discountType === "percentage"
+        ? Math.round(afterBundle * Number(coupon.discountValue || 0) / 100)
+        : Math.min(Number(coupon.discountValue || 0), afterBundle);
+      couponDiscount = Math.max(0, Math.min(afterBundle, couponDiscount));
+      savedCoupon = coupon.code;
+    }
+
+    const settings = (await StoreSettings.findOne({
+      singletonKey: "store_settings"
+    }).lean()) || {};
+
+    if (isPartial && settings.codEnabled === false) {
+      return res.status(400).json({ message: "Partial COD is unavailable." });
+    }
+
+    const freeThreshold = Number(settings.freeShippingThreshold ?? 2999);
+    const shipping = subtotal >= freeThreshold || subtotal === 0
+      ? 0 : Math.max(0, Number(settings.standardShippingFee ?? 149));
+    const total = Math.max(0, subtotal - bundleDiscount - couponDiscount + shipping);
+    const advance = Math.min(total, Number(settings.partialCodAdvance ?? 299));
+    const amount = Math.round((isPartial ? advance : total) * 100);
+
+    if (!Number.isSafeInteger(amount) || amount < 100) {
+      return res.status(400).json({ message: "Payment amount is below Razorpay minimum." });
+    }
+
+    const customer = {};
+    for (const field of ["name", "phone", "address", "city", "pincode"]) {
+      customer[field] = String(req.body?.customer?.[field] || "").trim().slice(0, 500);
+    }
+
+    const snapshot = {
+      customer, items, subtotal,
+      discount: bundleDiscount + couponDiscount,
+      couponCode: savedCoupon, couponDiscount, total, paymentMethod
     };
 
-    const rzpOrder = await rzp.orders.create(orderPayload);
-    res.json({
-      keyId,
-      order_id: rzpOrder.id,
-      amount: rzpOrder.amount,
-      currency: rzpOrder.currency
+    const rzp = new Razorpay({ key_id: keyId, key_secret: keySecret });
+    const rzpOrder = await rzp.orders.create({
+      amount, currency: "INR", receipt: `clz_${Date.now()}`
+    });
+
+    await PendingPayment.create({
+      razorpayOrderId: rzpOrder.id,
+      expectedAmountPaise: amount,
+      currency: "INR",
+      paymentMethod,
+      checkoutSnapshot: snapshot,
+      status: "pending",
+      orderId: `CLZ-${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000)
+    });
+
+    return res.json({
+      keyId, order_id: rzpOrder.id,
+      amount: rzpOrder.amount, currency: rzpOrder.currency
     });
   } catch (err) {
-    console.error("Razorpay create-order error:", err);
-    const status = err?.statusCode === 401 ? 401 : 500;
-    const detail =
-      err?.error?.description ||
-      err?.message ||
-      "Razorpay order creation failed.";
-    res.status(status).json({ message: detail });
+    const providerStatus = Number(err?.statusCode || err?.error?.statusCode || 0);
+
+    if (providerStatus) {
+      console.error("Razorpay provider error:", {
+        statusCode: providerStatus,
+        code: err?.error?.code || err?.code || "UNKNOWN"
+      });
+
+      return res.status(502).json({
+        message: providerStatus === 401
+          ? "Razorpay authentication failed. Check the matching API credentials."
+          : "Razorpay could not create the payment order. Please try again."
+      });
+    }
+
+    const clientErrors = [
+      "A product or selected size is unavailable. Refresh your cart."
+    ];
+
+    if (clientErrors.includes(err.message)) {
+      return res.status(400).json({ message: err.message });
+    }
+
+    console.error("Razorpay create-order internal error:", err.message);
+    return res.status(500).json({
+      message: "Could not create payment order. Please try again."
+    });
   }
 });
 
 app.post("/api/payments/razorpay/verify", async (req, res) => {
   try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      orderPayload
-    } = req.body;
+    const orderId = String(req.body?.razorpay_order_id || "").trim();
+    const paymentId = String(req.body?.razorpay_payment_id || "").trim();
+    const signature = String(req.body?.razorpay_signature || "").trim();
+    const secret = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
 
-    if (
-      typeof razorpay_order_id !== "string" ||
-      !razorpay_order_id ||
-      typeof razorpay_payment_id !== "string" ||
-      !razorpay_payment_id ||
-      typeof razorpay_signature !== "string" ||
-      !razorpay_signature ||
-      !orderPayload ||
-      typeof orderPayload !== "object" ||
-      Array.isArray(orderPayload)
-    ) {
-      return res.status(400).json({ message: "Payment verification fields are required." });
+    if (!orderId || !paymentId || !signature || !secret) {
+      return res.status(400).json({ message: "Payment verification details are incomplete." });
     }
 
-    if (!process.env.RAZORPAY_KEY_SECRET) {
-      return res.status(500).json({ message: "Razorpay secret not configured." });
-    }
-
-    const expected = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    const expected = crypto.createHmac("sha256", secret)
+      .update(`${orderId}|${paymentId}`)
       .digest("hex");
 
-    const expectedBuffer = Buffer.from(expected);
-    const signatureBuffer = Buffer.from(razorpay_signature);
-    if (
-      signatureBuffer.length !== expectedBuffer.length ||
-      !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
-    ) {
+    const a = Buffer.from(expected);
+    const b = Buffer.from(signature);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       return res.status(400).json({ message: "Invalid payment signature." });
     }
 
-    const existingOrder = await Order.findOne({
-      $or: [
-        { razorpayPaymentId: razorpay_payment_id },
-        { razorpayOrderId: razorpay_order_id }
-      ]
-    });
+    const pending = await PendingPayment.findOne({ razorpayOrderId: orderId });
+    if (!pending) {
+      const existing = await Order.findOne({ razorpayOrderId: orderId });
 
-    if (existingOrder) {
-      const updatedExisting = await Order.findOneAndUpdate(
-        { _id: existingOrder._id },
-        {
-          $set: {
-            ...orderPayload,
-            razorpayOrderId: razorpay_order_id,
-            razorpayPaymentId: razorpay_payment_id,
-            paymentStatus: (orderPayload.paymentMethod || "").includes("Partial COD")
-              ? "Partial Advance Paid (₹299)"
-              : "Paid Online",
-            status: "Confirmed"
-          }
-        },
-        { new: true }
-      );
-      return res.json({ order: updatedExisting });
+      if (
+        existing &&
+        String(existing.razorpayPaymentId || "") === paymentId
+      ) {
+        return res.json({ order: existing });
+      }
+
+      if (existing) {
+        return res.status(409).json({
+          message: "Payment identifiers do not match the existing order."
+        });
+      }
+
+      return res.status(404).json({ message: "Checkout session not found." });
     }
 
-    const isPartial = (orderPayload.paymentMethod || "").includes("Partial COD");
-    const paidNow = isPartial ? 299 : Number(orderPayload.total || 0);
-    const newOrder = await Order.create({
-      ...orderPayload,
-      orderId: `CLZ-${Date.now().toString().slice(-6)}`,
-      paymentStatus: isPartial ? "Partial Advance Paid (₹299)" : "Paid Online",
-      amountPaidNow: paidNow,
-      balanceDueOnDelivery: Math.max(0, Number(orderPayload.total || 0) - paidNow),
-      razorpayOrderId: razorpay_order_id,
-      razorpayPaymentId: razorpay_payment_id,
-      status: "Confirmed"
+    const rzp = new Razorpay({
+      key_id: String(process.env.RAZORPAY_KEY_ID || "").trim(),
+      key_secret: secret
     });
 
-    if (orderPayload.couponCode) {
-      await Coupon.updateOne(
-        { code: String(orderPayload.couponCode).toUpperCase() },
-        { $inc: { usedCount: 1 } }
-      ).catch(() => {});
+    const payment = await rzp.payments.fetch(paymentId);
+    if (
+      String(payment.order_id || "") !== orderId ||
+      payment.status !== "captured" ||
+      Number(payment.amount) !== Number(pending.expectedAmountPaise) ||
+      String(payment.currency || "").toUpperCase() !== pending.currency
+    ) {
+      return res.status(400).json({ message: "Captured payment does not match this checkout." });
     }
 
-    res.json({ order: newOrder });
+    const order = await finalizeCapturedRazorpayPayment(
+      payment,
+      req.body?.customer || {},
+      req
+    );
+
+    return res.json({ order });
   } catch (err) {
-    res.status(500).json({ message: err.message || "Payment verification failed." });
+    const providerStatus = Number(err?.statusCode || err?.error?.statusCode || 0);
+
+    if (providerStatus) {
+      console.error("Razorpay verification provider error:", {
+        statusCode: providerStatus,
+        code: err?.error?.code || err?.code || "UNKNOWN"
+      });
+
+      return res.status(502).json({
+        message: "Razorpay could not verify the payment. Please retry or contact support."
+      });
+    }
+
+    if (String(err?.message || "").includes("Payment identifiers conflict")) {
+      return res.status(409).json({
+        message: "Payment identifiers conflict with an existing order."
+      });
+    }
+
+    console.error("Razorpay verification error:", err.message);
+    return res.status(500).json({
+      message: "Payment verification failed. Contact support if money was deducted."
+    });
   }
 });
 
@@ -1568,6 +1793,10 @@ mongoose
   .connect(MONGO_URI)
   .then(async () => {
     console.log("Connected to MongoDB");
+    await Order.init();
+    console.log("Order collection and indexes ready");
+    await PendingPayment.init();
+    console.log("PendingPayment collection and indexes ready");
     await seedInitialData();
     app.listen(PORT, () =>
       console.log(`CALZARE Control Center API running on http://localhost:${PORT}`)

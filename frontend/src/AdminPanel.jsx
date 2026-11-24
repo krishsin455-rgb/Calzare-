@@ -155,9 +155,6 @@ function writeLocalPageStyles(stylesObj) {
   } catch (_) {}
 }
 
-const FALLBACK_IMG =
-  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
-
 const money = (value) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -249,7 +246,7 @@ const DEFAULT_HOMEPAGE_CMS = {
     sectionType: "EXCLUSIVE / MOST SELLING",
     productId: "c-001",
     redirectUrl: "",
-    image: FALLBACK_IMG,
+    image: "",
     title: "FORMA COURT — SIGNATURE EDITION",
     price: 3499
   },
@@ -318,7 +315,7 @@ const DEFAULT_HOMEPAGE_CMS = {
         ctaLabel: "Buy Now",
         ctaAlign: "left",
         ctaBottomPx: 14,
-        image: FALLBACK_IMG,
+        image: "",
         slideHeightPx: 460,
         imageFit: "cover",
         imagePosX: 50,
@@ -503,7 +500,7 @@ const EMPTY_COUPON = {
 
 const handleImgError = (e) => {
   e.currentTarget.onerror = null;
-  e.currentTarget.src = FALLBACK_IMG;
+  e.currentTarget.style.display = "none";
 };
 
 function readLocalCategories() {
@@ -638,11 +635,31 @@ function DropZoneField({
   const isVideo = accept.includes("video");
 
   const handleSelectedFile = (file) => {
-    if (!file) return;
+    if (!file || isBusy) return;
+
     if (file.size > maxBytes) {
       alert(`File exceeds ${Math.round(maxBytes / (1024 * 1024))}MB limit.`);
       return;
     }
+
+    const acceptedTypes = accept
+      .split(",")
+      .map((type) => type.trim().toLowerCase())
+      .filter(Boolean);
+
+    const fileType = (file.type || "").toLowerCase();
+    const isAccepted = acceptedTypes.some((type) => {
+      if (type.endsWith("/*")) {
+        return fileType.startsWith(type.slice(0, -1));
+      }
+      return type === fileType;
+    });
+
+    if (!isAccepted) {
+      alert("Unsupported file type. Please select an accepted image or video format.");
+      return;
+    }
+
     onUploadFile(file, uploadKey, onChange);
   };
 
@@ -1229,15 +1246,22 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.message || "FShip order sync failed.");
+      }
+
       await syncAll(token);
-      notify(
-        res.ok
-          ? "Synced live order statuses from FShip."
-          : "Refreshed orders (connect FShip webhook at /api/webhooks/fship)."
-      );
-    } catch {
-      await syncAll(token);
-      notify("Refreshed orders.");
+
+      if (data.mode === "webhook_ready") {
+        notify(data.message || "FShip webhook is ready for live tracking updates.");
+      } else {
+        const count = Number(data.updatedCount) || 0;
+        notify(`FShip sync completed. Updated ${count} order(s).`);
+      }
+    } catch (err) {
+      notify(err.message || "FShip order sync failed.");
     } finally {
       setSyncingFship(false);
     }
@@ -1346,7 +1370,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         (u) => u !== urlToRemove
       );
       const nextPrimary =
-        prev.image === urlToRemove ? remaining[0] || FALLBACK_IMG : prev.image;
+        prev.image === urlToRemove ? remaining[0] || "" : prev.image;
       return {
         ...prev,
         image: nextPrimary,
@@ -1388,10 +1412,10 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       sizeChartRows: activeRows,
       sizes: derivedSizes,
       stockBySize: syncedStock,
-      image: (productForm.image || "").trim() || FALLBACK_IMG,
+      image: (productForm.image || "").trim(),
       images: Array.from(
         new Set([
-          (productForm.image || "").trim() || FALLBACK_IMG,
+          ...((productForm.image || "").trim() ? [(productForm.image || "").trim()] : []),
           ...(Array.isArray(productForm.images) ? productForm.images : []).filter(Boolean)
         ])
       ),
@@ -1506,7 +1530,10 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         },
         body: JSON.stringify(updatedProduct)
       });
-      if (!res.ok) throw new Error("Failed to update stock");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to update stock");
+      }
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? updatedProduct : p))
       );
@@ -1521,32 +1548,47 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
   async function handleDeleteProduct(id) {
     if (!window.confirm("Remove this SKU permanently?")) return;
-    await fetch(`${API}/admin/products/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    notify("SKU removed.");
-    await syncAll();
-    broadcastSync();
-  }
-
-  async function handleUpdateOrderStatus(orderId, status) {
-    const res = await fetch(`${API}/admin/orders/${orderId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ status })
-    });
-    if (res.ok) {
-      setOrders((prev) =>
-        prev.map((o) => (o.orderId === orderId ? { ...o, status } : o))
-      );
-      notify(`Order ${orderId} updated to ${status}.`);
+    try {
+      const res = await fetch(`${API}/admin/products/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Could not remove SKU (HTTP ${res.status})`);
+      }
+      notify("SKU removed.");
+      await syncAll();
+      broadcastSync();
+    } catch (err) {
+      notify(err.message || "Failed to remove SKU.");
     }
   }
-
+  async function handleUpdateOrderStatus(orderId, status) {
+    try {
+      const res = await fetch(`${API}/admin/orders/${encodeURIComponent(orderId)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Order update failed (HTTP ${res.status})`);
+      }
+      if (!data.order) {
+        throw new Error("Server did not confirm the order update. Please refresh and check the order.");
+      }
+      setOrders((prev) =>
+        prev.map((o) => (o.orderId === orderId ? { ...o, status: data.order.status } : o))
+      );
+      notify(`Order ${orderId} updated to ${data.order.status}.`);
+    } catch (err) {
+      notify(err.message || "Could not update order status.");
+    }
+  }
   async function handleSaveHomepage(updatedHome = homepage) {
     setHomepage(updatedHome);
     persistHomepageLocal(updatedHome);
@@ -1575,19 +1617,23 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
   async function handleSaveReel(e) {
     e.preventDefault();
-    const payload = {
-      ...reelForm,
-      id: (reelForm.id || "").trim() || `reel-${Date.now().toString().slice(-4)}`
-    };
-    const res = await fetch(`${API}/admin/reels`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
+    try {
+      const payload = {
+        ...reelForm,
+        id: (reelForm.id || "").trim() || `reel-${Date.now().toString().slice(-4)}`
+      };
+      const res = await fetch(`${API}/admin/reels`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Failed to publish reel (HTTP ${res.status})`);
+      }
       notify("Shoppable reel published.");
       setReelForm({
         id: "",
@@ -1599,20 +1645,28 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       });
       await syncAll();
       broadcastSync();
+    } catch (err) {
+      notify(err.message || "Could not publish reel.");
     }
   }
-
   async function handleDeleteReel(id) {
     if (!window.confirm("Delete this reel?")) return;
-    await fetch(`${API}/admin/reels/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    notify("Reel deleted.");
-    await syncAll();
-    broadcastSync();
+    try {
+      const res = await fetch(`${API}/admin/reels/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Could not delete reel (HTTP ${res.status})`);
+      }
+      notify("Reel deleted.");
+      await syncAll();
+      broadcastSync();
+    } catch (err) {
+      notify(err.message || "Failed to delete reel.");
+    }
   }
-
   async function handleSaveCoupon(e) {
     e.preventDefault();
     const cleanCode = couponForm.code.trim().toUpperCase();
@@ -1668,74 +1722,97 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
   async function handleSaveReview(e) {
     e.preventDefault();
-    const prod = products.find((p) => p.id === reviewForm.productId);
-    const isEditing = Boolean(editingReviewId);
-    const url = isEditing
-      ? `${API}/admin/reviews/${editingReviewId}`
-      : `${API}/admin/reviews`;
-    const method = isEditing ? "PATCH" : "POST";
+    try {
+      const prod = products.find((p) => p.id === reviewForm.productId);
+      const isEditing = Boolean(editingReviewId);
+      const url = isEditing
+        ? `${API}/admin/reviews/${encodeURIComponent(editingReviewId)}`
+        : `${API}/admin/reviews`;
+      const method = isEditing ? "PATCH" : "POST";
 
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        ...reviewForm,
-        rating: Number(reviewForm.rating),
-        productName: prod?.name || reviewForm.productName || "FORMA COURT"
-      })
-    });
-    if (res.ok) {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...reviewForm,
+          rating: Number(reviewForm.rating),
+          productName: prod?.name || reviewForm.productName || "FORMA COURT"
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Could not save review (HTTP ${res.status})`);
+      }
       notify(isEditing ? "Comment & writer updated." : "Customer review added.");
       setEditingReviewId(null);
       setReviewModal(false);
       setReviewForm(EMPTY_REVIEW);
       await syncAll();
       broadcastSync();
+    } catch (err) {
+      notify(err.message || "Could not save review.");
     }
   }
-
   async function handleReviewAction(id, patchObj) {
-    await fetch(`${API}/admin/reviews/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(patchObj)
-    });
-    notify("Review updated.");
-    await syncAll();
-    broadcastSync();
+    try {
+      const res = await fetch(`${API}/admin/reviews/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(patchObj)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Could not update review (HTTP ${res.status})`);
+      }
+      notify("Review updated.");
+      await syncAll();
+      broadcastSync();
+    } catch (err) {
+      notify(err.message || "Failed to update review.");
+    }
   }
-
   async function handleDeleteReview(id) {
     if (!window.confirm("Remove this comment?")) return;
-    await fetch(`${API}/admin/reviews/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    notify("Comment removed.");
-    await syncAll();
-    broadcastSync();
+    try {
+      const res = await fetch(`${API}/admin/reviews/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Could not remove comment (HTTP ${res.status})`);
+      }
+      notify("Comment removed.");
+      await syncAll();
+      broadcastSync();
+    } catch (err) {
+      notify(err.message || "Failed to remove comment.");
+    }
   }
-
   async function handleSavePage(e) {
     e.preventDefault();
-    const slug = pageForm.slug.startsWith("/")
-      ? pageForm.slug
-      : `/pages/${pageForm.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-    const res = await fetch(`${API}/admin/pages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ ...pageForm, slug })
-    });
-    if (res.ok) {
+    try {
+      const slug = pageForm.slug.startsWith("/")
+        ? pageForm.slug
+        : `/pages/${pageForm.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+      const res = await fetch(`${API}/admin/pages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ ...pageForm, slug })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || `Could not save CMS page (HTTP ${res.status})`);
+      }
       notify("CMS page saved.");
       setPageModal(false);
       setPageForm({
@@ -1749,9 +1826,10 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       });
       await syncAll();
       broadcastSync();
+    } catch (err) {
+      notify(err.message || "Could not save CMS page.");
     }
   }
-
   async function handleSaveSettings(
     updated = settings,
     successMsg = "Store settings & configuration saved."
@@ -2188,15 +2266,70 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       pageAssignments: updatedAssignments
     };
 
-    writeLocalCategories(updatedCats);
-    writeLocalPageAssignments(updatedAssignments);
-    setSettings(updatedSettings);
-
     const affectedProducts = products.filter(
       (p) => (p.category || "").toLowerCase() === oldCatKey
     );
 
+    if (affectedProducts.length && !token) {
+      notify("Please sign in before renaming a category assigned to products.");
+      return;
+    }
+
     if (affectedProducts.length) {
+      const updateResults = await Promise.all(
+        affectedProducts.map(async (prod) => {
+          try {
+            const res = await fetch(`${API}/admin/products`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ ...prod, category: cleanNew })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              throw new Error(data.message || "Product category update failed.");
+            }
+            return { ok: true };
+          } catch (err) {
+            return { ok: false, error: err.message };
+          }
+        })
+      );
+
+      const failedUpdates = updateResults.filter((result) => !result.ok);
+
+      if (failedUpdates.length) {
+        const rollbackResults = await Promise.all(
+          affectedProducts.map(async (prod) => {
+            try {
+              const res = await fetch(`${API}/admin/products`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ ...prod, category: oldCatKey })
+              });
+              return res.ok;
+            } catch {
+              return false;
+            }
+          })
+        );
+
+        await syncAll(token);
+
+        const rollbackFailed = rollbackResults.some((ok) => !ok);
+        notify(
+          rollbackFailed
+            ? "Category rename failed. Some product updates could not be restored; please review the affected products."
+            : failedUpdates[0].error || "Category rename failed. Product updates were restored."
+        );
+        return;
+      }
+
       setProducts((prev) =>
         prev.map((p) =>
           (p.category || "").toLowerCase() === oldCatKey
@@ -2204,22 +2337,11 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
             : p
         )
       );
-
-      if (token) {
-        await Promise.all(
-          affectedProducts.map((prod) =>
-            fetch(`${API}/admin/products`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`
-              },
-              body: JSON.stringify({ ...prod, category: cleanNew })
-            }).catch(() => null)
-          )
-        );
-      }
     }
+
+    writeLocalCategories(updatedCats);
+    writeLocalPageAssignments(updatedAssignments);
+    setSettings(updatedSettings);
 
     await handleSaveSettings(
       updatedSettings,
@@ -2927,7 +3049,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   return (
                     <div key={p.id} style={cardBox}>
                       <img
-                        src={p.image || FALLBACK_IMG}
+                        src={p.image || p.images?.[0] || undefined}
                         alt={p.name}
                         onError={handleImgError}
                         style={{
@@ -4101,7 +4223,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                         <img
-                          src={prod.image || FALLBACK_IMG}
+                          src={prod.image || undefined}
                           alt={prod.name}
                           onError={handleImgError}
                           style={{
@@ -6477,6 +6599,40 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                           }
                         }}
                       />
+                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+                        <button
+                          type="button"
+                          disabled={
+                            !(editingSection.key === "affordable_store"
+                              ? homepage.affordableStore?.image || editingSection.image
+                              : editingSection.image)
+                          }
+                          onClick={() => {
+                            setEditingSection((s) => ({ ...s, image: "" }));
+                            if (editingSection.key === "affordable_store") {
+                              setHomepage((h) => ({
+                                ...h,
+                                affordableStore: {
+                                  ...(h.affordableStore || {}),
+                                  image: ""
+                                }
+                              }));
+                            }
+                          }}
+                          style={{
+                            ...topActionBtn,
+                            color: "#B42318",
+                            borderColor: "#F0B4AE",
+                            opacity: (
+                              editingSection.key === "affordable_store"
+                                ? homepage.affordableStore?.image || editingSection.image
+                                : editingSection.image
+                            ) ? 1 : 0.5
+                          }}
+                        >
+                          Remove Image
+                        </button>
+                      </div>
                       <div
                         style={{
                           display: "flex",
@@ -7099,6 +7255,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                                         ? {
                                             ...it,
                                             ctaLabel: "Buy Now",
+                                            productId: "",
                                             redirectUrl: e.target.value
                                           }
                                         : it
@@ -7461,7 +7618,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 {reels.map((r) => (
                   <div key={r.id} style={cardBox}>
                     <img
-                      src={r.poster || FALLBACK_IMG}
+                      src={r.poster || undefined}
                       alt={r.title}
                       onError={handleImgError}
                       style={{
@@ -7796,12 +7953,24 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                     <button
                       type="button"
                       onClick={async () => {
-                        await fetch(`${API}/admin/pages/${pg._id}`, {
-                          method: "DELETE",
-                          headers: { Authorization: `Bearer ${token}` }
-                        });
-                        syncAll();
-                        broadcastSync();
+                        try {
+                          const res = await fetch(
+                            `${API}/admin/pages/${encodeURIComponent(pg._id)}`,
+                            {
+                              method: "DELETE",
+                              headers: { Authorization: `Bearer ${token}` }
+                            }
+                          );
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) {
+                            throw new Error(data.message || "Could not delete CMS page.");
+                          }
+                          notify("CMS page deleted.");
+                          await syncAll();
+                          broadcastSync();
+                        } catch (err) {
+                          notify(err.message || "Failed to delete CMS page.");
+                        }
                       }}
                       style={{ ...topActionBtn, color: "#DC2626" }}
                     >

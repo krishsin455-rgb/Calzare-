@@ -1012,6 +1012,15 @@ main > section:last-of-type {
   display: block;
 }
 
+/* Product quick-view: blend product photography into the modal */
+.pdp-media {
+  background: var(--paper);
+}
+
+.pdp-media img {
+  object-fit: contain;
+}
+
 .media-switcher {
   position: absolute;
   bottom: 14px;

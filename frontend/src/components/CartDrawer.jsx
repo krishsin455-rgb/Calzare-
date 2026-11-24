@@ -44,14 +44,11 @@ function readCartRewardBannerCfg() {
   };
 }
 
-const SAFE_IMAGE_FALLBACK =
-  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
-
 function safeDrawerImg(url) {
-  if (!url || typeof url !== "string" || !url.trim()) return SAFE_IMAGE_FALLBACK;
+  if (!url || typeof url !== "string" || !url.trim()) return "";
   const clean = url.trim();
   if (clean.startsWith("file://") || clean.startsWith("/Users/")) {
-    return SAFE_IMAGE_FALLBACK;
+    return "";
   }
   return clean;
 }
@@ -633,11 +630,11 @@ export function CartDrawer({
                     }}
                   >
                     <img
-                      src={safeDrawerImg(item.image)}
+                      src={safeDrawerImg(item.image) || undefined}
                       alt={item.name}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
-                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                        e.currentTarget.style.display = "none";
                       }}
                       style={{
                         width: "76px",
@@ -833,11 +830,11 @@ export function CartDrawer({
                           }}
                         >
                           <img
-                            src={safeDrawerImg(u.image)}
+                            src={safeDrawerImg(u.image) || undefined}
                             alt={u.name}
                             onError={(e) => {
                               e.currentTarget.onerror = null;
-                              e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                              e.currentTarget.style.display = "none";
                             }}
                             style={{
                               width: "100%",

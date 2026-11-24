@@ -6,35 +6,29 @@ const COLLECTION_META = {
     eyebrow: "MEN'S FOOTWEAR EDIT",
     title: "Men's Collection",
     subtitle: "Refined everyday silhouettes engineered for all-day comfort and clean versatility.",
-    banner:
-      "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=2000&q=85"
+    banner: ""
   },
   women: {
     eyebrow: "WOMEN'S FOOTWEAR EDIT",
     title: "Women's Collection",
     subtitle:
       "Effortless proportions, supple finishes, and lightweight cushioning from morning to evening.",
-    banner:
-      "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=2000&q=85"
+    banner: ""
   },
   unisex: {
     eyebrow: "GENDER-NEUTRAL ESSENTIALS",
     title: "Unisex Collection",
     subtitle: "Universal forms designed to move across every wardrobe and daily rotation.",
-    banner:
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=2000&q=85"
+    banner: ""
   },
   kids: {
     eyebrow: "CALZARE JUNIOR",
     title: "Kids' Collection",
     subtitle: "Flexible soles, easy closures, and durable comfort built for active days.",
-    banner:
-      "https://images.unsplash.com/photo-1514989940723-e8e51635b782?auto=format&fit=crop&w=2000&q=85"
+    banner: ""
   }
 };
 
-const SAFE_IMAGE =
-  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
 
 export default function CollectionPage({
   collection,
@@ -119,7 +113,7 @@ export default function CollectionPage({
   const activeBanner =
     storeSettings?.collectionImages?.[cleanCol] ||
     (styleFilter !== "all" ? storeSettings?.categoryImages?.[styleFilter] : "") ||
-    meta.banner;
+    "";
 
   return (
     <>
@@ -167,10 +161,10 @@ export default function CollectionPage({
         }}
       >
         <img
-          src={activeBanner}
+          src={activeBanner || undefined}
           onError={(e) => {
             e.currentTarget.onerror = null;
-            e.currentTarget.src = SAFE_IMAGE;
+            e.currentTarget.style.display = "none";
           }}
           alt={meta.title}
           style={{
@@ -244,9 +238,9 @@ export default function CollectionPage({
                     onClick={() => onOpenProduct(product, false)}
                   >
                     <img
-                      src={product.image}
+                      src={product.image || undefined}
                       onError={(e) => {
-                        e.currentTarget.src = SAFE_IMAGE;
+                        e.currentTarget.style.display = "none";
                       }}
                       alt={product.name}
                       loading="lazy"

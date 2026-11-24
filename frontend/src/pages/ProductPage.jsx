@@ -44,42 +44,12 @@ function resolveApiBase() {
 
 const API = resolveApiBase();
 
-const SAFE_IMAGE_FALLBACK =
-  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
-
 const BROKEN_IMAGE_IDS = [
   "photo-1614252369475-531506b0b9e9",
   "photo-1520256862855-9981c41d8ba0"
 ];
 
 const DEFAULT_SIZES = ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"];
-
-const DEFAULT_PRODUCT_SHORT_VIDEOS = [
-  {
-    id: "pdp-clip-1",
-    label: "15s Fit Check",
-    tag: "ON-FOOT FIT",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    poster: SAFE_IMAGE_FALLBACK
-  },
-  {
-    id: "pdp-clip-2",
-    label: "Sole Flex Test",
-    tag: "CUSHION & GRIP",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-    poster: SAFE_IMAGE_FALLBACK
-  },
-  {
-    id: "pdp-clip-3",
-    label: "Street Styling",
-    tag: "DAILY LOOK",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-    poster: SAFE_IMAGE_FALLBACK
-  }
-];
 
 const DEFAULT_REVIEWS = [
   {
@@ -138,64 +108,8 @@ const CALZARE_STANDARD_CARDS = [
   }
 ];
 
-const DEMO_CATALOG = [
-  {
-    id: "bayaband-army-green",
-    name: "Bayaband Clog",
-    tagline: "Signature side band • Dual-density Croslite comfort",
-    color: "Army Green / Cobblestone",
-    category: "Clogs",
-    collection: "Bayaband",
-    price: 2998,
-    oldPrice: 5995,
-    badge: "50% OFF THIS COLOR",
-    image: SAFE_IMAGE_FALLBACK,
-    images: [
-      SAFE_IMAGE_FALLBACK,
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85",
-      "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=1000&q=85"
-    ],
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    sizes: ["UK 4", "UK 5", "UK 6", "UK 7", "UK 8", "UK 9", "UK 10"],
-    highlights: [
-      "Holds up to 26 Jibbitz charms",
-      "Pivoting heel straps for a secure fit",
-      "Water-friendly and buoyant"
-    ],
-    variants: [
-      {
-        id: "var-army-cobble",
-        label: "Army Green / Cobblestone",
-        color: "Army Green / Cobblestone",
-        price: 2998,
-        oldPrice: 5995,
-        image: SAFE_IMAGE_FALLBACK
-      },
-      {
-        id: "var-black-white",
-        label: "Black / White Band",
-        color: "Black / White",
-        price: 3497,
-        oldPrice: 4995,
-        image:
-          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85"
-      },
-      {
-        id: "var-stucco-sand",
-        label: "Stucco / Bone Sand",
-        color: "Stucco / Bone Sand",
-        price: 3995,
-        oldPrice: 5495,
-        image:
-          "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?auto=format&fit=crop&w=1000&q=85"
-      }
-    ]
-  }
-];
-
 function safeImgSrc(url) {
-  if (!url || typeof url !== "string" || !url.trim()) return SAFE_IMAGE_FALLBACK;
+  if (!url || typeof url !== "string" || !url.trim()) return "";
   const clean = url.trim();
   if (clean.startsWith("blob:") || clean.startsWith("data:image/")) {
     return clean;
@@ -211,7 +125,7 @@ function safeImgSrc(url) {
     isLocalHostOnProd ||
     BROKEN_IMAGE_IDS.some((id) => clean.includes(id))
   ) {
-    return SAFE_IMAGE_FALLBACK;
+    return "";
   }
   return clean;
 }
@@ -235,7 +149,7 @@ export function ProductPage({
   onGoBack,
   money
 }) {
-  const current = product || products[0] || DEMO_CATALOG[0];
+  const current = product || products[0] || null;
   const productId = current?.id || current?._id || "";
 
   const [selectedImageOverride, setSelectedImageOverride] = useState("");
@@ -419,18 +333,7 @@ export function ProductPage({
         poster: safeImgSrc(r.poster || posterImg)
       });
     });
-
-    if (clips.length === 0) {
-      DEFAULT_PRODUCT_SHORT_VIDEOS.forEach((demo, idx) => {
-        clips.push({
-          ...demo,
-          id: `${productId}-${demo.id}-${idx}`,
-          poster: posterImg
-        });
-      });
-    }
-
-    return clips.slice(0, 5);
+return clips.slice(0, 5);
   }, [current, productId, reels, productReelsEnabled, currentVideo, currentImage]);
 
   const productReviews = useMemo(() => {
@@ -452,7 +355,7 @@ export function ProductPage({
   const colorOptions = useMemo(() => {
     if (!current) return [];
     const list =
-      Array.isArray(products) && products.length > 0 ? products : DEMO_CATALOG;
+      Array.isArray(products) ? products : [];
     const sameGroup = list.filter(
       (p) =>
         p &&
@@ -476,7 +379,7 @@ export function ProductPage({
 
   const { suggestedItems, alsoBoughtItems } = useMemo(() => {
     const sourceList =
-      Array.isArray(products) && products.length > 0 ? products : DEMO_CATALOG;
+      Array.isArray(products) ? products : [];
     const list = sourceList.filter((p) => {
       const id = p?.id || p?._id;
       return p && id && id !== productId && (p.status || "published") !== "draft";
@@ -513,10 +416,10 @@ export function ProductPage({
 
   const priceNum = activeVariant
     ? Number(activeVariant.price) || 0
-    : Number(current.price) || 0;
+    : Number(current?.price) || 0;
   const oldPriceNum = activeVariant
     ? Number(activeVariant.oldPrice) || 0
-    : Number(current.oldPrice) || 0;
+    : Number(current?.oldPrice) || 0;
   const discountPct =
     oldPriceNum > priceNum && priceNum > 0
       ? Math.round(((oldPriceNum - priceNum) / oldPriceNum) * 100)
@@ -571,12 +474,14 @@ export function ProductPage({
 
   const galleryThumbnails = [
     baseVariantOrProductImage,
-    ...(Array.isArray(current.images) ? current.images.map(safeImgSrc) : []),
+    ...(Array.isArray(current?.images) ? current.images.map(safeImgSrc) : []),
     ...colorOptions.map((opt) => safeImgSrc(opt.image))
   ]
     .filter(Boolean)
     .filter((url, idx, arr) => arr.indexOf(url) === idx)
     .slice(0, 5);
+
+  if (!current) return null;
 
   return (
     <div className="pdp-page" style={{ paddingBottom: isMobileView ? "76px" : 0 }}>
@@ -646,7 +551,8 @@ export function ProductPage({
                     border: isThumbActive
                       ? "1.5px solid #0F172A"
                       : "1px solid #E2E8F0",
-                    background: "#F5F5F5",
+                    background: "#F8F8F8",
+                    boxShadow: "0 1px 4px rgba(15, 23, 42, 0.06)",
                     cursor: "pointer",
                     overflow: "hidden",
                     flexShrink: 0
@@ -657,7 +563,7 @@ export function ProductPage({
                     alt={`${current.name} angle ${tIdx + 1}`}
                     onError={(e) => {
                       e.currentTarget.onerror = null;
-                      e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                      e.currentTarget.style.display = "none";
                     }}
                     style={{
                       width: "100%",
@@ -676,8 +582,10 @@ export function ProductPage({
             style={{
               flex: 1,
               width: "100%",
-              background: "#F5F5F5",
-              borderRadius: "12px",
+              background: "transparent",
+              border: "0",
+              boxShadow: "none",
+              borderRadius: "0",
               overflow: "hidden",
               position: "relative",
               maxHeight: isMobileView
@@ -711,7 +619,7 @@ export function ProductPage({
                 }}
                 onError={(e) => {
                   e.currentTarget.onerror = null;
-                  e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                  e.currentTarget.style.display = "none";
                 }}
               />
             )}
@@ -921,7 +829,7 @@ export function ProductPage({
                           alt={clip.label}
                           onError={(e) => {
                             e.currentTarget.onerror = null;
-                            e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                            e.currentTarget.style.display = "none";
                           }}
                           style={{
                             width: "100%",
@@ -1031,7 +939,7 @@ export function ProductPage({
                         alt={opt.color || opt.name}
                         onError={(e) => {
                           e.currentTarget.onerror = null;
-                          e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                          e.currentTarget.style.display = "none";
                         }}
                       />
                     </button>
@@ -1341,7 +1249,7 @@ export function ProductPage({
                       alt={item.name}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
-                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                        e.currentTarget.style.display = "none";
                       }}
                     />
                     {item.badge && (
@@ -1401,7 +1309,7 @@ export function ProductPage({
               alt={activeClip.label}
               onError={(e) => {
                 e.currentTarget.onerror = null;
-                e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                e.currentTarget.style.display = "none";
               }}
               style={{
                 position: "absolute",
@@ -1801,7 +1709,7 @@ export function ProductPage({
                       alt={item.name}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
-                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                        e.currentTarget.style.display = "none";
                       }}
                     />
                   </div>

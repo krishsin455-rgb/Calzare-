@@ -33,8 +33,6 @@ function readCache(key, fallback) {
   return fallback;
 }
 
-const SAFE_IMAGE_FALLBACK =
-  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
 
 const BROKEN_IMAGE_IDS = [
   "photo-1614252369475-531506b0b9e9",
@@ -76,8 +74,8 @@ function readLocalPageStyles() {
   return {};
 }
 
-export function safeImg(url, fallback = SAFE_IMAGE_FALLBACK) {
-  if (!url || typeof url !== "string" || !url.trim()) return fallback;
+export function safeImg(url) {
+  if (!url || typeof url !== "string" || !url.trim()) return "";
   const clean = url.trim();
   const isLocalHostOnProd =
     typeof window !== "undefined" &&
@@ -90,7 +88,7 @@ export function safeImg(url, fallback = SAFE_IMAGE_FALLBACK) {
     isLocalHostOnProd ||
     BROKEN_IMAGE_IDS.some((id) => clean.includes(id))
   ) {
-    return fallback;
+    return "";
   }
   return clean;
 }
@@ -119,212 +117,14 @@ const money = (value) =>
     maximumFractionDigits: 0
   }).format(Number(value) || 0);
 
-const FALLBACK_PRODUCTS = [
-  {
-    id: "c-001",
-    name: "FORMA COURT",
-    category: "sneakers",
-    collection: "unisex",
-    price: 3499,
-    oldPrice: 4299,
-    badge: "BESTSELLER",
-    color: "Cloud White",
-    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
-    highlights: [
-      "Full-grain vegan micro-leather",
-      "Dual-density memory footbed",
-      "Hand-stitched cupsole"
-    ],
-    description: "A clean everyday court silhouette with a considered, minimal finish.",
-    image:
-      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85",
-    videoUrl: ""
-  },
-  {
-    id: "c-002",
-    name: "MONO RUNNER",
-    category: "sneakers",
-    collection: "unisex",
-    price: 4299,
-    oldPrice: null,
-    badge: "NEW",
-    color: "Stone / Sand",
-    sizes: ["UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
-    highlights: [
-      "Featherlight EVA midsole",
-      "Breathable organic cotton lining",
-      "All-day arch support"
-    ],
-    description: "Lightweight-inspired styling made for everyday movement.",
-    image:
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85",
-    videoUrl: ""
-  },
-  {
-    id: "c-003",
-    name: "ATELIER LOAFER",
-    category: "formal",
-    collection: "men",
-    price: 3899,
-    oldPrice: null,
-    badge: "",
-    color: "Espresso",
-    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"],
-    highlights: [
-      "Supple matte finish",
-      "Blister-free heel collar",
-      "Flexible rubber-injected sole"
-    ],
-    description: "A refined slip-on profile for smart days and evenings.",
-    image:
-      "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=1000&q=85",
-    videoUrl: ""
-  },
-  {
-    id: "c-004",
-    name: "CITY DERBY",
-    category: "formal",
-    collection: "men",
-    price: 4599,
-    oldPrice: 4999,
-    badge: "LIMITED",
-    color: "Black",
-    sizes: ["UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
-    highlights: [
-      "Water-resistant upper",
-      "Cushioned leather-feel insole",
-      "Waxed cotton laces"
-    ],
-    description: "A timeless lace-up shape with a modern, understated presence.",
-    image: SAFE_IMAGE_FALLBACK,
-    videoUrl: ""
-  },
-  {
-    id: "c-005",
-    name: "EVERYDAY SLIDE",
-    category: "slides",
-    collection: "unisex",
-    price: 799,
-    oldPrice: 1299,
-    badge: "EVERYDAY SLIDE",
-    color: "Warm Taupe",
-    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
-    highlights: [
-      "Contoured anatomical footbed",
-      "Water-friendly matte strap",
-      "Anti-slip tread"
-    ],
-    description: "An easy everyday slide priced under ₹999 for daily comfort.",
-    image:
-      "https://images.unsplash.com/photo-1603487742131-4160ec999306?auto=format&fit=crop&w=1000&q=85",
-    videoUrl: ""
-  },
-  {
-    id: "c-006",
-    name: "TERRA LOW",
-    category: "sneakers",
-    collection: "women",
-    price: 3799,
-    oldPrice: null,
-    badge: "NEW",
-    color: "Olive / Cream",
-    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"],
-    highlights: [
-      "Suede-textured tonal panels",
-      "Natural gum outsole",
-      "Breathable perforated toe"
-    ],
-    description: "A versatile low-top designed to work across your rotation.",
-    image:
-      "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=1000&q=85",
-    videoUrl: ""
-  },
-  {
-    id: "c-007",
-    name: "JUNIOR COURT VELCRO",
-    category: "sneakers",
-    collection: "kids",
-    price: 2199,
-    oldPrice: 2599,
-    badge: "KIDS",
-    color: "Chalk / Sage",
-    sizes: ["UK 1", "UK 2", "UK 3", "UK 4", "UK 5"],
-    highlights: [
-      "Easy dual-strap closure",
-      "Soft impact-absorbing sole",
-      "Machine-washable footbed"
-    ],
-    description: "Built for playground sprints and everyday school runs.",
-    image:
-      "https://images.unsplash.com/photo-1514989940723-e8e51635b782?auto=format&fit=crop&w=1000&q=85",
-    videoUrl: ""
-  },
-  {
-    id: "c-008",
-    name: "CLOUD DAILY SLIDE",
-    category: "slides",
-    collection: "unisex",
-    price: 899,
-    oldPrice: 1399,
-    badge: "AT ₹999",
-    color: "Obsidian Matte",
-    sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
-    highlights: [
-      "Closed-cell water-ready foam",
-      "Arch-contoured footbed",
-      "Lightweight all-day wear"
-    ],
-    description: "Everyday comfort priced under ₹999 with bundle-eligible savings.",
-    image:
-      "https://images.unsplash.com/photo-1603808033192-082d6919d3e1?auto=format&fit=crop&w=1000&q=85",
-    videoUrl: ""
-  }
-];
+const FALLBACK_PRODUCTS = [];
 
-const FALLBACK_REELS = [
-  {
-    id: "reel-01",
-    title: "Morning Commute in Forma Court",
-    tag: "EVERYDAY WEAR",
-    productId: "c-001",
-    videoUrl: "",
-    poster:
-      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "reel-02",
-    title: "Zero Break-In Comfort Test",
-    tag: "FLEX & CUSHION",
-    productId: "c-002",
-    videoUrl: "",
-    poster:
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "reel-03",
-    title: "Desk to Dinner Styling",
-    tag: "SMART EDIT",
-    productId: "c-003",
-    videoUrl: "",
-    poster:
-      "https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "reel-04",
-    title: "Built for the Long Walk Home",
-    tag: "CRAFT & DETAIL",
-    productId: "c-006",
-    videoUrl: "",
-    poster:
-      "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=800&q=80"
-  }
-];
+const FALLBACK_REELS = [];
 
 const DEFAULT_HOMEPAGE = {
   reelsEnabled: true,
   heroVideoUrl: "",
-  heroImage:
-    "https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=2200&q=90",
+  heroImage: "",
   heroEyebrow: "THE EVERYDAY COLLECTION — 2026",
   heroTitle: "Walk your",
   heroTitleEmphasis: "own way.",
@@ -344,16 +144,14 @@ const DEFAULT_HOMEPAGE = {
     label: "WATCH FIT & FLEX",
     productId: "c-001",
     videoUrl: "",
-    poster:
-      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=600&q=80"
+    poster: ""
   },
   featuredProduct: {
     enabled: true,
     sectionType: "EXCLUSIVE / MOST SELLING",
     productId: "c-001",
     redirectUrl: "",
-    image:
-      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1200&q=85",
+    image: "",
     title: "FORMA COURT — SIGNATURE EDITION",
     price: 3499
   },
@@ -534,7 +332,7 @@ function applyHomepagePayload(hp, setHomepage) {
     ...prev,
     ...hp,
     reelsEnabled: hp.reelsEnabled !== undefined ? Boolean(hp.reelsEnabled) : prev.reelsEnabled,
-    heroImage: safeImg(hp.heroImage || prev.heroImage),
+    heroImage: safeImg(Object.prototype.hasOwnProperty.call(hp, "heroImage") ? hp.heroImage : prev.heroImage),
     heroVideoUrl: safeVid(hp.heroVideoUrl),
     campaignVideoUrl: safeVid(hp.campaignVideoUrl),
     mobileUI: hp.mobileUI
@@ -548,7 +346,7 @@ function applyHomepagePayload(hp, setHomepage) {
           ...prev.pipVideo,
           ...hp.pipVideo,
           videoUrl: safeVid(hp.pipVideo.videoUrl),
-          poster: safeImg(hp.pipVideo.poster || prev.pipVideo.poster),
+          poster: safeImg(Object.prototype.hasOwnProperty.call(hp.pipVideo, "poster") ? hp.pipVideo.poster : prev.pipVideo.poster),
           enabled: hp.pipVideo.enabled !== undefined ? Boolean(hp.pipVideo.enabled) : prev.pipVideo.enabled
         }
       : prev.pipVideo,
@@ -556,7 +354,7 @@ function applyHomepagePayload(hp, setHomepage) {
       ? {
           ...prev.featuredProduct,
           ...hp.featuredProduct,
-          image: safeImg(hp.featuredProduct.image || prev.featuredProduct.image)
+          image: safeImg(Object.prototype.hasOwnProperty.call(hp.featuredProduct, "image") ? hp.featuredProduct.image : prev.featuredProduct.image)
         }
       : prev.featuredProduct,
     affordableStore: hp.affordableStore
@@ -912,7 +710,7 @@ export function Under999StoreSection({
                       }}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
-                        e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                        e.currentTarget.style.display = "none";
                       }}
                     />
                   </div>
@@ -1100,48 +898,7 @@ const under999Styles = {
   }
 };
 
-const DEFAULT_SHORT_VIDEOS = [
-  {
-    id: "reel-01",
-    title: "Morning Commute in Forma Court",
-    tag: "EVERYDAY WEAR",
-    productId: "c-001",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-    poster:
-      "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "reel-02",
-    title: "Zero Break-In Comfort Test",
-    tag: "FLEX & CUSHION",
-    productId: "c-002",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-    poster:
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=800&q=80"
-  },
-  {
-    id: "reel-03",
-    title: "Everyday Slide On-Foot Check",
-    tag: "UNDER ₹999 SLIDE",
-    productId: "c-005",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-    poster:
-      "https://images.unsplash.com/photo-1603487742131-4160ec999306?auto=format&fit=crop&w=1000&q=85"
-  },
-  {
-    id: "reel-04",
-    title: "Built for the Long Walk Home",
-    tag: "CRAFT & DETAIL",
-    productId: "c-006",
-    videoUrl:
-      "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoy.mp4",
-    poster:
-      "https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=800&q=80"
-  }
-];
+const DEFAULT_SHORT_VIDEOS = [];
 
 export function ShortVideoReelsSection({
   reels = [],
@@ -1149,7 +906,7 @@ export function ShortVideoReelsSection({
   onOpenReel,
   onQuickAdd
 }) {
-  const list = Array.isArray(reels) && reels.length > 0 ? reels : DEFAULT_SHORT_VIDEOS;
+  const list = Array.isArray(reels) ? reels : [];
 
   return (
     <section
@@ -1216,7 +973,7 @@ export function ShortVideoReelsSection({
                   alt={clip.title}
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                    e.currentTarget.style.display = "none";
                   }}
                   style={{
                     width: "100%",
@@ -1591,7 +1348,7 @@ function App() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         const list = data?.products || (Array.isArray(data) ? data : null);
-        if (list?.length) {
+        if (Array.isArray(list)) {
           const mapped = list.filter(Boolean).map((p) => ({
             ...p,
             image: safeImg(p.image),
@@ -1626,7 +1383,7 @@ function App() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         const list = data?.reels || (Array.isArray(data) ? data : null);
-        if (list?.length) {
+        if (Array.isArray(list)) {
           const mapped = list.filter(Boolean).map((r) => ({
             ...r,
             poster: safeImg(r.poster),
@@ -1853,7 +1610,10 @@ function App() {
       : Math.min(Number(appliedCoupon.value) || 0, afterBundleTotal)
     : 0;
 
-  const shippingFee = cartSubtotal >= freeShipMin || cartSubtotal === 0 ? 0 : 149;
+  const shippingFee =
+    cartSubtotal >= freeShipMin || cartSubtotal === 0
+      ? 0
+      : Math.max(0, Number(storeSettings.standardShippingFee ?? 149));
   const cartFinalTotal = Math.max(
     0,
     cartSubtotal - discountAmount - couponDiscount + shippingFee
@@ -2137,7 +1897,10 @@ function App() {
     }
 
     const chargeAmount = customerData.paymentMethod.includes("Partial COD")
-      ? 299
+      ? Math.min(
+          Math.max(0, Number(storeSettings.partialCodAdvance ?? 299)),
+          cartFinalTotal
+        )
       : cartFinalTotal;
 
     try {
@@ -2150,12 +1913,13 @@ function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amountInPaise: Math.round(chargeAmount * 100),
-          currency: "INR",
-          magicCheckout: true,
           customer: customerData,
-          items: orderPayload.items,
-          totalAmount: cartFinalTotal,
+          items: orderPayload.items.map(({ id, size, quantity }) => ({
+            id,
+            size,
+            quantity
+          })),
+          paymentMethod: customerData.paymentMethod,
           couponCode: appliedCoupon?.code || null
         })
       });
@@ -2242,11 +2006,7 @@ function App() {
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                magic_checkout_data: response,
-                orderPayload: {
-                  ...cleanOrderPayload,
-                  customer: mergedCustomer
-                }
+                customer: mergedCustomer
               })
             });
 
@@ -2873,7 +2633,7 @@ function App() {
                   src={safeImg(activeProduct.image)}
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                    e.currentTarget.style.display = "none";
                   }}
                   alt={activeProduct.name}
                 />
@@ -3000,7 +2760,7 @@ function App() {
                   alt={activeReelProduct.name}
                   onError={(e) => {
                     e.currentTarget.onerror = null;
-                    e.currentTarget.src = SAFE_IMAGE_FALLBACK;
+                    e.currentTarget.style.display = "none";
                   }}
                 />
                 <div>
@@ -3177,7 +2937,9 @@ function App() {
                   }
                 >
                   <option>Razorpay Magic Checkout</option>
-                  <option>Partial COD (₹299 Advance)</option>
+                  <option value="Partial COD (₹299 Advance)">
+                    Partial COD ({money(Number(storeSettings.partialCodAdvance ?? 299))} Advance)
+                  </option>
                   <option>UPI / Cards / NetBanking</option>
                   <option>Cash on Delivery</option>
                 </select>
@@ -3209,7 +2971,12 @@ function App() {
                 <button type="submit" className="primary-cta-btn">
                   CONTINUE TO MAGIC CHECKOUT —{" "}
                   {money(
-                    checkoutForm.paymentMethod.includes("Partial COD") ? 299 : cartFinalTotal
+                    checkoutForm.paymentMethod.includes("Partial COD")
+                      ? Math.min(
+                          Math.max(0, Number(storeSettings.partialCodAdvance ?? 299)),
+                          cartFinalTotal
+                        )
+                      : cartFinalTotal
                   )}{" "}
                   <ArrowUpRight size={16} />
                 </button>
