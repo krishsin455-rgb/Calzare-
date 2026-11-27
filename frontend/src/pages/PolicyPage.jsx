@@ -1,197 +1,121 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 
 const SHIPPING_POLICY = {
   title: "Shipping Policy",
-  meta: "Brand: CALZARE™ • Company: Calzare Heels Private Limited • Website: calzare.in",
+  meta: "Brand: AL-ZEHRA SILK • Website: alzehrasilk.in",
   intro:
-    "At CALZARE™, operated by Calzare Heels Private Limited, we aim to deliver your footwear safely and efficiently across India. Please read our Shipping Policy to understand how orders are processed, dispatched, and delivered.",
+    "At Al-Zehra Silk, every saree is carefully quality-checked, neatly folded, and securely packed before dispatch. Please read our Shipping Policy to understand how your saree orders are processed and delivered across India.",
   sections: [
     {
-      heading: "1. Order Processing Time",
+      heading: "1. Order Processing & Dispatch",
       items: [
-        "Orders are generally processed within 1–2 business days after order confirmation and successful payment, where applicable.",
-        "Orders placed on Sundays or public holidays will be processed on the next working day.",
-        "Once your order is dispatched, you will receive shipping confirmation and tracking details via SMS, email, or WhatsApp, where available."
+        "All saree orders are quality-checked, packed, and dispatched within 24–48 business hours after order confirmation.",
+        "Orders placed on Sundays or public holidays are processed on the next working day.",
+        "Once dispatched, tracking details are shared via SMS, WhatsApp, or email."
       ]
     },
     {
-      heading: "2. Shipping Time & Delivery",
+      heading: "2. Delivery Timeline",
       items: [
-        "The estimated delivery time is 3–7 business days after dispatch, depending on your delivery location and courier service.",
-        "Deliveries to remote locations may take longer.",
-        "Delivery timelines are estimates only and are not guaranteed.",
-        "Delays may occur due to weather conditions, courier disruptions, public holidays, or other circumstances beyond our reasonable control."
+        "Metro cities: 3–5 business days after dispatch.",
+        "Rest of India: 5–7 business days after dispatch.",
+        "Remote or non-metro PIN codes may take slightly longer depending on courier serviceability.",
+        "Delays caused by weather, festivals, or courier disruptions are outside our direct control, though our team will assist you until delivery."
       ]
     },
     {
       heading: "3. Shipping Charges",
       items: [
-        "Applicable shipping charges, if any, will be displayed at checkout before you place your order.",
-        "Promotional free-shipping offers will be subject to the terms and conditions specified at the time of the offer.",
-        "Any shipping offer may be subject to minimum order values or location-based restrictions, where disclosed."
+        "Free shipping applies across India on prepaid orders above ₹999.",
+        "Any applicable shipping fee for orders below ₹999 is displayed clearly at checkout before payment."
       ]
     },
     {
-      heading: "4. Shipping Locations",
+      heading: "4. Cash on Delivery (COD) & Partial COD",
       items: [
-        "CALZARE™ currently aims to deliver orders across serviceable locations in India.",
-        "Delivery availability depends on courier serviceability for the PIN code provided at checkout.",
-        "International shipping is not available unless specifically announced on our website."
+        "COD and Partial COD (₹199 advance) are available on eligible orders and serviceable Indian PIN codes.",
+        "For Partial COD, the advance amount and the remaining balance payable at delivery are shown clearly at checkout."
       ]
     },
     {
-      heading: "5. Order Tracking",
+      heading: "5. Damaged or Tampered Packages at Delivery",
       items: [
-        "Once your order has been dispatched, we will share the tracking details through the contact information provided during checkout, where supported by the courier partner.",
-        "You can use the tracking number or tracking link to monitor your shipment until delivery."
-      ]
-    },
-    {
-      heading: "6. Delayed or Lost Shipments",
-      items: [
-        "If your order is significantly delayed or appears to be lost in transit, please contact our customer support team.",
-        "We will coordinate with the relevant courier partner to investigate the shipment and assist you with the next steps.",
-        "Delivery delays caused by courier partners or circumstances beyond our reasonable control may be outside our direct control; however, we will make reasonable efforts to help resolve the issue."
-      ]
-    },
-    {
-      heading: "7. Incorrect Address or Failed Delivery",
-      items: [
-        "Please ensure that your shipping address, PIN code, phone number, and other delivery details are accurate at checkout. CALZARE™ cannot guarantee successful delivery if incorrect or incomplete information is provided.",
-        "If a shipment is returned because of an incorrect address, an unavailable recipient, or repeated unsuccessful delivery attempts, we may contact you to arrange the next steps.",
-        "Any additional shipping charges, where applicable (including applicable re-shipment or return-to-origin terms under our Refund, Return & Exchange Policy), will be communicated to you before a re-shipment is arranged."
-      ]
-    },
-    {
-      heading: "8. Cash on Delivery (COD)",
-      items: [
-        "Cash on Delivery (COD) is available only for eligible orders and serviceable PIN codes.",
-        "COD availability may depend on the order value, delivery location, courier partner, and verification requirements.",
-        "We may contact customers to confirm COD orders before dispatch and reserve the right to restrict COD for certain orders or locations where permitted by applicable law."
-      ]
-    },
-    {
-      heading: "9. Partial COD and Order Confirmation",
-      items: [
-        "Where a partial payment or advance payment option is offered at checkout, the applicable amount and remaining balance will be displayed before order confirmation.",
-        "Any advance payment will be processed according to the terms disclosed at checkout.",
-        "If a customer refuses delivery or an order is returned undelivered, any refund or handling of the advance payment will be handled in accordance with our Refund, Return & Exchange Policy and applicable law.",
-        "Any applicable deductions must be lawful, reasonable, and disclosed to the customer before purchase."
-      ]
-    },
-    {
-      heading: "10. Damaged Packages During Transit",
-      items: [
-        "If your package appears visibly damaged at the time of delivery, document the damage with photographs or videos before opening the package where possible.",
-        "If the package is severely damaged or appears tampered with, report the issue to the delivery personnel and contact our customer support team promptly.",
-        "Please notify us within 48 hours of delivery with your order number and supporting photographs or videos, and retain the original packaging until resolved."
+        "If the outer parcel looks torn, opened, wet, or tampered with at the time of delivery, please do not accept it or record a clear video before opening.",
+        "For any damage or missing-item claim after delivery, a continuous 360-degree unboxing video is mandatory (see our Return & Exchange Policy)."
       ]
     }
   ],
   footerNote:
-    "This policy should be read together with our Terms and Conditions and our Refund, Return & Exchange Policy."
+    "This Shipping Policy should be read together with our Saree Return, Refund & Exchange Policy."
 };
 
 const REFUND_POLICY = {
-  title: "Refund, Return & Exchange Policy",
-  meta: "Last Updated: 22 October 2026 • Brand: CALZARE™ • Company: Calzare Heels Private Limited • Website: calzare.in",
+  title: "Return, Refund & Exchange Policy",
+  meta: "Last Updated: November 2026 • Brand: AL-ZEHRA SILK • Website: alzehrasilk.in",
   intro:
-    "At CALZARE™, operated by Calzare Heels Private Limited, we are committed to delivering quality footwear and providing a transparent shopping experience. Please read this policy carefully before placing an order on calzare.in.",
+    "At Al-Zehra Silk, we take pride in the craftsmanship of our Banarasi, Kanjivaram, Soft Silk, and Kalamkari sarees. Every piece is inspected by hand before dispatch. Please read our saree return and damage-claim rules carefully before ordering.",
   sections: [
     {
-      heading: "1. Unboxing Video Requirement",
+      heading: "1. Mandatory Unboxing Video for Damaged / Defective / Wrong Sarees",
       items: [
-        "We recommend recording a continuous, unedited unboxing video for every order, starting before the package is opened and clearly showing the shipping label, packaging, and product.",
-        "An unboxing video helps us verify claims involving damaged, defective, missing, or incorrect products.",
-        "Please retain the original packaging until your complaint has been resolved.",
-        "If you do not have an unboxing video, you may submit photographs and other available evidence. The absence of a video will not automatically remove rights available under applicable law."
+        "To claim a return, replacement, or refund for a damaged, torn, stained, defective, missing, or wrong saree, customers MUST record a continuous, unedited 360-degree unboxing video while opening the parcel.",
+        "The video must start BEFORE the outer sealed courier bag/box is opened, clearly showing the intact shipping label (Order ID & AWB number) on the parcel.",
+        "The saree must be opened and shown completely in the same continuous video, clearly highlighting the damage, defect, or wrong item.",
+        "Edited, paused, cut, or re-packed videos, or photos sent without an unboxing video, will NOT be accepted for damage or missing-item claims.",
+        "The unboxing video must be shared with our support team within 48 hours of delivery."
       ]
     },
     {
-      heading: "2. Returns and Exchanges",
+      heading: "2. 48-Hour Return & Exchange Window",
       items: [
-        "Damaged, Defective, or Incorrect Products: Contact us within 48 hours of delivery, preferably with photographs or an unboxing video. After verification, we will arrange a replacement, exchange, or refund as applicable, with no return or replacement shipping fee where attributable to CALZARE™.",
-        "Size or Fit Issues: Size exchange requests must be submitted within 3 days of delivery. Items must be unused, unworn outdoors, and returned with original packaging, tags, and accessories, subject to stock availability. A disclosed exchange fee of ₹149 may apply for customer-requested size exchanges (waived if attributable to CALZARE™).",
-        "Change of Mind: Returns or exchanges requested solely due to preference change are accepted only where expressly offered for the product. Final-sale items follow product-page conditions without limiting statutory rights."
+        "Damaged, Defective, or Wrong Saree: Report within 48 hours of delivery with your Order ID and the mandatory unboxing video. Once verified, we will arrange a free replacement, exchange, or full refund.",
+        "All return or exchange requests must be raised within 48 hours of delivery. Requests received after 48 hours will not be eligible."
       ]
     },
     {
-      heading: "3. Return Eligibility",
+      heading: "3. Saree Return Eligibility Conditions",
       items: [
-        "Submit the request within the applicable return window.",
-        "Keep the footwear unused and in resalable condition.",
-        "Include the original box, tags, accessories, and packaging, where supplied.",
-        "Provide the order number and any requested supporting information. Products showing outdoor wear, customer-caused damage, or alterations may be ineligible for change-of-mind returns or size exchanges."
+        "The saree must be completely unused, unwashed, unworn, and in its original folding.",
+        "All original tags, labels, and packaging must be intact.",
+        "The attached unstitched blouse piece must NOT be cut, detached, or stitched.",
+        "Sarees with fall/pico done, alterations, iron marks, perfume/deodorant smell, or makeup/wear stains are strictly NOT eligible for return or exchange."
       ]
     },
     {
-      heading: "4. How to Request a Return or Exchange",
+      heading: "4. Handloom, Weave & Color Variation Disclaimer",
       items: [
-        "1. Contact our customer support team using the details published on our website.",
-        "2. Provide your order number and registered phone number or email address.",
-        "3. Explain the reason for your request and provide photographs or an unboxing video where available.",
-        "4. Our team will review the request and confirm the next steps.",
-        "5. If approved, we will arrange a pickup or provide return instructions depending on serviceability.",
-        "6. Once received and inspected, we will notify you of the outcome and resolution. Do not send items to an unconfirmed address."
+        "Slight variations in color or zari sheen may occur due to studio lighting, photography, and mobile/screen display settings. Minor shade differences are not considered defects.",
+        "Small thread slubs, minor weave irregularities, or slight zari texture variations are natural hallmarks of woven silk and handloom-inspired sarees, not manufacturing defects."
       ]
     },
     {
-      heading: "5. Refund Method and Processing Time",
+      heading: "5. How to Raise a Return or Damage Claim",
       items: [
-        "Prepaid orders are generally refunded to the original payment method; for COD orders, we may request bank account or payment details needed to refund securely.",
-        "We aim to initiate approved refunds within 7–10 business days after the refund decision or completion of required inspection, as applicable.",
-        "Final reflection time depends on your bank or payment provider and applicable law."
+        "1. Email us at care@alzehrasilk.in or message our WhatsApp support within 48 hours of delivery.",
+        "2. Share your Order ID, registered phone number, and the continuous unboxing video showing the shipping label and the saree.",
+        "3. Our quality team will review the video within 24–48 business hours and confirm approval.",
+        "4. Once approved, we will arrange a reverse pickup (or share return shipping instructions for non-serviceable PIN codes).",
+        "5. Do not ship any saree back without confirmation from our support team."
       ]
     },
     {
-      heading: "6. Exchange Fees",
+      heading: "6. Refunds & Processing Time",
       items: [
-        "For eligible customer-requested size or preference-based exchanges, an exchange fee of ₹149 may apply to help cover shipping and logistics costs.",
-        "The fee is disclosed before confirmation and does not apply to replacements or exchanges required to correct a damaged, defective, or incorrect product attributable to CALZARE™."
+        "Refunds are initiated only after the returned saree reaches our studio and passes quality inspection.",
+        "Prepaid orders: Refunded to the original payment method within 5–7 business days after inspection.",
+        "COD orders: Refunded via UPI or bank transfer within 5–7 business days after you share your payout details."
       ]
     },
     {
-      heading: "7. Order Cancellations",
+      heading: "7. Order Cancellations & Partial COD / RTO",
       items: [
-        "Customers may request cancellation before dispatch by contacting us as soon as possible.",
-        "Once dispatched, standard cancellation may no longer be available; contact us to check available options.",
-        "Approved cancellations of prepaid orders are refunded to the original payment method subject to applicable law, and partial COD advance payments follow checkout terms and applicable law."
-      ]
-    },
-    {
-      heading: "8. Cash on Delivery (COD) and Partial COD",
-      items: [
-        "COD and Partial COD may be available for eligible orders and serviceable PIN codes.",
-        "For Partial COD orders, if a customer refuses delivery at the doorstep or fails to accept delivery after applicable attempts resulting in Return to Origin (RTO), the advance payment collected at checkout is intended to cover shipping, return-logistics, and order-handling costs and may be non-refundable where permitted by applicable law and disclosed terms.",
-        "Advance payments are not treated as non-refundable where the product is defective/incorrect, delivery failure is attributable to CALZARE™, or a refund is required by law.",
-        "If re-shipment is requested after an RTO, a re-shipment charge of ₹300 may apply where lawful and communicated before re-dispatch."
-      ]
-    },
-    {
-      heading: "9. Return to Origin (RTO), Re-shipment and Cancellation After Dispatch",
-      items: [
-        "A shipment may be returned to origin if the customer is unavailable, unreachable, provides an incorrect/incomplete address, refuses delivery, or cannot receive the package after applicable delivery attempts.",
-        "Re-shipment After RTO: A ₹300 re-shipment charge may apply where the customer is responsible for failed delivery and the charge is lawful and disclosed beforehand (no charge if caused by CALZARE™).",
-        "Fully Prepaid Orders Refused at the Doorstep: If refused for reasons attributable to the customer resulting in RTO, ₹300 may be deducted from the refund toward shipping and return-logistics costs where disclosed and legally permissible (not an additional penalty, and waived if attributable to CALZARE™).",
-        "Partial COD Orders Returned to Origin: Handled per Section 8; advance payment and the ₹300 re-shipment charge are assessed separately rather than stacked automatically without regard to circumstances, disclosed terms, and applicable law."
-      ]
-    },
-    {
-      heading: "10. Final Sale and Clearance Products",
-      items: [
-        "Products marked final sale or clearance may be ineligible for returns or exchanges based on size or preference, as disclosed on the product page, without excluding statutory remedies for defective, damaged, incorrect, or misrepresented products."
-      ]
-    },
-    {
-      heading: "11. Gift Cards and Store Credit",
-      items: [
-        "If store credit or a gift card is offered as a resolution, its value, validity, and redemption conditions are communicated before acceptance.",
-        "Store credit does not replace a refund where a refund is required by applicable law."
+        "Orders can only be cancelled before dispatch by contacting support with your Order ID.",
+        "For Partial COD orders, if delivery is refused at the doorstep or fails due to an incorrect address/unavailability resulting in Return to Origin (RTO), the ₹199 advance covers forward and return shipping costs and is non-refundable."
       ]
     }
   ],
   footerNote:
-    "We aim to review customer requests promptly and communicate the next steps clearly. This policy should be read together with our Shipping Policy, Terms and Conditions, and Privacy Policy."
+    "By placing an order on alzehrasilk.in, you agree to the mandatory unboxing video requirement and saree return conditions outlined above."
 };
 
 export default function PolicyPage({
@@ -218,7 +142,7 @@ export default function PolicyPage({
   const supportEmail =
     storeSettings?.supportEmail ||
     storeSettings?.contactItems?.find((c) => c.type === "Email")?.value ||
-    "Admin@calzareheels.com";
+    "care@alzehrasilk.in";
 
   const displayTitle = customPolicy?.title || doc.title;
   const displayIntro = customPolicy?.content || doc.intro;
@@ -247,8 +171,10 @@ export default function PolicyPage({
             padding: "8px 16px",
             borderRadius: "999px",
             border: "1px solid currentColor",
-            background: !isRefund ? "var(--accent, #252a22)" : "transparent",
-            color: !isRefund ? "var(--accent-ink, #f7f6f2)" : "inherit",
+            background: !isRefund
+              ? "var(--accent, #7A1C24)"
+              : "transparent",
+            color: !isRefund ? "var(--accent-ink, #FAF7F2)" : "inherit",
             fontSize: "11px",
             fontWeight: 700,
             letterSpacing: "0.08em",
@@ -264,15 +190,15 @@ export default function PolicyPage({
             padding: "8px 16px",
             borderRadius: "999px",
             border: "1px solid currentColor",
-            background: isRefund ? "var(--accent, #252a22)" : "transparent",
-            color: isRefund ? "var(--accent-ink, #f7f6f2)" : "inherit",
+            background: isRefund ? "var(--accent, #7A1C24)" : "transparent",
+            color: isRefund ? "var(--accent-ink, #FAF7F2)" : "inherit",
             fontSize: "11px",
             fontWeight: 700,
             letterSpacing: "0.08em",
             cursor: "pointer"
           }}
         >
-          REFUND, RETURN & EXCHANGE
+          RETURN, REFUND & EXCHANGE
         </button>
         {onGoHome && (
           <button
@@ -303,7 +229,29 @@ export default function PolicyPage({
       >
         {displayTitle}
       </h1>
-      <p style={{ fontSize: "12px", opacity: 0.72, margin: "0 0 20px" }}>{doc.meta}</p>
+      <p style={{ fontSize: "12px", opacity: 0.72, margin: "0 0 20px" }}>
+        {doc.meta}
+      </p>
+
+      {isRefund && (
+        <div
+          style={{
+            padding: "14px 16px",
+            marginBottom: "24px",
+            borderRadius: "10px",
+            background: "var(--surface, #F3ECE1)",
+            border: "1px solid var(--accent, #7A1C24)",
+            color: "var(--accent, #7A1C24)",
+            fontSize: "13.5px",
+            fontWeight: 600
+          }}
+        >
+          Important: A continuous, unedited unboxing video from before opening
+          the sealed parcel (showing the shipping label and the saree clearly)
+          is mandatory for all damaged, defective, or wrong-product return claims.
+        </div>
+      )}
+
       <p style={{ margin: "0 0 28px" }}>{displayIntro}</p>
 
       <div style={{ display: "grid", gap: "24px" }}>
@@ -312,7 +260,14 @@ export default function PolicyPage({
             <h2 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 8px" }}>
               {sec.heading}
             </h2>
-            <ul style={{ margin: 0, paddingLeft: "20px", display: "grid", gap: "6px" }}>
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: "20px",
+                display: "grid",
+                gap: "6px"
+              }}
+            >
               {sec.items.map((text, idx) => (
                 <li key={idx}>{text}</li>
               ))}
@@ -325,19 +280,17 @@ export default function PolicyPage({
         style={{
           marginTop: "36px",
           paddingTop: "24px",
-          borderTop: "1px solid rgba(0,0,0,0.12)",
+          borderTop: "1px solid var(--line, rgba(0,0,0,0.12))",
           fontSize: "14px"
         }}
       >
         <h2 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 8px" }}>
-          {isRefund ? "12. Contact Us" : "11. Contact Us"}
+          Contact Us
         </h2>
         <p style={{ margin: "0 0 12px" }}>
-          <strong>Brand:</strong> CALZARE™
+          <strong>Brand:</strong> AL-ZEHRA SILK
           <br />
-          <strong>Company:</strong> Calzare Heels Private Limited
-          <br />
-          <strong>Website:</strong> calzare.in
+          <strong>Website:</strong> alzehrasilk.in
           <br />
           <strong>Email:</strong>{" "}
           <a href={`mailto:${supportEmail}`} style={{ textDecoration: "underline" }}>

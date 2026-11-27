@@ -38,26 +38,12 @@ import {
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
-const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
-const CATEGORIES_STORAGE_KEY = "calzare_custom_categories";
-const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
-const PAGE_STYLES_STORAGE_KEY = "calzare_page_styles_v1";
-const POLICIES_STORAGE_KEY = "calzare_store_policies_v1";
-const SETTINGS_STORAGE_KEY = "calzare_settings_v1";
-
-function readLocalSettings() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || "null");
-    if (parsed && typeof parsed === "object") return parsed;
-  } catch (_) {}
-  return {};
-}
-
-function writeLocalSettings(settingsObj) {
-  try {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settingsObj));
-  } catch (_) {}
-}
+const HOMEPAGE_STORAGE_KEY = "alzehrasilk_homepage_v1";
+const CATEGORIES_STORAGE_KEY = "alzehrasilk_custom_categories";
+const PAGE_ASSIGNMENTS_STORAGE_KEY = "alzehrasilk_page_assignments";
+const PAGE_STYLES_STORAGE_KEY = "alzehrasilk_page_styles_v1";
+const POLICIES_STORAGE_KEY = "alzehrasilk_store_policies_v1";
+const ADMIN_TOKEN_KEY = "alzehrasilk_admin_token";
 
 const DEFAULT_PAYMENT_METHODS = [
   "Partial COD (₹299 Advance)",
@@ -71,48 +57,49 @@ const DEFAULT_STORE_POLICIES = [
     title: "Shipping Policy",
     updatedAt: "November 2026",
     content:
-      "Orders are processed and dispatched within 24–48 business hours. Complimentary express shipping applies automatically on orders above ₹2,999. Standard delivery takes 3–5 business days across metro cities and 5–7 business days for rest of India."
+      "Orders are carefully packed and dispatched within 24–48 business hours. Free shipping applies to orders above ₹999. Delivery timelines vary by location and are shared at checkout."
   },
   {
     key: "exchange",
     title: "Exchange & Return Policy",
     updatedAt: "November 2026",
     content:
-      "We offer a 7-day hassle-free doorstep size exchange on unworn pairs in their original box and packaging. To initiate an exchange, reach out with your Order ID within 7 days of delivery."
+      "Please contact us within 48 hours of delivery if your saree arrives damaged or differs from your order. Include your Order ID and clear photos so our team can help."
   },
   {
     key: "refund",
     title: "Refund Policy",
     updatedAt: "November 2026",
     content:
-      "Once a returned pair passes quality inspection at our warehouse, prepaid refunds are credited back to your original payment method within 5–7 business days."
+      "Approved refunds are returned to the original payment method within 5–7 business days after the return is received and inspected."
   },
   {
     key: "privacy",
     title: "Privacy Policy",
     updatedAt: "November 2026",
     content:
-      "Your name, phone number, email, and delivery address are collected strictly to fulfill your CALZARE order, send shipping updates, and provide customer support."
+      "Your name, phone number, email, and delivery address are collected strictly to fulfill your Al-Zehra Silk order, send shipping updates, and provide customer support."
   },
   {
     key: "terms",
     title: "Terms of Service",
     updatedAt: "November 2026",
     content:
-      "By accessing or purchasing from CALZARE, you agree to our pricing, dispatch timelines, and 7-day exchange guidelines."
+      "By accessing or purchasing from Al-Zehra Silk, you agree to our pricing, dispatch timelines, and return guidelines."
   }
 ];
 
 const STOREFRONT_PAGES = [
   { key: "home", label: "HOME PAGE" },
-  { key: "men", label: "MEN PAGE" },
-  { key: "women", label: "WOMEN PAGE" },
-  { key: "unisex", label: "UNISEX PAGE" },
-  { key: "kids", label: "KIDS PAGE" },
+  { key: "banarasi", label: "BANARASI PAGE" },
+  { key: "kanjivaram", label: "KANJIVARAM PAGE" },
+  { key: "soft-silk", label: "SOFT SILK PAGE" },
+  { key: "kalamkari", label: "KALAMKARI PAGE" },
+  { key: "festive", label: "FESTIVE PAGE" },
   { key: "shop", label: "SHOP / ALL PAGE" }
 ];
 
-const ALL_COLLECTIONS = ["men", "women", "unisex", "kids"];
+const ALL_COLLECTIONS = ["banarasi", "kanjivaram", "soft-silk", "kalamkari", "festive"];
 
 const DEFAULT_SINGLE_PAGE_STYLE = {
   bannerHeightPx: 320,
@@ -155,6 +142,9 @@ function writeLocalPageStyles(stylesObj) {
   } catch (_) {}
 }
 
+const FALLBACK_IMG =
+  "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85";
+
 const money = (value) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -177,8 +167,8 @@ const NAV_GROUPS = [
     group: "CONTENT & CMS",
     items: [
       { id: "homepage", label: "Homepage CMS", icon: Sparkles },
-      { id: "under999_slider", label: "₹999 Store Slides", icon: Tag },
-      { id: "editorial_slider", label: "Editorial Showcase Slides", icon: Layers },
+      { id: "under999_slider", label: "Featured Collection Banner", icon: Tag },
+      { id: "editorial_slider", label: "Editorial Saree Banners", icon: Layers },
       { id: "mobile_ui", label: "Mobile UI & Navbar", icon: Smartphone },
       { id: "reels", label: "Shoppable Reels", icon: Film },
       { id: "story", label: "Our Story Manager", icon: FileText },
@@ -203,18 +193,18 @@ const NAV_GROUPS = [
 ];
 
 const REAL_HOMEPAGE_SECTIONS = [
-  { key: "hero_main", label: "HERO BANNER", title: "Walk your own way.", titleAlign: "left", layout: "hero_banner", visible: true, image: "" },
-  { key: "trust_strip", label: "TRUST STRIP", title: "FREE SHIPPING ₹2,999+ • 7-DAY SIZE EXCHANGE", titleAlign: "left", layout: "trust_strip", visible: true, image: "" },
-  { key: "collections_strip", label: "CURATED DEPARTMENTS", title: "Shop by collection.", titleAlign: "left", layout: "4_column_tiles", visible: true, image: "" },
-  { key: "affordable_store", label: "/999 STORE", title: "Your day found its footing. (/999 Store)", titleAlign: "left", layout: "horizontal_slider", visible: true, image: "" },
-  { key: "editorial_slider", label: "EDITORIAL SLIDER", title: "Editorial Showcase Slider (Below /999 Store)", titleAlign: "left", layout: "full_bleed_slider", visible: true, image: "" },
+  { key: "hero_main", label: "HERO BANNER", title: "Woven for your celebrations.", titleAlign: "left", layout: "hero_banner", visible: true, image: "" },
+  { key: "trust_strip", label: "TRUST STRIP", title: "AUTHENTIC WEAVES • CAREFULLY PACKED • SHIPPING ACROSS INDIA", titleAlign: "left", layout: "trust_strip", visible: true, image: "" },
+  { key: "collections_strip", label: "WEAVE COLLECTIONS", title: "Discover the art of every weave.", titleAlign: "left", layout: "4_column_tiles", visible: true, image: "" },
+  { key: "affordable_store", label: "FEATURED COLLECTION", title: "Find a saree for every occasion.", titleAlign: "left", layout: "horizontal_slider", visible: true, image: "" },
+  { key: "editorial_slider", label: "EDITORIAL SAREE BANNERS", title: "Stories woven in silk.", titleAlign: "left", layout: "full_bleed_slider", visible: true, image: "" },
   { key: "featured_product", label: "FEATURED DROP", title: "FEATURED DROP (Exclusive Spotlight)", titleAlign: "left", layout: "spotlight_card", visible: true, image: "" },
-  { key: "intro_statement", label: "LESS, BUT BETTER", title: "Good design is felt in every step.", titleAlign: "left", layout: "editorial_intro", visible: true, image: "" },
-  { key: "shop_grid", label: "THE CALZARE EDIT", title: "Find your form.", titleAlign: "left", layout: "product_grid", visible: true, image: "" },
-  { key: "reels_motion", label: "SHOPPABLE REELS", title: "Calzare in motion.", titleAlign: "left", layout: "reels_strip", visible: true, image: "" },
-  { key: "campaign_banner", label: "A CALZARE STATE OF MIND", title: "Made to move. Made to matter.", titleAlign: "left", layout: "split_campaign", visible: true, image: "" },
-  { key: "our_philosophy", label: "OUR PHILOSOPHY", title: "Wear what moves you.", titleAlign: "left", layout: "story_block", visible: true, image: "" },
-  { key: "journal_notes", label: "NOTES FROM CALZARE", title: "The considered life.", titleAlign: "left", layout: "journal_card", visible: true, image: "" },
+  { key: "intro_statement", label: "THE ART OF THE DRAPE", title: "Tradition, woven for today.", titleAlign: "left", layout: "editorial_intro", visible: true, image: "" },
+  { key: "shop_grid", label: "THE SAREE EDIT", title: "Find your occasion saree.", titleAlign: "left", layout: "product_grid", visible: true, image: "" },
+  { key: "reels_motion", label: "SAREES IN MOTION", title: "See every detail up close.", titleAlign: "left", layout: "reels_strip", visible: true, image: "" },
+  { key: "campaign_banner", label: "AL-ZEHRA SILK EDIT", title: "A little heritage in every drape.", titleAlign: "left", layout: "split_campaign", visible: true, image: "" },
+  { key: "our_philosophy", label: "OUR STORY", title: "Made with meaning. Worn with joy.", titleAlign: "left", layout: "story_block", visible: true, image: "" },
+  { key: "journal_notes", label: "FROM OUR WEAVES", title: "The stories behind every saree.", titleAlign: "left", layout: "journal_card", visible: true, image: "" },
   { key: "newsletter", label: "A NOTE, NOW AND THEN", title: "Stay in the know.", titleAlign: "left", layout: "dark_banner", visible: true, image: "" }
 ];
 
@@ -235,10 +225,10 @@ const DEFAULT_HOMEPAGE_CMS = {
   paragraphAlign: "left",
   cartPromoBox: { enabled: true, position: "top" },
   cartRewardBanner: {
-    b2g1UnlockedTemplate: "1 PAIR FREE unlocked ({freeItemName})!",
-    emptyHeadline: "Buy 2 pairs for 10% OFF • Buy 3 pairs & get 1 PAIR FREE!",
-    onePairHeadline: "Add 1 more pair to unlock 10% OFF on your order!",
-    twoPairHeadline: "10% OFF unlocked! Add 1 more pair to get 1 PAIR FREE!"
+    b2g1UnlockedTemplate: "Free gift unlocked ({freeItemName})!",
+    emptyHeadline: "Add your favourite sarees to the bag and explore current offers.",
+    onePairHeadline: "Add another saree to explore multi-item savings.",
+    twoPairHeadline: "Your offer is unlocked. Add another saree for a complimentary gift."
   },
   sections: REAL_HOMEPAGE_SECTIONS,
   featuredProduct: {
@@ -246,27 +236,27 @@ const DEFAULT_HOMEPAGE_CMS = {
     sectionType: "EXCLUSIVE / MOST SELLING",
     productId: "c-001",
     redirectUrl: "",
-    image: "",
-    title: "FORMA COURT — SIGNATURE EDITION",
+    image: FALLBACK_IMG,
+    title: "AL-ZEHRA SILK — SIGNATURE WEAVE",
     price: 3499
   },
   pipVideo: {},
-  heroEyebrow: "THE EVERYDAY COLLECTION — 2026",
-  heroTitle: "Walk your",
-  heroTitleEmphasis: "own way.",
+  heroEyebrow: "THE AL-ZEHRA SILK COLLECTION",
+  heroTitle: "Woven for",
+  heroTitleEmphasis: "your moments.",
   heroDescription:
-    "Thoughtful footwear. Quiet confidence. Made for wherever the day takes you.",
+    "Discover timeless Indian weaves, thoughtfully selected for celebrations, gifting, and everyday elegance.",
   heroImage: "",
   heroVideoUrl: "",
   productPage: {
     homeIconSizePx: 16,
     galleryMaxHeightPx: 560,
     offer1Badge: "10% OFF",
-    offer1Text: "Buy 2 Pairs",
+    offer1Text: "Buy 2 Sarees",
     offer2Badge: "15% OFF",
-    offer2Text: "Buy 3 Pairs",
-    standardTitle: "THE CALZARE STANDARD",
-    standardSubtitle: "Built with science. Tested with life."
+    offer2Text: "Buy 3 Sarees",
+    standardTitle: "THE AL-ZEHRA SILK PROMISE",
+    standardSubtitle: "Thoughtful craft, quality checked before dispatch."
   },
   mobileUI: {
     navHeightPx: 58,
@@ -291,14 +281,14 @@ const DEFAULT_HOMEPAGE_CMS = {
     logoSizePx: 27,
     sticky: true,
     announcementText:
-      "COMPLIMENTARY EXPRESS SHIPPING ABOVE ₹2,999 • 7-DAY EASY EXCHANGE"
+      "TIMELESS INDIAN WEAVES • FREE SHIPPING ABOVE ₹999 • COD AVAILABLE"
   },
   affordableStore: {
     enabled: true,
     sectionHeightPx: 480,
-    title: "Your day\nfound its footing.",
-    subtitle: "Everyday Calzare, everyday price.\nStarting ₹999",
-    badgeLabel: "/999 Store",
+    title: "A beautiful drape\nfor every occasion.",
+    subtitle: "Explore handpicked sarees for celebrations and everyday elegance.",
+    badgeLabel: "THE SAREE EDIT",
     image: "",
     maxPrice: 999,
     ctaLabel: "EXPLORE",
@@ -310,19 +300,17 @@ const DEFAULT_HOMEPAGE_CMS = {
     slides: [
       {
         id: "ed-1",
-        title: "Forma Court",
-        subtitle: "Minimal architectural court silhouette built for long city days.",
+        title: "A timeless silk weave",
+        subtitle: "Discover the craft, colour, and details in every Al-Zehra saree.",
         ctaLabel: "Buy Now",
-        ctaAlign: "left",
-        ctaBottomPx: 14,
-        image: "",
+        image: FALLBACK_IMG,
         slideHeightPx: 460,
         imageFit: "cover",
         imagePosX: 50,
         imagePosY: 50,
         imageZoom: 1,
         productId: "c-001",
-        redirectUrl: "#product/c-001"
+        redirectUrl: "#shop"
       }
     ]
   },
@@ -330,20 +318,21 @@ const DEFAULT_HOMEPAGE_CMS = {
     bgColor: "#0F172A",
     textColor: "#CBD5E1",
     logo: "",
-    tagline: "Architectural footwear built for motion.",
-    copyright: "© 2026 CALZARE. All rights reserved.",
+    tagline: "Timeless Indian weaves, thoughtfully chosen.",
+    copyright: "© 2026 Al-Zehra Silk. All rights reserved.",
     showContact: true,
     hours: "Monday to Friday, 10:00 AM to 6:00 PM.",
     contactItems: [
-      { type: "Email", label: "Support Email", value: "support@calzare.in" },
-      { type: "Phone", label: "Helpline", value: "+91 98765 43210" }
+      { type: "Email", label: "Support Email", value: "support@alzehrasilk.com" }
     ],
     columns: [
       {
         title: "Shop",
         links: [
-          { label: "Sneakers", url: "#sneakers" },
-          { label: "Slides & Clogs", url: "#slides" }
+          { label: "Banarasi Sarees", url: "#banarasi" },
+          { label: "Kanjivaram Sarees", url: "#kanjivaram" },
+          { label: "Soft Silk Sarees", url: "#soft-silk" },
+          { label: "Kalamkari Sarees", url: "#kalamkari" }
         ]
       },
       {
@@ -358,19 +347,7 @@ const DEFAULT_HOMEPAGE_CMS = {
 };
 
 const DEFAULT_SIZE_ROWS = [
-  { uk: "UK 6", eu: "EU 40", us: "US 7", cm: "25.0 cm" },
-  { uk: "UK 7", eu: "EU 41", us: "US 8", cm: "25.8 cm" },
-  { uk: "UK 8", eu: "EU 42", us: "US 9", cm: "26.6 cm" },
-  { uk: "UK 9", eu: "EU 43", us: "US 10", cm: "27.4 cm" },
-  { uk: "UK 10", eu: "EU 44", us: "US 11", cm: "28.2 cm" }
-];
-
-const KIDS_SIZE_ROWS = [
-  { uk: "UK 1", eu: "EU 33", us: "US 2Y", cm: "19.8 cm" },
-  { uk: "UK 2", eu: "EU 34", us: "US 3Y", cm: "20.6 cm" },
-  { uk: "UK 3", eu: "EU 35.5", us: "US 4Y", cm: "21.5 cm" },
-  { uk: "UK 4", eu: "EU 37", us: "US 5Y", cm: "22.3 cm" },
-  { uk: "UK 5", eu: "EU 38", us: "US 6Y", cm: "23.2 cm" }
+  { uk: "Free Size", eu: "Length", us: "Blouse Piece", cm: "Notes" }
 ];
 
 const PRODUCT_STEPS = [
@@ -388,75 +365,74 @@ const PRODUCT_STEPS = [
 const EMPTY_PRODUCT = {
   id: "",
   sku: "",
-  brand: "CALZARE",
+  brand: "Al-Zehra Silk",
   name: "",
   slug: "",
   status: "published",
-  category: "sneakers",
-  collection: "unisex",
+  category: "sarees",
+  collection: "banarasi",
   price: 1499,
   oldPrice: 2499,
   badge: "NEW ARRIVAL",
   tagline: "",
   listingSummary: "",
-  color: "Cloud White",
+  color: "Maroon",
   colorHex: "#D9CFBE",
-  sizes: "UK 6, UK 7, UK 8, UK 9, UK 10",
-  sizeGuideTitle: "Measurement Guide",
-  sizeGuideUnit: "Centimeters (cm)",
-  sizeGuideNote:
-    "Place your foot on a blank sheet of paper with heel against the wall. Mark the tip of your longest toe and measure.",
-  sizeChartRows: DEFAULT_SIZE_ROWS,
-  stockBySize: { "UK 6": 15, "UK 7": 20, "UK 8": 25, "UK 9": 18, "UK 10": 12 },
+  sizes: "Free Size",
+  sizeGuideTitle: "Saree Details",
+  sizeGuideUnit: "Product measurements",
+  sizeGuideNote: "Add the saree length, blouse piece details, and any fit information in the product description.",
+  sizeChartRows: [{ uk: "Free Size", eu: "", us: "", cm: "" }],
+  stockBySize: { "Free Size": 15 },
   storyBlocks: [
     {
       visible: true,
-      heading: "ENGINEERED FOR THE CONCRETE WILD",
-      subheading: "Closed-Cell Microfoam Technology",
-      copy: "Every contour of the silhouette is pressure-mapped against human biomechanics to absorb shock and distribute bodyweight evenly across your stride.",
+      heading: "A STORY IN EVERY THREAD",
+      subheading: "Crafted by skilled artisans",
+      copy: "Every detail celebrates the artistry, colours, and traditions woven into this saree.",
       layout: "Image on Right",
       image: ""
     }
   ],
   featureCards: [
     {
-      title: "100% Waterproof & Hydrophobic",
-      desc: "Closed-cell EVA matrix resists water, mud, and stains.",
+      title: "Authentic weave",
+      desc: "A thoughtfully selected saree with distinctive traditional craft.",
       visible: true
     },
     {
-      title: "Featherweight Ergonomics",
-      desc: "Lightweight build for all-day city movement.",
+      title: "Comfortable drape",
+      desc: "Designed to drape beautifully for celebrations and special moments.",
       visible: true
     },
     {
-      title: "Deep Lug Anti-Slip Outsole",
-      desc: "Reliable traction across everyday surfaces.",
+      title: "Beautiful finishing",
+      desc: "Careful finishing brings out the colour and character of the fabric.",
       visible: true
     },
     {
-      title: "Antimicrobial Odor Barrier",
-      desc: "Breathable, easy-care finish for daily wear.",
+      title: "Ready for gifting",
+      desc: "Thoughtfully packed and ready to make a memorable gift.",
       visible: true
     }
   ],
   highlights:
-    "100% Waterproof & Hydrophobic, Featherweight Ergonomics, Dual-Density Memory Footbed",
+    "Traditional craftsmanship, elegant drape, carefully finished, gift-worthy",
   description: "",
-  materials: "Closed-Cell EVA & Vegan Micro-Leather",
-  moldingMethod: "Monolithic Injection-Molded Ergonomic Shell",
-  fitRecommendation: "True to UK size. Roomy toe box for natural splay.",
-  careInstructions: "Hand wash with mild soap and cool water. Air dry in shade.",
+  materials: "Silk fabric",
+  moldingMethod: "",
+  fitRecommendation: "Free size saree. Check the product description for length and blouse piece details.",
+  careInstructions: "Dry clean recommended. Store folded in a cool, dry place and keep away from direct sunlight.",
   dispatchNotice: "Orders processed within 1–2 business days.",
-  returnDetails: "Size exchange requests must be submitted within 7 days of delivery.",
+  returnDetails: "Please contact us within 48 hours of delivery if your saree arrives damaged or differs from your order.",
   faqs: [
     {
-      q: "Are these true to size?",
-      a: "Yes! Choose your regular UK size for a comfortable everyday fit."
+      q: "What is the saree length and does it include a blouse piece?",
+      a: "Please refer to the product details for exact length and blouse piece information."
     },
     {
-      q: "How do I clean my CALZARE shoes?",
-      a: "Rinse with cool water and mild soap, then air dry in the shade."
+      q: "How should I care for this saree?",
+      a: "Dry clean is recommended. Store it folded in a cool, dry place."
     }
   ],
   seoTitle: "",
@@ -500,7 +476,7 @@ const EMPTY_COUPON = {
 
 const handleImgError = (e) => {
   e.currentTarget.onerror = null;
-  e.currentTarget.style.display = "none";
+  e.currentTarget.src = FALLBACK_IMG;
 };
 
 function readLocalCategories() {
@@ -519,14 +495,15 @@ function writeLocalCategories(cats) {
 }
 
 function buildDefaultPageAssignments(allCats) {
-  return {
-    home: { collections: [...ALL_COLLECTIONS], categories: [...allCats] },
-    men: { collections: ["men", "unisex"], categories: [...allCats] },
-    women: { collections: ["women", "unisex"], categories: [...allCats] },
-    unisex: { collections: ["unisex"], categories: [...allCats] },
-    kids: { collections: ["kids"], categories: [...allCats] },
-    shop: { collections: [...ALL_COLLECTIONS], categories: [...allCats] }
-  };
+  return Object.fromEntries(
+    STOREFRONT_PAGES.map(({ key }) => [
+      key,
+      {
+        collections: key === "home" || key === "shop" ? [...ALL_COLLECTIONS] : [key],
+        categories: [...allCats]
+      }
+    ])
+  );
 }
 
 function readLocalPageAssignments(allCats) {
@@ -635,31 +612,11 @@ function DropZoneField({
   const isVideo = accept.includes("video");
 
   const handleSelectedFile = (file) => {
-    if (!file || isBusy) return;
-
+    if (!file) return;
     if (file.size > maxBytes) {
       alert(`File exceeds ${Math.round(maxBytes / (1024 * 1024))}MB limit.`);
       return;
     }
-
-    const acceptedTypes = accept
-      .split(",")
-      .map((type) => type.trim().toLowerCase())
-      .filter(Boolean);
-
-    const fileType = (file.type || "").toLowerCase();
-    const isAccepted = acceptedTypes.some((type) => {
-      if (type.endsWith("/*")) {
-        return fileType.startsWith(type.slice(0, -1));
-      }
-      return type === fileType;
-    });
-
-    if (!isAccepted) {
-      alert("Unsupported file type. Please select an accepted image or video format.");
-      return;
-    }
-
     onUploadFile(file, uploadKey, onChange);
   };
 
@@ -723,10 +680,7 @@ function DropZoneField({
               accept={accept}
               hidden
               disabled={isBusy}
-              onChange={(e) => {
-                handleSelectedFile(e.target.files?.[0]);
-                e.target.value = "";
-              }}
+              onChange={(e) => handleSelectedFile(e.target.files?.[0])}
             />
           </label>
         </div>
@@ -887,7 +841,7 @@ function ImageFitControls({
 
 export function AdminPanelContent({ onExit, onStoreUpdated }) {
   const [token, setToken] = useState(
-    () => sessionStorage.getItem("calzare_admin_token") || ""
+    () => sessionStorage.getItem(ADMIN_TOKEN_KEY) || ""
   );
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -945,15 +899,14 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
   const [pages, setPages] = useState([]);
   const [settings, setSettings] = useState(() => {
     const localCats = readLocalCategories();
-    const baseCats = ["sneakers", "formal", "slides"];
+    const baseCats = ["sarees", "silk-sarees", "organza", "cotton-sarees", "lehengas", "kurta-sets"];
     const mergedCats = Array.from(new Set([...baseCats, ...localCats]));
     return {
-      storeName: "CALZARE",
-      supportEmail: "support@calzare.in",
-      supportPhone: "+91 98765 43210",
+      storeName: "Al-Zehra Silk",
+      supportEmail: "support@alzehrasilk.com",
+      supportPhone: "",
       contactItems: [
-        { type: "Email", label: "Customer Support", value: "support@calzare.in" },
-        { type: "Phone", label: "Helpline", value: "+91 98765 43210" }
+        { type: "Email", label: "Customer Support", value: "support@alzehrasilk.com" }
       ],
       paymentMethods: [...DEFAULT_PAYMENT_METHODS],
       freeShippingThreshold: 2999,
@@ -962,27 +915,18 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       pageAssignments: readLocalPageAssignments(mergedCats),
       pageStyles: readLocalPageStyles(),
       policies: readLocalPolicies(),
-      collectionImages: {
-        men: "",
-        women: "",
-        unisex: "",
-        kids: "",
-        ...(readLocalSettings().collectionImages || {})
-      },
-      categoryImages: { ...(readLocalSettings().categoryImages || {}) },
+      collectionImages: Object.fromEntries(ALL_COLLECTIONS.map((key) => [key, ""])),
+      categoryImages: {},
       navigation: [
         { label: "HOME", url: "#home" },
-        { label: "MEN", url: "#men" },
-        { label: "WOMEN", url: "#women" },
-        { label: "UNISEX", url: "#unisex" },
-        { label: "KIDS", url: "#kids" },
+        ...ALL_COLLECTIONS.map((key) => ({ label: key.replaceAll("-", " ").toUpperCase(), url: `#${key}` })),
         { label: "OUR STORY", url: "#story" }
       ],
       storySections: [
         {
           eyebrow: "OUR PHILOSOPHY",
-          heading: "Wear what moves you.",
-          body: "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention.",
+          heading: "Made with meaning. Worn with joy.",
+          body: "Al-Zehra Silk celebrates timeless Indian weaves, thoughtfully selected for every celebration.",
           image: ""
         }
       ]
@@ -1062,8 +1006,8 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
   function broadcastSync() {
     try {
-      localStorage.setItem("calzare_store_sync", Date.now().toString());
-      window.dispatchEvent(new Event("calzare_store_updated"));
+      localStorage.setItem("alzehrasilk_store_sync", Date.now().toString());
+      window.dispatchEvent(new Event("alzehrasilk_store_updated"));
     } catch (_) {}
     onStoreUpdated?.();
   }
@@ -1074,7 +1018,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         headers: { Authorization: `Bearer ${activeToken}` }
       });
       if (res.status === 401) {
-        sessionStorage.removeItem("calzare_admin_token");
+        sessionStorage.removeItem(ADMIN_TOKEN_KEY);
         setToken("");
         throw new Error("Session expired. Please sign in with admin email & password.");
       }
@@ -1246,22 +1190,15 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data.message || "FShip order sync failed.");
-      }
-
       await syncAll(token);
-
-      if (data.mode === "webhook_ready") {
-        notify(data.message || "FShip webhook is ready for live tracking updates.");
-      } else {
-        const count = Number(data.updatedCount) || 0;
-        notify(`FShip sync completed. Updated ${count} order(s).`);
-      }
-    } catch (err) {
-      notify(err.message || "FShip order sync failed.");
+      notify(
+        res.ok
+          ? "Synced live order statuses from FShip."
+          : "Refreshed orders (connect FShip webhook at /api/webhooks/fship)."
+      );
+    } catch {
+      await syncAll(token);
+      notify("Refreshed orders.");
     } finally {
       setSyncingFship(false);
     }
@@ -1293,7 +1230,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         setAuthError(data.message || "Invalid admin email or password.");
         return;
       }
-      sessionStorage.setItem("calzare_admin_token", data.user.adminToken);
+      sessionStorage.setItem(ADMIN_TOKEN_KEY, data.user.adminToken);
       setToken(data.user.adminToken);
       setLocked(false);
       setLoginPassword("");
@@ -1370,7 +1307,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         (u) => u !== urlToRemove
       );
       const nextPrimary =
-        prev.image === urlToRemove ? remaining[0] || "" : prev.image;
+        prev.image === urlToRemove ? remaining[0] || FALLBACK_IMG : prev.image;
       return {
         ...prev,
         image: nextPrimary,
@@ -1412,10 +1349,10 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       sizeChartRows: activeRows,
       sizes: derivedSizes,
       stockBySize: syncedStock,
-      image: (productForm.image || "").trim(),
+      image: (productForm.image || "").trim() || FALLBACK_IMG,
       images: Array.from(
         new Set([
-          ...((productForm.image || "").trim() ? [(productForm.image || "").trim()] : []),
+          (productForm.image || "").trim() || FALLBACK_IMG,
           ...(Array.isArray(productForm.images) ? productForm.images : []).filter(Boolean)
         ])
       ),
@@ -1441,7 +1378,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       notify(
         payload.status === "draft"
           ? "Product saved as draft."
-          : "Footwear silhouette published."
+          : "Saree published to the storefront."
       );
       setProductEditorOpen(false);
       setProductForm(EMPTY_PRODUCT);
@@ -1456,9 +1393,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
     const rows =
       Array.isArray(prod.sizeChartRows) && prod.sizeChartRows.length
         ? prod.sizeChartRows
-        : prod.collection === "kids"
-        ? KIDS_SIZE_ROWS
-        : DEFAULT_SIZE_ROWS;
+      : DEFAULT_SIZE_ROWS;
     const { sizes, stockBySize } = normalizeSizesAndStock(rows, prod.stockBySize || {});
     setNewSizeLabel("");
     setSizeModalProduct({
@@ -1530,10 +1465,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         },
         body: JSON.stringify(updatedProduct)
       });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || "Failed to update stock");
-      }
+      if (!res.ok) throw new Error("Failed to update stock");
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? updatedProduct : p))
       );
@@ -1548,47 +1480,32 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
   async function handleDeleteProduct(id) {
     if (!window.confirm("Remove this SKU permanently?")) return;
-    try {
-      const res = await fetch(`${API}/admin/products/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || `Could not remove SKU (HTTP ${res.status})`);
-      }
-      notify("SKU removed.");
-      await syncAll();
-      broadcastSync();
-    } catch (err) {
-      notify(err.message || "Failed to remove SKU.");
-    }
+    await fetch(`${API}/admin/products/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    notify("SKU removed.");
+    await syncAll();
+    broadcastSync();
   }
+
   async function handleUpdateOrderStatus(orderId, status) {
-    try {
-      const res = await fetch(`${API}/admin/orders/${encodeURIComponent(orderId)}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ status })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || `Order update failed (HTTP ${res.status})`);
-      }
-      if (!data.order) {
-        throw new Error("Server did not confirm the order update. Please refresh and check the order.");
-      }
+    const res = await fetch(`${API}/admin/orders/${orderId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ status })
+    });
+    if (res.ok) {
       setOrders((prev) =>
-        prev.map((o) => (o.orderId === orderId ? { ...o, status: data.order.status } : o))
+        prev.map((o) => (o.orderId === orderId ? { ...o, status } : o))
       );
-      notify(`Order ${orderId} updated to ${data.order.status}.`);
-    } catch (err) {
-      notify(err.message || "Could not update order status.");
+      notify(`Order ${orderId} updated to ${status}.`);
     }
   }
+
   async function handleSaveHomepage(updatedHome = homepage) {
     setHomepage(updatedHome);
     persistHomepageLocal(updatedHome);
@@ -1604,8 +1521,13 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+        if (res.status === 409) await syncAll(token);
         throw new Error(errData.message || "Backend rejected Homepage CMS update");
       }
+      const data = await res.json();
+      const savedHomepage = data.homepage || updatedHome;
+      setHomepage(savedHomepage);
+      persistHomepageLocal(savedHomepage);
       setEditingSection(null);
       notify("Homepage CMS updated live.");
       broadcastSync();
@@ -1617,23 +1539,19 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
   async function handleSaveReel(e) {
     e.preventDefault();
-    try {
-      const payload = {
-        ...reelForm,
-        id: (reelForm.id || "").trim() || `reel-${Date.now().toString().slice(-4)}`
-      };
-      const res = await fetch(`${API}/admin/reels`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || `Failed to publish reel (HTTP ${res.status})`);
-      }
+    const payload = {
+      ...reelForm,
+      id: (reelForm.id || "").trim() || `reel-${Date.now().toString().slice(-4)}`
+    };
+    const res = await fetch(`${API}/admin/reels`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
       notify("Shoppable reel published.");
       setReelForm({
         id: "",
@@ -1645,28 +1563,20 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       });
       await syncAll();
       broadcastSync();
-    } catch (err) {
-      notify(err.message || "Could not publish reel.");
     }
   }
+
   async function handleDeleteReel(id) {
     if (!window.confirm("Delete this reel?")) return;
-    try {
-      const res = await fetch(`${API}/admin/reels/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || `Could not delete reel (HTTP ${res.status})`);
-      }
-      notify("Reel deleted.");
-      await syncAll();
-      broadcastSync();
-    } catch (err) {
-      notify(err.message || "Failed to delete reel.");
-    }
+    await fetch(`${API}/admin/reels/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    notify("Reel deleted.");
+    await syncAll();
+    broadcastSync();
   }
+
   async function handleSaveCoupon(e) {
     e.preventDefault();
     const cleanCode = couponForm.code.trim().toUpperCase();
@@ -1722,97 +1632,74 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
   async function handleSaveReview(e) {
     e.preventDefault();
-    try {
-      const prod = products.find((p) => p.id === reviewForm.productId);
-      const isEditing = Boolean(editingReviewId);
-      const url = isEditing
-        ? `${API}/admin/reviews/${encodeURIComponent(editingReviewId)}`
-        : `${API}/admin/reviews`;
-      const method = isEditing ? "PATCH" : "POST";
+    const prod = products.find((p) => p.id === reviewForm.productId);
+    const isEditing = Boolean(editingReviewId);
+    const url = isEditing
+      ? `${API}/admin/reviews/${editingReviewId}`
+      : `${API}/admin/reviews`;
+    const method = isEditing ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...reviewForm,
-          rating: Number(reviewForm.rating),
-          productName: prod?.name || reviewForm.productName || "FORMA COURT"
-        })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || `Could not save review (HTTP ${res.status})`);
-      }
+    const res = await fetch(url, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        ...reviewForm,
+        rating: Number(reviewForm.rating),
+        productName: prod?.name || reviewForm.productName || "FORMA COURT"
+      })
+    });
+    if (res.ok) {
       notify(isEditing ? "Comment & writer updated." : "Customer review added.");
       setEditingReviewId(null);
       setReviewModal(false);
       setReviewForm(EMPTY_REVIEW);
       await syncAll();
       broadcastSync();
-    } catch (err) {
-      notify(err.message || "Could not save review.");
     }
   }
+
   async function handleReviewAction(id, patchObj) {
-    try {
-      const res = await fetch(`${API}/admin/reviews/${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(patchObj)
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || `Could not update review (HTTP ${res.status})`);
-      }
-      notify("Review updated.");
-      await syncAll();
-      broadcastSync();
-    } catch (err) {
-      notify(err.message || "Failed to update review.");
-    }
+    await fetch(`${API}/admin/reviews/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(patchObj)
+    });
+    notify("Review updated.");
+    await syncAll();
+    broadcastSync();
   }
+
   async function handleDeleteReview(id) {
     if (!window.confirm("Remove this comment?")) return;
-    try {
-      const res = await fetch(`${API}/admin/reviews/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || `Could not remove comment (HTTP ${res.status})`);
-      }
-      notify("Comment removed.");
-      await syncAll();
-      broadcastSync();
-    } catch (err) {
-      notify(err.message || "Failed to remove comment.");
-    }
+    await fetch(`${API}/admin/reviews/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    notify("Comment removed.");
+    await syncAll();
+    broadcastSync();
   }
+
   async function handleSavePage(e) {
     e.preventDefault();
-    try {
-      const slug = pageForm.slug.startsWith("/")
-        ? pageForm.slug
-        : `/pages/${pageForm.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-      const res = await fetch(`${API}/admin/pages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ ...pageForm, slug })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.message || `Could not save CMS page (HTTP ${res.status})`);
-      }
+    const slug = pageForm.slug.startsWith("/")
+      ? pageForm.slug
+      : `/pages/${pageForm.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+    const res = await fetch(`${API}/admin/pages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ ...pageForm, slug })
+    });
+    if (res.ok) {
       notify("CMS page saved.");
       setPageModal(false);
       setPageForm({
@@ -1826,10 +1713,9 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       });
       await syncAll();
       broadcastSync();
-    } catch (err) {
-      notify(err.message || "Could not save CMS page.");
     }
   }
+
   async function handleSaveSettings(
     updated = settings,
     successMsg = "Store settings & configuration saved."
@@ -1846,7 +1732,6 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
     if (Array.isArray(updated.policies)) {
       writeLocalPolicies(updated.policies);
     }
-    writeLocalSettings(updated);
 
     if (!token) {
       setSettings(updated);
@@ -1920,7 +1805,6 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       if (nextSettings.policies) {
         writeLocalPolicies(nextSettings.policies);
       }
-      writeLocalSettings(nextSettings);
       setSettings(nextSettings);
       notify(successMsg);
       broadcastSync();
@@ -1980,7 +1864,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
               letterSpacing: "0.5px"
             }}
           >
-            {locked ? "WORKSTATION LOCKED" : "CALZARE CONTROL CENTER"}
+            {locked ? "ADMIN PANEL LOCKED" : "AL-ZEHRA SILK ADMIN"}
           </h2>
           <p
             style={{
@@ -2108,7 +1992,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
     new Set([
       ...(settings.categories?.length
         ? settings.categories
-        : ["sneakers", "formal", "slides"]),
+        : ["sarees", "silk-sarees", "organza", "cotton-sarees", "lehengas", "kurta-sets"]),
       ...readLocalCategories(),
       ...products.map((p) => (p.category || "").toLowerCase()).filter(Boolean)
     ])
@@ -2266,70 +2150,15 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
       pageAssignments: updatedAssignments
     };
 
+    writeLocalCategories(updatedCats);
+    writeLocalPageAssignments(updatedAssignments);
+    setSettings(updatedSettings);
+
     const affectedProducts = products.filter(
       (p) => (p.category || "").toLowerCase() === oldCatKey
     );
 
-    if (affectedProducts.length && !token) {
-      notify("Please sign in before renaming a category assigned to products.");
-      return;
-    }
-
     if (affectedProducts.length) {
-      const updateResults = await Promise.all(
-        affectedProducts.map(async (prod) => {
-          try {
-            const res = await fetch(`${API}/admin/products`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`
-              },
-              body: JSON.stringify({ ...prod, category: cleanNew })
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
-              throw new Error(data.message || "Product category update failed.");
-            }
-            return { ok: true };
-          } catch (err) {
-            return { ok: false, error: err.message };
-          }
-        })
-      );
-
-      const failedUpdates = updateResults.filter((result) => !result.ok);
-
-      if (failedUpdates.length) {
-        const rollbackResults = await Promise.all(
-          affectedProducts.map(async (prod) => {
-            try {
-              const res = await fetch(`${API}/admin/products`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ ...prod, category: oldCatKey })
-              });
-              return res.ok;
-            } catch {
-              return false;
-            }
-          })
-        );
-
-        await syncAll(token);
-
-        const rollbackFailed = rollbackResults.some((ok) => !ok);
-        notify(
-          rollbackFailed
-            ? "Category rename failed. Some product updates could not be restored; please review the affected products."
-            : failedUpdates[0].error || "Category rename failed. Product updates were restored."
-        );
-        return;
-      }
-
       setProducts((prev) =>
         prev.map((p) =>
           (p.category || "").toLowerCase() === oldCatKey
@@ -2337,11 +2166,22 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
             : p
         )
       );
-    }
 
-    writeLocalCategories(updatedCats);
-    writeLocalPageAssignments(updatedAssignments);
-    setSettings(updatedSettings);
+      if (token) {
+        await Promise.all(
+          affectedProducts.map((prod) =>
+            fetch(`${API}/admin/products`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`
+              },
+              body: JSON.stringify({ ...prod, category: cleanNew })
+            }).catch(() => null)
+          )
+        );
+      }
+    }
 
     await handleSaveSettings(
       updatedSettings,
@@ -2393,7 +2233,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
   const collectionsSummary = ALL_COLLECTIONS.map((col) => ({
     key: col,
     name: col.toUpperCase(),
-    count: products.filter((p) => (p.collection || "unisex") === col).length
+    count: products.filter((p) => (p.collection || "banarasi") === col).length
   }));
 
   const currentPageAssignment =
@@ -2415,7 +2255,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
     ? settings.collectionImages?.[selectedAssignPage] || ""
     : selectedAssignPage === "home"
     ? homepage.heroImage || ""
-    : settings.collectionImages?.unisex || "";
+    : settings.collectionImages?.banarasi || "";
 
   function updateSelectedPageStyle(patch) {
     setSettings((prev) => {
@@ -2433,7 +2273,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
   const cartPromoCfg = homepage.cartPromoBox || { enabled: true, position: "top" };
   const cartBannerCfg = homepage.cartRewardBanner || {
-    b2g1UnlockedTemplate: "1 PAIR FREE unlocked ({freeItemName})!"
+    b2g1UnlockedTemplate: "Complimentary gift unlocked ({freeItemName})!"
   };
 
   return (
@@ -2509,7 +2349,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   letterSpacing: "1px"
                 }}
               >
-                CALZARE
+                AL-ZEHRA SILK
               </strong>
               <span style={{ fontSize: "10px", letterSpacing: "1.5px", color: "#64748B" }}>
                 CONTROL CENTER
@@ -2671,21 +2511,15 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
         {toast && (
           <div
             style={{
-              position: "fixed",
-              bottom: "20px",
-              right: "20px",
-              zIndex: 9999,
-              maxWidth: "420px",
-              padding: "12px 16px",
+              margin: "16px 24px 0",
+              padding: "10px 16px",
               background: "#0F172A",
               color: "#fff",
-              borderRadius: "10px",
-              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.28)",
+              borderRadius: "8px",
               fontSize: "12.5px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              gap: "12px"
+              justifyContent: "space-between"
             }}
           >
             <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -2855,7 +2689,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 <div style={cardBox}>
                   <h3 style={sectionSubTitle}>CATALOG SNAPSHOT</h3>
                   <p style={{ fontSize: "13px", margin: "0 0 8px" }}>
-                    <strong>{products.length}</strong> Published Silhouettes •{" "}
+                    <strong>{products.length}</strong> Published Sarees •{" "}
                     <strong>{reels.length}</strong> Shoppable Reels •{" "}
                     <strong>{coupons.length}</strong> Active Promos
                   </p>
@@ -3012,7 +2846,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>PRODUCTS & CATALOG</h1>
                   <p style={pageSub}>
-                    Manage footwear models, SKUs, multiple product photos, and available sizes.
+                    Manage sarees, weave collections, product photos, fabric details, and stock.
                   </p>
                 </div>
                 <button
@@ -3025,7 +2859,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   }}
                   style={primaryBlueBtn}
                 >
-                  <Plus size={15} /> Register New Silhouette
+                  <Plus size={15} /> Add Saree
                 </button>
               </div>
               <div
@@ -3049,7 +2883,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   return (
                     <div key={p.id} style={cardBox}>
                       <img
-                        src={p.image || p.images?.[0] || undefined}
+                        src={p.image || FALLBACK_IMG}
                         alt={p.name}
                         onError={handleImgError}
                         style={{
@@ -3061,8 +2895,8 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                         }}
                       />
                       <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 600 }}>
-                        {p.sku || p.id} • {(p.collection || "unisex").toUpperCase()} •{" "}
-                        {(p.category || "sneakers").toUpperCase()} • {photoCount}{" "}
+                        {p.sku || p.id} • {(p.collection || "banarasi").toUpperCase()} •{" "}
+                        {(p.category || "sarees").toUpperCase()} • {photoCount}{" "}
                         {photoCount === 1 ? "photo" : "photos"}
                       </div>
                       <h3 style={{ margin: "4px 0 6px", fontSize: "15px" }}>{p.name}</h3>
@@ -3403,7 +3237,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   <h1 style={pageTitle}>
                     {productForm.id
                       ? `EDIT: ${productForm.name}`
-                      : "REGISTER NEW FOOTWEAR SILHOUETTE"}
+                      : "ADD A NEW SAREE"}
                   </h1>
                 </div>
                 <div style={{ display: "flex", gap: "10px" }}>
@@ -3500,26 +3334,17 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                       }}
                     >
                       <div>
-                        <label style={fieldLabel}>Target Audience</label>
+                        <label style={fieldLabel}>Weave Collection</label>
                         <select
                           value={productForm.collection}
-                          onChange={(e) => {
-                            const col = e.target.value;
-                            const rows =
-                              col === "kids" ? KIDS_SIZE_ROWS : DEFAULT_SIZE_ROWS;
-                            setProductForm({
-                              ...productForm,
-                              collection: col,
-                              sizeChartRows: rows,
-                              sizes: rows.map((r) => r.uk).join(", ")
-                            });
-                          }}
+                          onChange={(e) => setProductForm({ ...productForm, collection: e.target.value })}
                           style={ctrlInput}
                         >
-                          <option value="unisex">Unisex</option>
-                          <option value="men">Men</option>
-                          <option value="women">Women</option>
-                          <option value="kids">Kids (UK 1–5)</option>
+                          {ALL_COLLECTIONS.map((collection) => (
+                            <option key={collection} value={collection}>
+                              {collection.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div>
@@ -3599,7 +3424,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                             <input
                               placeholder="Paste extra photo URL..."
                               value={extraPhotoInput}
-                              onChange={(e) =>setExtraPhotoInput(e.target.value)}
+                              onChange={(e) => setExtraPhotoInput(e.target.value)}
                               style={{ ...ctrlInput, flex: 1, minWidth: "170px", background: "#FFFFFF" }}
                             />
                             <button
@@ -3844,7 +3669,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
                 {productStep === 4 && (
                   <div style={{ display: "grid", gap: "12px" }}>
-                    <h3 style={sectionSubTitle}>GROUP 4: KEY FOOTWEAR HIGHLIGHTS</h3>
+                    <h3 style={sectionSubTitle}>GROUP 4: SAREE DETAILS & HIGHLIGHTS</h3>
                     <label style={fieldLabel}>Comma-Separated Bullet Highlights</label>
                     <textarea
                       rows={3}
@@ -3872,7 +3697,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                       }}
                     >
                       <div>
-                        <label style={fieldLabel}>Upper & Sole Materials</label>
+                        <label style={fieldLabel}>Fabric & Material</label>
                         <input
                           value={productForm.materials || ""}
                           onChange={(e) =>
@@ -3882,7 +3707,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                         />
                       </div>
                       <div>
-                        <label style={fieldLabel}>Fit Advice</label>
+                        <label style={fieldLabel}>Drape & Product Details</label>
                         <input
                           value={productForm.fitRecommendation || ""}
                           onChange={(e) =>
@@ -3924,7 +3749,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                       }}
                     >
                       <h3 style={{ ...sectionSubTitle, margin: 0 }}>
-                        GROUP 6: SIZE CHART & MEASUREMENT GUIDE
+                        GROUP 6: SAREE MEASUREMENTS & BLOUSE DETAILS
                       </h3>
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                         <button
@@ -3937,19 +3762,19 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                           }
                           style={topActionBtn}
                         >
-                          Adult (UK 6–10)
+                          Free Size
                         </button>
                         <button
                           type="button"
                           onClick={() =>
                             setProductForm({
                               ...productForm,
-                              sizeChartRows: KIDS_SIZE_ROWS
+                              sizeChartRows: [{ uk: "Standard", eu: "", us: "", cm: "" }]
                             })
                           }
                           style={topActionBtn}
                         >
-                          Kids (UK 1–5)
+                          Standard Size
                         </button>
                         <button
                           type="button"
@@ -3978,10 +3803,10 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                       >
                         <thead>
                           <tr style={{ background: "#F1F5F9", textAlign: "left" }}>
-                            <th style={{ padding: "8px" }}>UK / INDIA</th>
-                            <th style={{ padding: "8px" }}>EU SIZE</th>
-                            <th style={{ padding: "8px" }}>US SIZE</th>
-                            <th style={{ padding: "8px" }}>FOOT LENGTH</th>
+                            <th style={{ padding: "8px" }}>SIZE / VARIANT</th>
+                            <th style={{ padding: "8px" }}>LENGTH</th>
+                            <th style={{ padding: "8px" }}>BLOUSE PIECE</th>
+                            <th style={{ padding: "8px" }}>NOTES</th>
                             <th style={{ padding: "8px" }}></th>
                           </tr>
                         </thead>
@@ -4031,7 +3856,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 {productStep === 7 && (
                   <div style={{ display: "grid", gap: "12px" }}>
                     <h3 style={sectionSubTitle}>
-                      GROUP 7: COLOURWAY & UK SIZE STOCK MATRIX
+                      GROUP 7: COLOUR & VARIANT STOCK
                     </h3>
                     <div
                       style={{
@@ -4041,7 +3866,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                       }}
                     >
                       <div>
-                        <label style={fieldLabel}>Colorway Name</label>
+                        <label style={fieldLabel}>Saree Colour</label>
                         <input
                           value={productForm.color || ""}
                           onChange={(e) =>
@@ -4194,7 +4019,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
               <div>
                 <h1 style={pageTitle}>INVENTORY TRACKER</h1>
                 <p style={pageSub}>
-                  Live per-size stock matrix across all active footwear SKUs.
+                  Live stock by saree variant across the active catalog.
                 </p>
               </div>
               {products.map((prod) => {
@@ -4223,7 +4048,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                         <img
-                          src={prod.image || undefined}
+                          src={prod.image || FALLBACK_IMG}
                           alt={prod.name}
                           onError={handleImgError}
                           style={{
@@ -4935,13 +4760,13 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 </div>
 
                 <div style={cardBox}>
-                  <h3 style={sectionSubTitle}>FOOTWEAR CATEGORIES & BANNERS</h3>
+                  <h3 style={sectionSubTitle}>SAREE CATEGORIES & COLLECTION BANNERS</h3>
                   <form
                     onSubmit={handleAddCategory}
                     style={{ display: "flex", gap: "8px", marginBottom: "14px" }}
                   >
                     <input
-                      placeholder="New category (e.g. Loafers, Boots, Clogs)"
+                      placeholder="New category (e.g. Silk Sarees, Organza, Lehengas)"
                       value={newCategoryInput}
                       onChange={(e) => setNewCategoryInput(e.target.value)}
                       style={ctrlInput}
@@ -5055,9 +4880,9 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 }}
               >
                 <div>
-                  <h1 style={pageTitle}>MOBILE UI, NAVBAR & CALZARE® LOGO</h1>
+                  <h1 style={pageTitle}>MOBILE UI, NAVBAR & STORE LOGO</h1>
                   <p style={pageSub}>
-                    Customize mobile header height, CALZARE® font size, hero scaling, trust strip
+                    Customize mobile header height, brand mark size, hero scaling, trust strip
                     layout, and product reel visibility.
                   </p>
                 </div>
@@ -5071,7 +4896,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
               </div>
 
               <div style={cardBox}>
-                <h3 style={sectionSubTitle}>MOBILE NAVBAR & CALZARE® LOGO SIZE</h3>
+                <h3 style={sectionSubTitle}>MOBILE NAVBAR & BRAND MARK SIZE</h3>
                 <div
                   style={{
                     display: "grid",
@@ -5081,7 +4906,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 >
                   <div>
                     <label style={fieldLabel}>
-                      CALZARE® Mobile Font Size ({homepage.mobileUI?.logoSizePx ?? 17}px)
+                      Brand Name Font Size ({homepage.mobileUI?.logoSizePx ?? 17}px)
                     </label>
                     <input
                       type="range"
@@ -5103,7 +4928,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
                   <div>
                     <label style={fieldLabel}>
-                      CALZARE® Letter Spacing ({homepage.mobileUI?.logoTracking ?? 2.4}px)
+                      Brand Name Letter Spacing ({homepage.mobileUI?.logoTracking ?? 2.4}px)
                     </label>
                     <input
                       type="range"
@@ -5274,7 +5099,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 <div>
                   <h1 style={pageTitle}>HOMEPAGE CMS BUILDER</h1>
                   <p style={pageSub}>
-                    Edit hero text, CALZARE logo size, colors, fonts, navbar, footer, featured
+                    Edit hero text, store logo size, colors, fonts, navbar, footer, and featured
                     product, and toggle visibility of real homepage sections.
                   </p>
                 </div>
@@ -5304,7 +5129,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   }}
                 >
                   <h3 style={{ ...sectionSubTitle, margin: 0 }}>
-                    HERO SECTION TEXT & CALZARE LOGO SIZE
+                    HERO SECTION TEXT & STORE LOGO SIZE
                   </h3>
                   <button
                     type="button"
@@ -5357,11 +5182,11 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                     />
                   </div>
                   <div>
-                    <label style={fieldLabel}>CALZARE Logo Size (px)</label>
+                    <label style={fieldLabel}>Store Logo Size (px)</label>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <button
                         type="button"
-                        aria-label="Decrease CALZARE font size"
+                        aria-label="Decrease store logo font size"
                         onClick={() =>
                           setHomepage((prev) => ({
                             ...prev,
@@ -5396,7 +5221,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                       />
                       <button
                         type="button"
-                        aria-label="Increase CALZARE font size"
+                        aria-label="Increase store logo font size"
                         onClick={() =>
                           setHomepage((prev) => ({
                             ...prev,
@@ -5612,7 +5437,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   <div>
                     <label style={fieldLabel}>Redirect URL (Optional)</label>
                     <input
-                      placeholder="#men, #unisex, or https://..."
+                      placeholder="#banarasi, #kanjivaram, or https://..."
                       value={homepage.featuredProduct?.redirectUrl || ""}
                       onChange={(e) =>
                         setHomepage({
@@ -6599,40 +6424,6 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                           }
                         }}
                       />
-                      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
-                        <button
-                          type="button"
-                          disabled={
-                            !(editingSection.key === "affordable_store"
-                              ? homepage.affordableStore?.image || editingSection.image
-                              : editingSection.image)
-                          }
-                          onClick={() => {
-                            setEditingSection((s) => ({ ...s, image: "" }));
-                            if (editingSection.key === "affordable_store") {
-                              setHomepage((h) => ({
-                                ...h,
-                                affordableStore: {
-                                  ...(h.affordableStore || {}),
-                                  image: ""
-                                }
-                              }));
-                            }
-                          }}
-                          style={{
-                            ...topActionBtn,
-                            color: "#B42318",
-                            borderColor: "#F0B4AE",
-                            opacity: (
-                              editingSection.key === "affordable_store"
-                                ? homepage.affordableStore?.image || editingSection.image
-                                : editingSection.image
-                            ) ? 1 : 0.5
-                          }}
-                        >
-                          Remove Image
-                        </button>
-                      </div>
                       <div
                         style={{
                           display: "flex",
@@ -6682,10 +6473,9 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 }}
               >
                 <div>
-                  <h1 style={pageTitle}>₹999 STORE SLIDER MANAGER</h1>
+                  <h1 style={pageTitle}>SAREES UNDER ₹999</h1>
                   <p style={pageSub}>
-                    Manage the /999 Store promo card, section height, and individual slide
-                    heights & photos.
+                    Manage the under ₹999 collection banner, section height, and promotional images.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -6715,14 +6505,14 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                     }
                     style={topActionBtn}
                   >
-                    <Plus size={14} /> Add ₹999 Slide
+                    <Plus size={14} /> Add Promotion
                   </button>
                   <button
                     type="button"
                     onClick={() => handleSaveHomepage(homepage)}
                     style={primaryBlueBtn}
                   >
-                    <Check size={14} /> Save ₹999 Slides
+                    <Check size={14} /> Save Featured Collection
                   </button>
                 </div>
               </div>
@@ -6756,7 +6546,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   <div>
                     <label style={fieldLabel}>Blue Card Heading</label>
                     <input
-                      placeholder="Your day found its footing."
+                      placeholder="A beautiful drape for every occasion."
                       value={homepage.affordableStore?.title ?? ""}
                       onChange={(e) =>
                         setHomepage({
@@ -6773,7 +6563,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                   <div>
                     <label style={fieldLabel}>Blue Card Subtitle</label>
                     <input
-                      placeholder="Everyday Calzare, everyday price. Starting ₹999"
+                      placeholder="Discover timeless weaves for every celebration."
                       value={homepage.affordableStore?.subtitle ?? ""}
                       onChange={(e) =>
                         setHomepage({
@@ -6833,7 +6623,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 <h3 style={sectionSubTitle}>SLIDE IMAGES, HEIGHTS & PRODUCT LINKS</h3>
                 {!(homepage.affordableStore?.customSlides || []).length ? (
                   <p style={pageSub}>
-                    No ₹999 slides yet. Click <strong>+ Add ₹999 Slide</strong> above to upload
+                    No featured collection banners yet. Click <strong>+ Add Slide</strong> above to upload
                     images.
                   </p>
                 ) : (
@@ -7021,10 +6811,9 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 }}
               >
                 <div>
-                  <h1 style={pageTitle}>EDITORIAL SHOWCASE SLIDES (BELOW ₹999)</h1>
+                  <h1 style={pageTitle}>EDITORIAL SAREE BANNERS</h1>
                   <p style={pageSub}>
-                    Manage the full-width Sola World–style slider directly below the ₹999 Store
-                    section, including per-slide height and Buy Now button alignment.
+                    Manage the full-width editorial saree banner and its images.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -7040,10 +6829,8 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                             {
                               id: `ed-${Date.now().toString().slice(-4)}`,
                               title: "New Drop",
-                              subtitle: "Engineered for everyday movement.",
+                              subtitle: "Discover the craft and detail in every weave.",
                               ctaLabel: "Buy Now",
-                              ctaAlign: "left",
-                              ctaBottomPx: 14,
                               image: "",
                               slideHeightPx: 460,
                               imageFit: "cover",
@@ -7051,9 +6838,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                               imagePosY: 50,
                               imageZoom: 1,
                               productId: products[0]?.id || "",
-                              redirectUrl: products[0]?.id
-                                ? `#product/${products[0].id}`
-                                : "#shop"
+                              redirectUrl: "#shop"
                             }
                           ]
                         }
@@ -7255,7 +7040,6 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                                         ? {
                                             ...it,
                                             ctaLabel: "Buy Now",
-                                            productId: "",
                                             redirectUrl: e.target.value
                                           }
                                         : it
@@ -7290,25 +7074,6 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                                 }))
                               }
                               style={{ width: "100%" }}
-                            />
-                          </div>
-                          <div>
-                            <label style={fieldLabel}>
-                              Buy Now Button Alignment (Left / Centre / Right)
-                            </label>
-                            <SectionNameAlignButtons
-                              value={slide.ctaAlign || "left"}
-                              onChange={(align) =>
-                                setHomepage((prev) => ({
-                                  ...prev,
-                                  editorialSlider: {
-                                    ...(prev.editorialSlider || {}),
-                                    slides: prev.editorialSlider.slides.map((it, i) =>
-                                      i === sIdx ? { ...it, ctaAlign: align } : it
-                                    )
-                                  }
-                                }))
-                              }
                             />
                           </div>
                           <div>
@@ -7618,7 +7383,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                 {reels.map((r) => (
                   <div key={r.id} style={cardBox}>
                     <img
-                      src={r.poster || undefined}
+                      src={r.poster || FALLBACK_IMG}
                       alt={r.title}
                       onError={handleImgError}
                       style={{
@@ -7953,24 +7718,12 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                     <button
                       type="button"
                       onClick={async () => {
-                        try {
-                          const res = await fetch(
-                            `${API}/admin/pages/${encodeURIComponent(pg._id)}`,
-                            {
-                              method: "DELETE",
-                              headers: { Authorization: `Bearer ${token}` }
-                            }
-                          );
-                          const data = await res.json().catch(() => ({}));
-                          if (!res.ok) {
-                            throw new Error(data.message || "Could not delete CMS page.");
-                          }
-                          notify("CMS page deleted.");
-                          await syncAll();
-                          broadcastSync();
-                        } catch (err) {
-                          notify(err.message || "Failed to delete CMS page.");
-                        }
+                        await fetch(`${API}/admin/pages/${pg._id}`, {
+                          method: "DELETE",
+                          headers: { Authorization: `Bearer ${token}` }
+                        });
+                        syncAll();
+                        broadcastSync();
                       }}
                       style={{ ...topActionBtn, color: "#DC2626" }}
                     >
@@ -8212,7 +7965,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                       />
                       <input
                         required
-                        placeholder="Headline (e.g. Most comfortable daily pair)"
+                        placeholder="Headline (e.g. A timeless Banarasi silk saree)"
                         value={reviewForm.headline}
                         onChange={(e) =>
                           setReviewForm({ ...reviewForm, headline: e.target.value })
@@ -8338,7 +8091,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
 
                 <div>
                   <label style={fieldLabel}>
-                    Upper Reward Text (3+ Pairs Unlocked — use {"{freeItemName}"})
+                    Gift Offer Text (use {"{freeItemName}"} for the gift name)
                   </label>
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                     <input
@@ -8411,7 +8164,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                     <div style={{ display: "grid", gap: "10px" }}>
                       <input
                         required
-                        placeholder="CODE (e.g. CALZARE15)"
+                        placeholder="CODE (e.g. SILK15)"
                         value={couponForm.code}
                         onChange={(e) =>
                           setCouponForm({ ...couponForm, code: e.target.value })
@@ -8918,7 +8671,7 @@ export function AdminPanelContent({ onExit, onStoreUpdated }) {
                       />
 
                       <input
-                        placeholder="Value (e.g. +91 98765 43210 or care@calzare.in)"
+                        placeholder="Value (e.g. +91 98765 43210 or care@alzehrasilk.com)"
                         value={item.value || ""}
                         onChange={(e) =>
                           setSettings((prev) => ({

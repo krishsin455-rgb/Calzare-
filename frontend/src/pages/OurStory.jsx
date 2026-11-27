@@ -1,91 +1,197 @@
-import { useEffect } from "react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ShieldCheck, Sparkles, Truck } from "lucide-react";
 
-export default function StoryPage({
-  homepage,
-  storeSettings,
+const PILLARS = [
+  {
+    icon: Sparkles,
+    title: "Authentic Loom & Zari",
+    description:
+      "Every Banarasi, Kanjivaram, Soft Silk, and Kalamkari saree is chosen for drape flow, weave balance, and rich border detail."
+  },
+  {
+    icon: ShieldCheck,
+    title: "Hand-Checked Before Dispatch",
+    description:
+      "Each piece is inspected for weave integrity, color consistency, and unstitched blouse yardage before leaving our studio."
+  },
+  {
+    icon: Truck,
+    title: "Careful Packaging Across India",
+    description:
+      "Folded neatly in protective wrapping with transparent shipping, partial COD options, and a 48-hour return window."
+  }
+];
+
+export default function OurStory({
+  storeSettings = {},
   onGoHome,
-  onExploreShop
+  onNavigateCollection
 }) {
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  const storyBlocks = Array.isArray(storeSettings?.storySections)
+    ? storeSettings.storySections.filter(
+        (s) => s && (s.eyebrow || s.heading || s.body)
+      )
+    : [];
 
-  const sections =
-    Array.isArray(storeSettings?.storySections) &&
-    storeSettings.storySections.length > 0
-      ? storeSettings.storySections
-      : [
-          {
-            eyebrow: "OUR PHILOSOPHY",
-            heading: "Wear what moves you.",
-            body:
-              homepage?.heroDescription ||
-              "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention.",
-            image: ""
-          }
-        ];
+  const leadBlock = storyBlocks[0] || {
+    eyebrow: "OUR CRAFT & HERITAGE",
+    heading: "Woven for moments that stay.",
+    body: "Al-Zehra Silk celebrates timeless Indian textiles made accessible for festive gatherings, weddings, and everyday elegance. We focus on silhouettes that pleat cleanly, feel comfortable for hours, and carry lasting character."
+  };
+
+  const extraBlocks = storyBlocks.slice(1);
 
   return (
-    <section id="story-page" className="story section-pad">
-      <div style={{ maxWidth: "860px", margin: "0 auto" }}>
-        {onGoHome && (
-          <div style={{ marginBottom: "24px", textAlign: "left" }}>
-            <button type="button" onClick={onGoHome} className="pdp-back-btn">
-              <ArrowLeft size={14} /> BACK TO HOME
-            </button>
-          </div>
+    <section
+      style={{
+        maxWidth: "980px",
+        margin: "0 auto",
+        padding: "40px 24px 80px"
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: "32px"
+        }}
+      >
+        {onGoHome ? (
+          <button type="button" className="pdp-back-btn" onClick={onGoHome}>
+            <ArrowLeft size={14} /> BACK TO STORE
+          </button>
+        ) : (
+          <span />
         )}
+        <span className="eyebrow" style={{ margin: 0 }}>
+          AL-ZEHRA SILK
+        </span>
+      </div>
 
-        {sections.map((st, idx) => (
-          <div
-            key={idx}
-            style={{ marginBottom: idx < sections.length - 1 ? "56px" : 0 }}
-          >
-            <p className="eyebrow">{st.eyebrow || "OUR STORY"}</p>
-            <h2>{st.heading || "Wear what moves you."}</h2>
-            <p>{st.body}</p>
-            {st.image && (
-              <div
+      <div style={{ maxWidth: "700px", marginBottom: "44px" }}>
+        <p className="eyebrow">{leadBlock.eyebrow}</p>
+        <h1
+          style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: "clamp(32px, 5vw, 48px)",
+            fontWeight: 500,
+            lineHeight: 1.12,
+            margin: "0 0 16px"
+          }}
+        >
+          {leadBlock.heading}
+        </h1>
+        <p
+          style={{
+            fontSize: "15px",
+            lineHeight: 1.75,
+            color: "var(--muted, #475569)",
+            margin: 0
+          }}
+        >
+          {leadBlock.body}
+        </p>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+          gap: "18px",
+          marginBottom: "44px"
+        }}
+      >
+        {PILLARS.map((pillar) => {
+          const IconComp = pillar.icon;
+          return (
+            <div
+              key={pillar.title}
+              style={{
+                padding: "22px",
+                borderRadius: "14px",
+                background: "var(--surface, #F3ECE1)",
+                border: "1px solid var(--line, rgba(0,0,0,0.08))"
+              }}
+            >
+              <IconComp size={20} />
+              <h2
                 style={{
-                  maxWidth: "760px",
-                  margin: "24px auto 0",
-                  borderRadius: "16px",
-                  overflow: "hidden"
+                  fontSize: "16px",
+                  fontWeight: 700,
+                  margin: "12px 0 6px"
                 }}
               >
-                <img
-                  src={st.image || undefined}
-                  alt={st.heading || "Calzare Story"}
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.style.display = "none";
-                  }}
-                  style={{
-                    width: "100%",
-                    maxHeight: "440px",
-                    objectFit: "cover",
-                    display: "block"
-                  }}
-                />
-              </div>
-            )}
-          </div>
-        ))}
-
-        {onExploreShop && (
-          <div style={{ marginTop: "36px" }}>
-            <button
-              type="button"
-              className="primary-cta-btn"
-              style={{ maxWidth: "240px", margin: "0 auto" }}
-              onClick={onExploreShop}
-            >
-              EXPLORE FOOTWEAR <ArrowRight size={15} />
-            </button>
-          </div>
-        )}
+                {pillar.title}
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "13px",
+                  lineHeight: 1.65,
+                  color: "var(--muted, #475569)"
+                }}
+              >
+                {pillar.description}
+              </p>
+            </div>
+          );
+        })}
       </div>
+
+      {extraBlocks.length > 0 && (
+        <div style={{ display: "grid", gap: "20px", marginBottom: "40px" }}>
+          {extraBlocks.map((sec, idx) => (
+            <div
+              key={sec.id || idx}
+              style={{
+                padding: "22px",
+                borderRadius: "14px",
+                border: "1px solid var(--line, rgba(0,0,0,0.1))",
+                background: "#FFFFFF"
+              }}
+            >
+              {sec.eyebrow && (
+                <p className="eyebrow" style={{ marginBottom: "6px" }}>
+                  {sec.eyebrow}
+                </p>
+              )}
+              {sec.heading && (
+                <h2 style={{ fontSize: "20px", margin: "0 0 8px" }}>
+                  {sec.heading}
+                </h2>
+              )}
+              {sec.body && (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    lineHeight: 1.7,
+                    color: "var(--muted, #475569)"
+                  }}
+                >
+                  {sec.body}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {onNavigateCollection && (
+        <button
+          type="button"
+          className="dark-link"
+          style={{
+            background: "none",
+            border: 0,
+            borderBottom: "1px solid currentColor",
+            cursor: "pointer"
+          }}
+          onClick={() => onNavigateCollection("banarasi")}
+        >
+          EXPLORE BANARASI WEAVES <ArrowUpRight size={15} />
+        </button>
+      )}
     </section>
   );
 }

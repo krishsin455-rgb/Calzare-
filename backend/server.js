@@ -4,7 +4,10 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import multer from "multer";
 import crypto from "crypto";
+import fsPromises from "node:fs/promises";
+import pathModule from "node:path";
 import Razorpay from "razorpay";
+import sharp from "sharp";
 
 dotenv.config();
 
@@ -13,35 +16,47 @@ const PORT = process.env.PORT || 5003;
 const MONGO_URI =
   process.env.MONGODB_URI ||
   process.env.MONGO_URI ||
-  "mongodb://127.0.0.1:27017/calzare";
+  "mongodb://127.0.0.1:27017/alzehrasilk";
+const UPLOAD_DIR =
+  process.env.UPLOAD_DIR || pathModule.resolve("uploads");
+const PUBLIC_API_URL = String(
+  process.env.PUBLIC_API_URL || `http://localhost:${PORT}`
+).replace(/\/+$/, "");
 
 const adminSessions = new Set();
 
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({
-  limit: "25mb",
-  verify: (req, res, buf) => {
-    if (String(req.originalUrl || "").split("?")[0] === "/api/webhooks/razorpay") {
-      req.rawBody = Buffer.from(buf);
+app.use(
+  express.json({
+    limit: "25mb",
+    verify: (req, res, buf) => {
+      if (String(req.originalUrl || "").split("?")[0] === "/api/webhooks/razorpay") {
+        req.rawBody = Buffer.from(buf);
+      }
     }
-  }
-}));
+  })
+);
 app.use(express.urlencoded({ extended: true }));
 
-// Serve existing uploaded media files.
-app.use("/uploads", express.static("/var/www/calzare-new/backend/uploads"));
+// Serve uploaded media files.
+app.use("/uploads", express.static(UPLOAD_DIR));
 
 // --- SCHEMAS ---
 const productSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true },
     sku: { type: String, default: "" },
-    brand: { type: String, default: "CALZARE" },
+    brand: { type: String, default: "AL-ZEHRA SILK" },
     name: { type: String, required: true },
     slug: { type: String, default: "" },
     status: { type: String, default: "published" },
-    category: { type: String, default: "sneakers" },
-    collection: { type: String, default: "unisex" },
+    category: { type: String, default: "sarees" },
+    collection: { type: String, default: "banarasi" },
+    fabric: { type: String, default: "Soft Silk" },
+    weave: { type: String, default: "Banarasi" },
+    occasion: { type: String, default: "Festive" },
+    sareeLength: { type: String, default: "5.5m" },
+    blousePiece: { type: String, default: "0.8m Unstitched" },
     price: { type: Number, required: true },
     oldPrice: { type: Number, default: null },
     tagline: { type: String, default: "" },
@@ -54,43 +69,61 @@ const productSchema = new mongoose.Schema(
     titleOverride: { type: String, default: "" },
     hookSubtitle: { type: String, default: "" },
     shortSellingStatement: { type: String, default: "" },
-    offerHeading: { type: String, default: "SPECIAL DROP DISCOUNT" },
+    offerHeading: { type: String, default: "FESTIVE OFFER" },
     offerPromoCopy: { type: String, default: "" },
     addToBagText: { type: String, default: "ADD TO BAG" },
     buyNowText: { type: String, default: "BUY IT NOW" },
     outOfStockText: { type: String, default: "SOLD OUT" },
     lowStockThreshold: { type: Number, default: 5 },
-    lowStockNotice: { type: String, default: "Hurry! High demand in this size." },
+    lowStockNotice: { type: String, default: "Hurry! Only a few drapes left." },
     storyBlocks: { type: Array, default: [] },
     featureCards: { type: Array, default: [] },
     highlights: { type: [String], default: [] },
-    materials: { type: String, default: "" },
-    moldingMethod: { type: String, default: "" },
-    fitRecommendation: { type: String, default: "" },
-    careInstructions: { type: String, default: "" },
+    materials: { type: String, default: "Soft Silk Blend with Woven Zari" },
+    moldingMethod: { type: String, default: "Jacquard Loom Weave" },
+    fitRecommendation: {
+      type: String,
+      default: "Free size saree (5.5m) with 0.8m unstitched blouse piece."
+    },
+    careInstructions: {
+      type: String,
+      default: "Dry clean only. Store in a breathable muslin cloth away from moisture."
+    },
     warrantyGuarantee: { type: String, default: "" },
     specsTable: { type: Array, default: [] },
-    sizeGuideTitle: { type: String, default: "Measurement Guide" },
-    sizeGuideUnit: { type: String, default: "Centimeters (cm)" },
-    sizeGuideNote: { type: String, default: "" },
+    sizeGuideTitle: { type: String, default: "Saree & Blouse Measurements" },
+    sizeGuideUnit: { type: String, default: "Meters / Inches" },
+    sizeGuideNote: {
+      type: String,
+      default:
+        "Standard saree length is 5.5 meters with an attached 0.8 meter unstitched blouse piece."
+    },
     sizeChartRows: { type: Array, default: [] },
-    color: { type: String, default: "" },
-    colorHex: { type: String, default: "#D9CFBE" },
-    sizes: { type: [String], default: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"] },
+    color: { type: String, default: "Royal Maroon" },
+    colorHex: { type: String, default: "#7A1C24" },
+    sizes: { type: [String], default: ["Free Size"] },
     stockBySize: {
       type: Map,
       of: Number,
-      default: { "UK 6": 20, "UK 7": 20, "UK 8": 19, "UK 9": 10, "UK 10": 10 }
+      default: { "Free Size": 25 }
     },
     image: { type: String, required: true },
+    images: { type: [String], default: [] },
+    imageFit: { type: String, enum: ["cover", "contain"], default: "cover" },
+    imagePosX: { type: Number, default: 50 },
+    imagePosY: { type: Number, default: 20 },
+    imageZoom: { type: Number, default: 1 },
     videoUrl: { type: String, default: "" },
     comparisonMode: { type: String, default: "default" },
-    shippingAccordionHeading: { type: String, default: "Default: Shipping & Delivery" },
-    dispatchNotice: { type: String, default: "Orders processed within 1–2 business days." },
-    returnAccordionHeading: { type: String, default: "Default: Refund, Return & Exchange Policy" },
+    shippingAccordionHeading: { type: String, default: "Shipping & Delivery" },
+    dispatchNotice: {
+      type: String,
+      default: "Orders dispatched within 24–48 business hours."
+    },
+    returnAccordionHeading: { type: String, default: "Return & Exchange Policy" },
     returnDetails: {
       type: String,
-      default: "Size exchange requests must be submitted within 7 days of delivery."
+      default: "Easy 48-hour return/exchange with original tags and folding intact."
     },
     faqs: { type: Array, default: [] },
     relatedTitle: { type: String, default: "YOU MIGHT ALSO LIKE" },
@@ -109,7 +142,7 @@ const reelSchema = new mongoose.Schema(
   {
     id: { type: String, required: true, unique: true },
     title: { type: String, required: true },
-    tag: { type: String, default: "EVERYDAY WEAR" },
+    tag: { type: String, default: "FESTIVE DRAPE" },
     productId: { type: String, required: true },
     videoUrl: { type: String, default: "" },
     poster: { type: String, default: "" }
@@ -122,22 +155,23 @@ const homepageSchema = new mongoose.Schema(
     singletonKey: { type: String, default: "main", unique: true },
     reelsEnabled: { type: Boolean, default: true },
     productReelsEnabled: { type: Boolean, default: true },
+    paragraphAlign: { type: String, default: "left" },
     heroVideoUrl: { type: String, default: "" },
     heroImage: { type: String, default: "" },
     heroMobileImage: { type: String, default: "" },
-    heroEyebrow: { type: String, default: "THE EVERYDAY COLLECTION — 2026" },
-    heroTitle: { type: String, default: "0% BORING. 100% AIR." },
-    heroTitleEmphasis: { type: String, default: "own way." },
+    heroEyebrow: { type: String, default: "THE FESTIVE SILK EDIT — 2026" },
+    heroTitle: { type: String, default: "Draped in" },
+    heroTitleEmphasis: { type: String, default: "timeless grace." },
     heroDescription: {
       type: String,
       default:
-        "Dual-density closed-cell waterproof foam. Sculpted for pavement poets and real life strides."
+        "Handpicked Banarasi, Kanjivaram, Soft Silk, and Kalamkari sarees crafted for celebrations and everyday elegance."
     },
-    heroCtaLabel: { type: String, default: "EXPLORE COLLECTION" },
+    heroCtaLabel: { type: String, default: "EXPLORE SAREES" },
     heroCtaRoute: { type: String, default: "/shop" },
     heroBadges: {
       type: String,
-      default: "100% WATERPROOF FOAM, 280G ULTRA-LIGHT, CLOUDFOOTBED TECH"
+      default: "AUTHENTIC WEAVES, FREE SHIPPING ₹999+, 48-HOUR EASY RETURNS"
     },
     campaignVideoUrl: { type: String, default: "" },
     mobileUI: { type: mongoose.Schema.Types.Mixed, default: {} },
@@ -146,17 +180,19 @@ const homepageSchema = new mongoose.Schema(
     sections: {
       type: Array,
       default: [
-        { key: "hero_main", label: "HERO", title: "0% BORING. 100% AIR.", layout: "asymmetric_editorial", visible: true },
-        { key: "trust_ticker", label: "TICKER", title: "Live Ticker", layout: "asymmetric_editorial", visible: true },
-        { key: "bestsellers", label: "BESTSELLERS", title: "CROWD FAVORITES", layout: "luxury_grid", visible: true, maxItems: 8 },
-        { key: "shop_audience", label: "AUDIENCE_CARDS", title: "DESIGNED FOR EVERY STRIDE", layout: "asymmetric_editorial", visible: true },
-        { key: "affordable_store", label: "AFFORDABLE_STORE", title: "THE UNDER ₹999 STORE", layout: "asymmetric_editorial", visible: true },
-        { key: "reels_motion", label: "REELS", title: "CALZARE IN MOTION", layout: "vertical_9_16", visible: true },
-        { key: "storytelling", label: "STORYTELLING", title: "BUILT FOR REAL LIFE & WILD PERSONALITIES", layout: "editorial_split", visible: true },
-        { key: "category_discovery", label: "CATEGORY_DISCOVERY", title: "CHOOSE YOUR SILHOUETTE", layout: "asymmetric_editorial", visible: true },
-        { key: "customer_reviews", label: "REVIEWS", title: "WORDS FROM THE PAVEMENT", layout: "asymmetric_editorial", visible: true },
-        { key: "benefits_trust", label: "BENEFITS", title: "THE CALZARE STANDARD", layout: "asymmetric_editorial", visible: true },
-        { key: "newsletter", label: "NEWSLETTER", title: "DON'T MISS THE NEXT DROP.", layout: "asymmetric_editorial", visible: true }
+        { key: "hero_main", label: "HERO BANNER", title: "Timeless drapes, woven with grace.", titleAlign: "left", layout: "hero_banner", visible: true, image: "" },
+        { key: "trust_strip", label: "TRUST STRIP", title: "FREE SHIPPING ABOVE ₹999 • 48-HOUR EASY RETURNS • COD AVAILABLE", titleAlign: "left", layout: "trust_strip", visible: true, image: "" },
+        { key: "collections_strip", label: "SHOP BY WEAVE", title: "Explore heritage weaves.", titleAlign: "left", layout: "4_column_tiles", visible: true, image: "" },
+        { key: "affordable_store", label: "UNDER ₹999 STORE", title: "Everyday elegance, starting ₹999.", titleAlign: "left", layout: "horizontal_slider", visible: true, image: "" },
+        { key: "editorial_slider", label: "FESTIVE LOOKBOOK", title: "Wedding & Festive Showcase", titleAlign: "left", layout: "full_bleed_slider", visible: true, image: "" },
+        { key: "featured_product", label: "SIGNATURE DRAPE", title: "FEATURED SAREE (Exclusive Spotlight)", titleAlign: "left", layout: "spotlight_card", visible: true, image: "" },
+        { key: "intro_statement", label: "HERITAGE CRAFT", title: "Every thread tells a story.", titleAlign: "left", layout: "editorial_intro", visible: true, image: "" },
+        { key: "shop_grid", label: "THE AL-ZEHRA SILK EDIT", title: "Bestselling Sarees.", titleAlign: "left", layout: "product_grid", visible: true, image: "" },
+        { key: "reels_motion", label: "DRAPE IN MOTION", title: "Al-Zehra Silk in motion.", titleAlign: "left", layout: "reels_strip", visible: true, image: "" },
+        { key: "campaign_banner", label: "FESTIVE EDIT", title: "Crafted for celebrations.", titleAlign: "left", layout: "split_campaign", visible: true, image: "" },
+        { key: "our_philosophy", label: "OUR CRAFT", title: "Woven with heritage.", titleAlign: "left", layout: "story_block", visible: true, image: "" },
+        { key: "journal_notes", label: "STYLE NOTES", title: "The draping journal.", titleAlign: "left", layout: "journal_card", visible: true, image: "" },
+        { key: "newsletter", label: "JOIN THE STUDIO", title: "Stay in the know.", titleAlign: "left", layout: "dark_banner", visible: true, image: "" }
       ]
     },
     sectionConfigs: { type: mongoose.Schema.Types.Mixed, default: {} },
@@ -165,58 +201,76 @@ const homepageSchema = new mongoose.Schema(
       default: {
         enabled: true,
         maxPrice: 999,
-        badgeLabel: "/999 Store",
-        title: "THE UNDER ₹999 STORE",
-        subtitle:
-          "High performance foam shouldn't cost a week's wage. Premium daily comfort at honest prices.",
-        ctaLabel: "EXPLORE DROP",
+        badgeLabel: "Under ₹999",
+        title: "Everyday elegance,\nunder ₹999.",
+        subtitle: "Graceful drapes at everyday prices.\nStarting ₹799",
+        ctaLabel: "EXPLORE",
         image: "",
         customSlides: []
       }
+    },
+    editorialSlider: {
+      type: mongoose.Schema.Types.Mixed,
+      default: { enabled: true, slides: [] }
     },
     productPage: {
       type: mongoose.Schema.Types.Mixed,
       default: {
         offer1Badge: "10% OFF",
-        offer1Text: "Buy 2 Pairs",
+        offer1Text: "Buy 2 Sarees",
         offer2Badge: "15% OFF",
-        offer2Text: "Buy 3 Pairs",
-        standardTitle: "THE CALZARE STANDARD",
-        standardSubtitle: "Built with science. Tested with life.",
+        offer2Text: "Buy 3 Sarees",
+        standardTitle: "THE AL-ZEHRA SILK PROMISE",
+        standardSubtitle: "Authentic weaves. Hand-checked before dispatch.",
         guarantees: [
           { title: "Secure payment", subtitle: "UPI, cards & partial COD available" },
-          { title: "Delivery", subtitle: "Ships within 24–48 hours across India" },
-          { title: "Returns", subtitle: "7-day easy UK size exchange" },
-          { title: "Customer Service", subtitle: "Dedicated support for sizing & orders" }
+          { title: "Fast dispatch", subtitle: "Ships within 24–48 hours across India" },
+          { title: "Easy returns", subtitle: "48-hour hassle-free return & exchange" },
+          { title: "Customer Support", subtitle: "Dedicated help for draping & orders" }
         ]
       }
     },
     footer: {
       type: mongoose.Schema.Types.Mixed,
       default: {
-        tagline: "We design and make every pair ourselves, then ship it straight to you.",
-        hours: "Monday to Friday, 10:00 AM to 6:00 PM.",
-        newsletterHeading: "Join the Calzare team",
+        bgColor: "#231917",
+        textColor: "#E8DFD5",
+        tagline: "Timeless Indian weaves crafted for every celebration.",
+        hours: "Monday to Saturday, 10:00 AM to 7:00 PM.",
+        newsletterHeading: "Join the Al-Zehra Silk studio",
         newsletterCopy:
-          "Sign up for early access to drops and free shipping updates on new collections.",
-        copyright: "© 2026 Calzare. All rights reserved."
+          "Sign up for early access to festive drops and exclusive silk editions.",
+        copyright: "© 2026 AL-ZEHRA SILK. All rights reserved."
       }
     },
     pipVideo: {
       enabled: { type: Boolean, default: true },
-      label: { type: String, default: "WATCH FIT & FLEX" },
-      productId: { type: String, default: "c-001" },
+      label: { type: String, default: "WATCH DRAPE & FALL" },
+      productId: { type: String, default: "azs-001" },
       videoUrl: { type: String, default: "" },
       poster: { type: String, default: "" }
+    },
+    cartPromoBox: {
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({ enabled: true, position: "top" })
+    },
+    cartRewardBanner: {
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({
+        b2g1UnlockedTemplate: "1 SAREE FREE unlocked ({freeItemName})!",
+        emptyHeadline: "Buy 2 sarees for 10% OFF • Buy 3 & get 1 FREE!",
+        onePairHeadline: "Add 1 more saree to unlock 10% OFF on your order!",
+        twoPairHeadline: "10% OFF unlocked! Add 1 more to get 1 FREE!"
+      })
     },
     featuredProduct: {
       enabled: { type: Boolean, default: true },
       sectionType: { type: String, default: "EXCLUSIVE / MOST SELLING" },
-      productId: { type: String, default: "c-001" },
+      productId: { type: String, default: "azs-001" },
       redirectUrl: { type: String, default: "" },
       image: { type: String, default: "" },
-      title: { type: String, default: "FORMA COURT — SIGNATURE EDITION" },
-      price: { type: Number, default: 3499 }
+      title: { type: String, default: "ROYAL BANARASI SILK SAREE — SIGNATURE EDITION" },
+      price: { type: Number, default: 2499 }
     }
   },
   { timestamps: true }
@@ -226,7 +280,7 @@ const collectionSchema = new mongoose.Schema(
   {
     slug: { type: String, required: true, unique: true },
     title: { type: String, required: true },
-    type: { type: String, default: "audience" },
+    type: { type: String, default: "weave" },
     subtitle: { type: String, default: "" },
     ctaLabel: { type: String, default: "EXPLORE" },
     desktopImage: { type: String, default: "" },
@@ -251,7 +305,14 @@ const categorySchema = new mongoose.Schema(
 const orderSchema = new mongoose.Schema(
   {
     orderId: { type: String, required: true, unique: true },
-    customer: { name: String, phone: String, address: String, city: String, pincode: String },
+    customer: {
+      name: String,
+      phone: String,
+      email: String,
+      address: String,
+      city: String,
+      pincode: String
+    },
     items: [{ id: String, name: String, size: String, price: Number, quantity: Number }],
     subtotal: Number,
     discount: Number,
@@ -271,7 +332,6 @@ const orderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
 
 orderSchema.index(
   { razorpayOrderId: 1 },
@@ -330,11 +390,11 @@ const couponSchema = new mongoose.Schema(
 
 const reviewSchema = new mongoose.Schema(
   {
-    productId: { type: String, default: "c-001" },
-    productName: { type: String, default: "FORMA COURT" },
+    productId: { type: String, default: "azs-001" },
+    productName: { type: String, default: "ROYAL BANARASI SILK SAREE" },
     customerName: { type: String, required: true },
     customerEmail: { type: String, default: "" },
-    location: { type: String, default: "Bengaluru" },
+    location: { type: String, default: "Jaipur" },
     rating: { type: Number, default: 5 },
     headline: { type: String, required: true },
     comment: { type: String, required: true },
@@ -364,34 +424,57 @@ const cmsPageSchema = new mongoose.Schema(
 const settingsSchema = new mongoose.Schema(
   {
     singletonKey: { type: String, default: "store_settings", unique: true },
-    brandName: { type: String, default: "CALZARE" },
-    storeName: { type: String, default: "CALZARE" },
-    legalEntity: { type: String, default: "Calzare Heels Private Limited" },
-    websiteUrl: { type: String, default: "calzare.in" },
-    tagline: { type: String, default: "Architectural footwear built for motion." },
-    supportEmail: { type: String, default: "support@calzare.in" },
+    brandName: { type: String, default: "AL-ZEHRA SILK" },
+    storeName: { type: String, default: "AL-ZEHRA SILK" },
+    legalEntity: { type: String, default: "Al-Zehra Silk" },
+    websiteUrl: { type: String, default: "alzehrasilk.in" },
+    tagline: {
+      type: String,
+      default: "Timeless Indian weaves crafted for every celebration."
+    },
+    supportEmail: { type: String, default: "care@alzehrasilk.in" },
     supportPhone: { type: String, default: "+91 98765 43210" },
     contactItems: { type: Array, default: [] },
-    paymentMethods: { type: [String], default: [] },
-    businessAddress: { type: String, default: "12th Main Road, Indiranagar, Bengaluru" },
-    freeShippingThreshold: { type: Number, default: 2999 },
-    standardShippingFee: { type: Number, default: 149 },
-    partialCodAdvance: { type: Number, default: 299 },
-    codAdvanceFee: { type: Number, default: 299 },
+    paymentMethods: {
+      type: [String],
+      default: [
+        "UPI / Cards / NetBanking",
+        "Partial COD (₹199 Advance)",
+        "Cash on Delivery"
+      ]
+    },
+    businessAddress: { type: String, default: "" },
+    freeShippingThreshold: { type: Number, default: 999 },
+    standardShippingFee: { type: Number, default: 99 },
+    partialCodAdvance: { type: Number, default: 199 },
+    codAdvanceFee: { type: Number, default: 199 },
     codEnabled: { type: Boolean, default: true },
     razorpayKeyPublic: { type: String, default: process.env.RAZORPAY_KEY_ID || "" },
-    categories: { type: [String], default: ["sneakers", "formal", "slides"] },
+    categories: {
+      type: [String],
+      default: [
+        "sarees",
+        "silk-sarees",
+        "organza",
+        "cotton-sarees",
+        "lehengas",
+        "kurta-sets"
+      ]
+    },
     pageAssignments: { type: mongoose.Schema.Types.Mixed, default: {} },
+    pageStyles: { type: mongoose.Schema.Types.Mixed, default: {} },
     policies: { type: Array, default: [] },
     collectionImages: { type: mongoose.Schema.Types.Mixed, default: {} },
     categoryImages: { type: mongoose.Schema.Types.Mixed, default: {} },
     navigation: {
       type: Array,
       default: [
-        { label: "Men", url: "#men", badge: "" },
-        { label: "Women", url: "#women", badge: "NEW" },
-        { label: "Unisex", url: "#unisex", badge: "" },
-        { label: "Kids", url: "#kids", badge: "" }
+        { label: "HOME", url: "#home", badge: "" },
+        { label: "BANARASI", url: "#banarasi", badge: "NEW" },
+        { label: "KANJIVARAM", url: "#kanjivaram", badge: "" },
+        { label: "SOFT SILK", url: "#soft-silk", badge: "" },
+        { label: "KALAMKARI", url: "#kalamkari", badge: "" },
+        { label: "UNDER ₹999", url: "#shop", badge: "" }
       ]
     },
     storySections: { type: Array, default: [] },
@@ -404,7 +487,7 @@ const auditLogSchema = new mongoose.Schema(
   {
     action: String,
     target: String,
-    actor: { type: String, default: "admin@calzare.in" },
+    actor: { type: String, default: "admin@alzehrasilk.in" },
     ip: { type: String, default: "127.0.0.1" }
   },
   { timestamps: true }
@@ -492,7 +575,7 @@ async function seedInitialData() {
       { email: adminEmail },
       {
         $set: {
-          name: "CALZARE Admin",
+          name: "Al-Zehra Silk Admin",
           email: adminEmail,
           role: "admin",
           passwordHash: hashPassword(adminPassword)
@@ -506,47 +589,71 @@ async function seedInitialData() {
   if ((await Product.countDocuments()) === 0) {
     await Product.insertMany([
       {
-        id: "c-001",
-        sku: "CLZ-FRM-001",
-        name: "FORMA COURT",
-        category: "sneakers",
-        collection: "unisex",
-        price: 3499,
-        oldPrice: 4299,
+        id: "azs-001",
+        sku: "AZS-BNR-001",
+        brand: "AL-ZEHRA SILK",
+        name: "ROYAL BANARASI KATAN SILK SAREE",
+        category: "silk-sarees",
+        collection: "banarasi",
+        fabric: "Katan Silk",
+        weave: "Banarasi",
+        occasion: "Wedding & Festive",
+        sareeLength: "5.5m",
+        blousePiece: "0.8m Unstitched",
+        price: 2499,
+        oldPrice: 4499,
         badge: "BESTSELLER",
-        tagline: "Sculpted court silhouette with dual-density memory footbed",
-        color: "Cloud White",
-        sizes: ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"],
+        tagline: "Rich antique zari border with heirloom floral motifs",
+        color: "Royal Maroon",
+        colorHex: "#7A1C24",
+        sizes: ["Free Size"],
+        stockBySize: { "Free Size": 25 },
         highlights: [
-          "100% Waterproof & Hydrophobic",
-          "Featherweight Ergonomics",
-          "Dual-Density Memory Footbed"
+          "5.5m Saree + 0.8m Matching Unstitched Blouse Piece",
+          "Intricate Woven Zari Pallu",
+          "Soft Festive Drape"
         ],
-        description: "A clean everyday court silhouette with a considered, minimal finish.",
+        description:
+          "A timeless Banarasi silk drape finished with rich zari borders and a graceful fall for weddings and festive evenings.",
         image:
-          "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=1000&q=85",
+          "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1000&q=85",
+        images: [
+          "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1000&q=85"
+        ],
         videoUrl: ""
       },
       {
-        id: "c-002",
-        sku: "CLZ-MNO-002",
-        name: "MONO RUNNER",
-        category: "sneakers",
-        collection: "unisex",
-        price: 4299,
-        oldPrice: null,
+        id: "azs-002",
+        sku: "AZS-KNJ-002",
+        brand: "AL-ZEHRA SILK",
+        name: "KANJIVARAM ZARI SOFT SILK SAREE",
+        category: "sarees",
+        collection: "kanjivaram",
+        fabric: "Soft Silk",
+        weave: "Kanjivaram",
+        occasion: "Festive",
+        sareeLength: "5.5m",
+        blousePiece: "0.8m Unstitched",
+        price: 1899,
+        oldPrice: 3299,
         badge: "NEW",
-        tagline: "Featherweight EVA midsole for effortless daily mileage",
-        color: "Stone / Sand",
-        sizes: ["UK 7", "UK 8", "UK 9", "UK 10", "UK 11"],
+        tagline: "Lightweight Kanjivaram weave with temple zari border",
+        color: "Champagne Gold",
+        colorHex: "#C9A66B",
+        sizes: ["Free Size"],
+        stockBySize: { "Free Size": 20 },
         highlights: [
-          "Featherlight EVA midsole",
-          "Breathable organic cotton lining",
-          "All-day arch support"
+          "Lightweight & Easy to Pleat",
+          "Traditional Temple Zari Border",
+          "Includes 0.8m Unstitched Blouse Piece"
         ],
-        description: "Lightweight-inspired styling made for everyday movement.",
+        description:
+          "Luminous soft silk woven with classic Kanjivaram temple motifs for effortless all-day festive comfort.",
         image:
-          "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=85",
+          "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1000&q=85",
+        images: [
+          "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1000&q=85"
+        ],
         videoUrl: ""
       }
     ]);
@@ -556,12 +663,12 @@ async function seedInitialData() {
     await Reel.insertMany([
       {
         id: "reel-01",
-        title: "Morning Commute in Forma Court",
-        tag: "EVERYDAY WEAR",
-        productId: "c-001",
+        title: "Festive Drape in Royal Banarasi Silk",
+        tag: "FESTIVE DRAPE",
+        productId: "azs-001",
         videoUrl: "",
         poster:
-          "https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=800&q=80"
+          "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=800&q=80"
       }
     ]);
   }
@@ -571,7 +678,7 @@ async function seedInitialData() {
       singletonKey: "main",
       heroVideoUrl: "",
       heroImage:
-        "https://images.unsplash.com/photo-1495555961986-6d4c1ecb7be3?auto=format&fit=crop&w=2200&q=90"
+        "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=2000&q=90"
     });
   }
 
@@ -583,18 +690,18 @@ async function seedInitialData() {
     await CmsPage.insertMany([
       {
         slug: "/pages/return-exchange-policy",
-        title: "7-Day Hassle-Free Return & Exchange Policy",
+        title: "48-Hour Easy Return & Exchange Policy",
         category: "POLICY",
-        excerpt: "Official Return & Exchange Policy of CALZARE™.",
+        excerpt: "Official Return & Exchange Policy of Al-Zehra Silk.",
         content:
-          "Unworn pairs in original packaging can be exchanged within 7 days of delivery."
+          "Unused, unwashed sarees with original tags and folding intact can be returned or exchanged within 48 hours of delivery."
       },
       {
         slug: "/pages/shipping-policy",
         title: "Shipping & Delivery Policy",
         category: "INFO",
-        excerpt: "Dispatch turnaround 1–2 business days.",
-        content: "Complimentary express delivery across India on orders above ₹2,999."
+        excerpt: "Dispatch turnaround 24–48 business hours.",
+        content: "Free shipping across India on prepaid orders above ₹999."
       }
     ]);
   }
@@ -610,7 +717,6 @@ function requireAdmin(req, res, next) {
   }
   next();
 }
-
 
 async function finalizeCapturedRazorpayPayment(payment, customerOverride = {}, req = null) {
   const rzpOrderId = String(payment?.order_id || "").trim();
@@ -636,7 +742,9 @@ async function finalizeCapturedRazorpayPayment(payment, customerOverride = {}, r
       { razorpayPaymentId: rzpPaymentId },
       { orderId: pending.orderId }
     ]
-  }).limit(2).lean();
+  })
+    .limit(2)
+    .lean();
 
   if (existingOrders.length) {
     const existing = existingOrders[0];
@@ -731,8 +839,6 @@ async function finalizeCapturedRazorpayPayment(payment, customerOverride = {}, r
 }
 
 // --- RAZORPAY WEBHOOK ---
-
-
 app.post(
   "/api/webhooks/razorpay",
   express.raw({ type: "application/json" }),
@@ -743,8 +849,8 @@ app.post(
       const raw = Buffer.isBuffer(req.rawBody)
         ? req.rawBody
         : Buffer.isBuffer(req.body)
-          ? req.body
-          : null;
+        ? req.body
+        : null;
 
       if (!secret || !received || !raw) {
         return res.status(400).json({ message: "Webhook signature data is missing." });
@@ -772,11 +878,7 @@ app.post(
   }
 );
 
-
-app.use(express.json({ limit: "25mb" }));
-app.use(express.urlencoded({ extended: true }));
-
-// Memory storage only: never writes uploaded files to your Mac or Render disk
+// Memory storage for uploads (processed via Sharp / Cloudinary or saved to UPLOAD_DIR)
 const ALLOWED_MEDIA_TYPES = new Set([
   "image/png",
   "image/jpeg",
@@ -816,9 +918,34 @@ app.get("/api/settings", async (_req, res) => {
 
 app.get("/api/products", async (req, res) => {
   const filter = { status: { $ne: "draft" } };
+
   if (req.query.category && req.query.category !== "all") {
-    filter.category = req.query.category;
+    filter.category = String(req.query.category).toLowerCase();
   }
+  if (req.query.collection && req.query.collection !== "all") {
+    filter.collection = String(req.query.collection).toLowerCase();
+  }
+  if (req.query.fabric) {
+    filter.fabric = new RegExp(String(req.query.fabric).trim(), "i");
+  }
+  if (req.query.weave) {
+    filter.weave = new RegExp(String(req.query.weave).trim(), "i");
+  }
+  if (req.query.occasion) {
+    filter.occasion = new RegExp(String(req.query.occasion).trim(), "i");
+  }
+  if (req.query.color) {
+    filter.color = new RegExp(String(req.query.color).trim(), "i");
+  }
+
+  const minPrice = Number(req.query.minPrice);
+  const maxPrice = Number(req.query.maxPrice);
+  if (Number.isFinite(minPrice) || Number.isFinite(maxPrice)) {
+    filter.price = {};
+    if (Number.isFinite(minPrice)) filter.price.$gte = minPrice;
+    if (Number.isFinite(maxPrice)) filter.price.$lte = maxPrice;
+  }
+
   res.json({ products: await Product.find(filter).sort({ createdAt: 1 }).lean() });
 });
 
@@ -840,8 +967,8 @@ app.post("/api/reviews", async (req, res) => {
       return res.status(400).json({ message: "Name and comment are required." });
     }
     const review = await Review.create({
-      productId: String(req.body.productId || "c-001"),
-      productName: String(req.body.productName || "CALZARE").trim(),
+      productId: String(req.body.productId || "azs-001"),
+      productName: String(req.body.productName || "AL-ZEHRA SILK").trim(),
       customerName,
       customerEmail: String(req.body.customerEmail || "").trim(),
       location: String(req.body.location || "India").trim(),
@@ -915,8 +1042,8 @@ app.post("/api/payments/razorpay/shipping-info", async (req, res) => {
 
     const settings =
       (await StoreSettings.findOne({ singletonKey: "store_settings" }).lean()) || {};
-    const freeShipMin = Number(settings.freeShippingThreshold ?? 2999);
-    const stdShipFeeRupees = Number(settings.standardShippingFee ?? 149);
+    const freeShipMin = Number(settings.freeShippingThreshold ?? 999);
+    const stdShipFeeRupees = Number(settings.standardShippingFee ?? 99);
     const codEnabled = settings.codEnabled !== false;
 
     const { addresses = [], order_amount } = req.body || {};
@@ -938,7 +1065,7 @@ app.post("/api/payments/razorpay/shipping-info", async (req, res) => {
         serviceable,
         cod,
         shipping_fee: serviceable ? shippingFeePaise : 0,
-        cod_fee: cod ? 0 : 0
+        cod_fee: 0
       };
     });
 
@@ -949,7 +1076,6 @@ app.post("/api/payments/razorpay/shipping-info", async (req, res) => {
   }
 });
 
-
 app.post("/api/payments/razorpay/create-order", async (req, res) => {
   try {
     const keyId = String(process.env.RAZORPAY_KEY_ID || "").trim();
@@ -959,8 +1085,12 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
     }
 
     const paymentMethod = String(req.body?.paymentMethod || "");
-    const isPartial = paymentMethod === "Partial COD (₹299 Advance)";
-    if (paymentMethod !== "Razorpay Magic Checkout" && !isPartial) {
+    const isPartial = paymentMethod.includes("Partial COD");
+    const isOnline =
+      paymentMethod === "UPI / Cards / NetBanking" ||
+      paymentMethod.toLowerCase().includes("upi");
+
+    if (!isOnline && !isPartial) {
       return res.status(400).json({ message: "Unsupported payment method." });
     }
 
@@ -969,33 +1099,47 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
       return res.status(400).json({ message: "Cart is empty or invalid." });
     }
 
-    const clean = requested.map(x => ({
+    const clean = requested.map((x) => ({
       id: String(x?.id || "").trim(),
-      size: String(x?.size || "").trim(),
+      size: String(x?.size || "Free Size").trim(),
       quantity: Number(x?.quantity)
     }));
 
-    if (clean.some(x => !x.id || !x.size ||
-        !Number.isSafeInteger(x.quantity) || x.quantity < 1 || x.quantity > 10) ||
-        clean.reduce((n, x) => n + x.quantity, 0) > 20) {
+    if (
+      clean.some(
+        (x) =>
+          !x.id ||
+          !x.size ||
+          !Number.isSafeInteger(x.quantity) ||
+          x.quantity < 1 ||
+          x.quantity > 10
+      ) ||
+      clean.reduce((n, x) => n + x.quantity, 0) > 20
+    ) {
       return res.status(400).json({ message: "Invalid cart item or quantity." });
     }
 
     const products = await Product.find({
-      id: { $in: [...new Set(clean.map(x => x.id))] },
+      id: { $in: [...new Set(clean.map((x) => x.id))] },
       status: { $ne: "draft" }
     }).lean();
 
-    const productMap = new Map(products.map(p => [String(p.id), p]));
-    const items = clean.map(x => {
+    const productMap = new Map(products.map((p) => [String(p.id), p]));
+    const items = clean.map((x) => {
       const p = productMap.get(x.id);
-      if (!p || !Array.isArray(p.sizes) || !p.sizes.includes(x.size) ||
-          !Number.isFinite(Number(p.price)) || Number(p.price) <= 0) {
+      const validSizes =
+        Array.isArray(p?.sizes) && p.sizes.length ? p.sizes : ["Free Size"];
+      if (
+        !p ||
+        !validSizes.includes(x.size) ||
+        !Number.isFinite(Number(p.price)) ||
+        Number(p.price) <= 0
+      ) {
         throw new Error("A product or selected size is unavailable. Refresh your cart.");
       }
       return {
         id: p.id,
-        name: String(p.name || "CALZARE Footwear"),
+        name: String(p.name || "Al-Zehra Silk Saree"),
         size: x.size,
         price: Number(p.price),
         quantity: x.quantity
@@ -1005,7 +1149,7 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
     const count = items.reduce((n, x) => n + x.quantity, 0);
     const subtotal = items.reduce((n, x) => n + x.price * x.quantity, 0);
     let bundleDiscount = 0;
-    if (count >= 3) bundleDiscount = Math.min(...items.map(x => x.price));
+    if (count >= 3) bundleDiscount = Math.min(...items.map((x) => x.price));
     else if (count === 2) bundleDiscount = Math.round(subtotal * 0.1);
 
     const afterBundle = Math.max(0, subtotal - bundleDiscount);
@@ -1015,51 +1159,67 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
 
     if (couponCode) {
       const coupon = await Coupon.findOne({ code: couponCode, active: true }).lean();
-      if (!coupon || (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) ||
-          (coupon.usageLimit > 0 && Number(coupon.usedCount || 0) >= coupon.usageLimit) ||
-          subtotal < Number(coupon.minOrderValue || 0)) {
-        return res.status(400).json({ message: "Coupon is invalid, expired, or its conditions are not met." });
+      if (
+        !coupon ||
+        (coupon.expiryDate && new Date(coupon.expiryDate) < new Date()) ||
+        (coupon.usageLimit > 0 && Number(coupon.usedCount || 0) >= coupon.usageLimit) ||
+        subtotal < Number(coupon.minOrderValue || 0)
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Coupon is invalid, expired, or its conditions are not met." });
       }
-      couponDiscount = coupon.discountType === "percentage"
-        ? Math.round(afterBundle * Number(coupon.discountValue || 0) / 100)
-        : Math.min(Number(coupon.discountValue || 0), afterBundle);
+      couponDiscount =
+        coupon.discountType === "percentage"
+          ? Math.round((afterBundle * Number(coupon.discountValue || 0)) / 100)
+          : Math.min(Number(coupon.discountValue || 0), afterBundle);
       couponDiscount = Math.max(0, Math.min(afterBundle, couponDiscount));
       savedCoupon = coupon.code;
     }
 
-    const settings = (await StoreSettings.findOne({
-      singletonKey: "store_settings"
-    }).lean()) || {};
+    const settings =
+      (await StoreSettings.findOne({ singletonKey: "store_settings" }).lean()) || {};
 
     if (isPartial && settings.codEnabled === false) {
       return res.status(400).json({ message: "Partial COD is unavailable." });
     }
 
-    const freeThreshold = Number(settings.freeShippingThreshold ?? 2999);
-    const shipping = subtotal >= freeThreshold || subtotal === 0
-      ? 0 : Math.max(0, Number(settings.standardShippingFee ?? 149));
+    const freeThreshold = Number(settings.freeShippingThreshold ?? 999);
+    const shipping =
+      subtotal >= freeThreshold || subtotal === 0
+        ? 0
+        : Math.max(0, Number(settings.standardShippingFee ?? 99));
     const total = Math.max(0, subtotal - bundleDiscount - couponDiscount + shipping);
-    const advance = Math.min(total, Number(settings.partialCodAdvance ?? 299));
+    const advance = Math.min(total, Number(settings.partialCodAdvance ?? 199));
     const amount = Math.round((isPartial ? advance : total) * 100);
 
     if (!Number.isSafeInteger(amount) || amount < 100) {
-      return res.status(400).json({ message: "Payment amount is below Razorpay minimum." });
+      return res
+        .status(400)
+        .json({ message: "Payment amount is below Razorpay minimum." });
     }
 
     const customer = {};
-    for (const field of ["name", "phone", "address", "city", "pincode"]) {
+    for (const field of ["name", "phone", "email", "address", "city", "pincode"]) {
       customer[field] = String(req.body?.customer?.[field] || "").trim().slice(0, 500);
     }
 
     const snapshot = {
-      customer, items, subtotal,
+      customer,
+      items,
+      subtotal,
       discount: bundleDiscount + couponDiscount,
-      couponCode: savedCoupon, couponDiscount, total, paymentMethod
+      couponCode: savedCoupon,
+      couponDiscount,
+      total,
+      paymentMethod
     };
 
     const rzp = new Razorpay({ key_id: keyId, key_secret: keySecret });
     const rzpOrder = await rzp.orders.create({
-      amount, currency: "INR", receipt: `clz_${Date.now()}`
+      amount,
+      currency: "INR",
+      receipt: `azs_${Date.now()}`
     });
 
     await PendingPayment.create({
@@ -1069,13 +1229,15 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
       paymentMethod,
       checkoutSnapshot: snapshot,
       status: "pending",
-      orderId: `CLZ-${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
+      orderId: `AZS-${crypto.randomBytes(4).toString("hex").toUpperCase()}`,
       expiresAt: new Date(Date.now() + 30 * 60 * 1000)
     });
 
     return res.json({
-      keyId, order_id: rzpOrder.id,
-      amount: rzpOrder.amount, currency: rzpOrder.currency
+      keyId,
+      order_id: rzpOrder.id,
+      amount: rzpOrder.amount,
+      currency: rzpOrder.currency
     });
   } catch (err) {
     const providerStatus = Number(err?.statusCode || err?.error?.statusCode || 0);
@@ -1087,9 +1249,10 @@ app.post("/api/payments/razorpay/create-order", async (req, res) => {
       });
 
       return res.status(502).json({
-        message: providerStatus === 401
-          ? "Razorpay authentication failed. Check the matching API credentials."
-          : "Razorpay could not create the payment order. Please try again."
+        message:
+          providerStatus === 401
+            ? "Razorpay authentication failed. Check the matching API credentials."
+            : "Razorpay could not create the payment order. Please try again."
       });
     }
 
@@ -1116,10 +1279,13 @@ app.post("/api/payments/razorpay/verify", async (req, res) => {
     const secret = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
 
     if (!orderId || !paymentId || !signature || !secret) {
-      return res.status(400).json({ message: "Payment verification details are incomplete." });
+      return res
+        .status(400)
+        .json({ message: "Payment verification details are incomplete." });
     }
 
-    const expected = crypto.createHmac("sha256", secret)
+    const expected = crypto
+      .createHmac("sha256", secret)
       .update(`${orderId}|${paymentId}`)
       .digest("hex");
 
@@ -1133,10 +1299,7 @@ app.post("/api/payments/razorpay/verify", async (req, res) => {
     if (!pending) {
       const existing = await Order.findOne({ razorpayOrderId: orderId });
 
-      if (
-        existing &&
-        String(existing.razorpayPaymentId || "") === paymentId
-      ) {
+      if (existing && String(existing.razorpayPaymentId || "") === paymentId) {
         return res.json({ order: existing });
       }
 
@@ -1161,7 +1324,9 @@ app.post("/api/payments/razorpay/verify", async (req, res) => {
       Number(payment.amount) !== Number(pending.expectedAmountPaise) ||
       String(payment.currency || "").toUpperCase() !== pending.currency
     ) {
-      return res.status(400).json({ message: "Captured payment does not match this checkout." });
+      return res
+        .status(400)
+        .json({ message: "Captured payment does not match this checkout." });
     }
 
     const order = await finalizeCapturedRazorpayPayment(
@@ -1202,7 +1367,7 @@ app.post("/api/orders", async (req, res) => {
   try {
     const newOrder = await Order.create({
       ...req.body,
-      orderId: `CLZ-${Date.now().toString().slice(-6)}`,
+      orderId: `AZS-${Date.now().toString().slice(-6)}`,
       paymentStatus: "COD Pending",
       amountPaidNow: 0,
       balanceDueOnDelivery: Number(req.body.total || 0),
@@ -1226,7 +1391,7 @@ app.post("/api/newsletter", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   if (!email) return res.status(400).json({ message: "Email is required." });
   await Subscriber.updateOne({ email }, { $set: { email } }, { upsert: true });
-  res.json({ message: "Welcome to CALZARE®. You are on the list." });
+  res.json({ message: "Welcome to Al-Zehra Silk. You are on the list." });
 });
 
 // --- CONTROL CENTER ADMIN ROUTES ---
@@ -1284,12 +1449,34 @@ app.post("/api/admin/upload", requireAdmin, upload.single("file"), async (req, r
       return res.status(400).json({ message: "No media file received." });
     }
 
+    const isRasterImage = ["image/png", "image/jpeg", "image/webp"].includes(
+      req.file.mimetype
+    );
+
+    let uploadBuffer = req.file.buffer;
+    let uploadMimeType = req.file.mimetype;
+
+    if (isRasterImage) {
+      uploadBuffer = await sharp(req.file.buffer)
+        .rotate()
+        .resize({
+          width: 2000,
+          height: 2000,
+          fit: "inside",
+          withoutEnlargement: true
+        })
+        .webp({ quality: 82, effort: 4 })
+        .toBuffer();
+
+      uploadMimeType = "image/webp";
+    }
+
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
 
     if (cloudName && uploadPreset) {
       const resourceType = req.file.mimetype.startsWith("video/") ? "video" : "image";
-      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      const base64 = `data:${uploadMimeType};base64,${uploadBuffer.toString("base64")}`;
       const formBody = new URLSearchParams();
       formBody.append("file", base64);
       formBody.append("upload_preset", uploadPreset);
@@ -1299,23 +1486,41 @@ app.post("/api/admin/upload", requireAdmin, upload.single("file"), async (req, r
         { method: "POST", body: formBody }
       );
       const cloudData = await cloudRes.json();
+
       if (!cloudRes.ok || !cloudData.secure_url) {
         throw new Error(cloudData.error?.message || "Cloudinary upload failed.");
       }
+
       await logAudit("UPLOAD_MEDIA_CLOUD", req.file.originalname, req);
       return res.json({ url: cloudData.secure_url, filename: req.file.originalname });
     }
 
-    if (req.file.mimetype.startsWith("image/") && req.file.size <= 2 * 1024 * 1024) {
-      const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
-      await logAudit("UPLOAD_MEDIA_INLINE", req.file.originalname, req);
-      return res.json({ url: dataUrl, filename: req.file.originalname });
+    const extensions = {
+      "image/png": ".png",
+      "image/jpeg": ".jpg",
+      "image/webp": ".webp",
+      "image/svg+xml": ".svg",
+      "video/mp4": ".mp4",
+      "video/webm": ".webm"
+    };
+
+    const extension = extensions[uploadMimeType];
+
+    if (!extension) {
+      return res.status(400).json({ message: "Unsupported media type." });
     }
 
-    return res.status(400).json({
-      message:
-        "Configure CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET in Render env to upload large images or videos without local disk storage."
-    });
+    const filename = `${crypto.randomUUID()}${extension}`;
+    const filePath = pathModule.join(UPLOAD_DIR, filename);
+
+    await fsPromises.mkdir(UPLOAD_DIR, { recursive: true });
+    await fsPromises.writeFile(filePath, uploadBuffer, { flag: "wx" });
+
+    const url = `${PUBLIC_API_URL}/uploads/${filename}`;
+
+    await logAudit("UPLOAD_MEDIA_LOCAL", req.file.originalname, req);
+
+    return res.json({ url, filename });
   } catch (err) {
     res.status(500).json({ message: err.message || "Media upload failed." });
   }
@@ -1344,38 +1549,45 @@ app.delete("/api/admin/products/:id", requireAdmin, async (req, res) => {
 app.post("/api/admin/collections/init-defaults", requireAdmin, async (req, res) => {
   const defaults = [
     {
-      slug: "women",
-      title: "WOMEN",
-      type: "audience",
-      subtitle: "Sculpted contours & bold vibrant silhouettes.",
-      ctaLabel: "EXPLORE WOMEN"
+      slug: "banarasi",
+      title: "BANARASI SILK",
+      type: "weave",
+      subtitle: "Heirloom zari borders & timeless festive weaves.",
+      ctaLabel: "EXPLORE BANARASI"
     },
     {
-      slug: "men",
-      title: "MEN",
-      type: "audience",
-      subtitle: "High-traction outdoor & rugged everyday mules.",
-      ctaLabel: "EXPLORE MEN"
+      slug: "kanjivaram",
+      title: "KANJIVARAM",
+      type: "weave",
+      subtitle: "Rich temple borders woven for weddings & celebrations.",
+      ctaLabel: "EXPLORE KANJIVARAM"
     },
     {
-      slug: "kids",
-      title: "KIDS",
-      type: "audience",
-      subtitle: "Featherweight, indestructible foam for playground champions.",
-      ctaLabel: "EXPLORE KIDS"
+      slug: "soft-silk",
+      title: "SOFT SILK",
+      type: "weave",
+      subtitle: "Featherlight drapes designed for effortless pleating.",
+      ctaLabel: "EXPLORE SOFT SILK"
     },
     {
-      slug: "unisex",
-      title: "UNISEX",
-      type: "audience",
-      subtitle: "Pure architectural foam with universal ergonomics.",
-      ctaLabel: "EXPLORE UNISEX"
+      slug: "kalamkari",
+      title: "KALAMKARI",
+      type: "weave",
+      subtitle: "Artisanal hand-inspired prints & heritage motifs.",
+      ctaLabel: "EXPLORE KALAMKARI"
+    },
+    {
+      slug: "festive",
+      title: "FESTIVE & WEDDING",
+      type: "occasion",
+      subtitle: "Curated bridal & celebration edits.",
+      ctaLabel: "EXPLORE FESTIVE"
     }
   ];
   for (const item of defaults) {
     await Collection.updateOne({ slug: item.slug }, { $setOnInsert: item }, { upsert: true });
   }
-  await logAudit("INIT_COLLECTIONS", "4 Core Audience Collections", req);
+  await logAudit("INIT_COLLECTIONS", "5 Core Saree Collections", req);
   res.json({ collections: await Collection.find().lean() });
 });
 
@@ -1422,17 +1634,38 @@ app.delete("/api/admin/reels/:id", requireAdmin, async (req, res) => {
 
 app.put("/api/admin/homepage", requireAdmin, async (req, res) => {
   try {
-    const current = (await Homepage.findOne({ singletonKey: "main" }).lean()) || {};
     const body =
       req.body?.homepage && typeof req.body.homepage === "object"
         ? req.body.homepage
         : req.body || {};
 
+    const expectedUpdatedAt = new Date(body.updatedAt);
+
+    if (!body.updatedAt || Number.isNaN(expectedUpdatedAt.getTime())) {
+      return res.status(409).json({
+        message: "Homepage version is missing. Refresh the Admin Control Center and try again."
+      });
+    }
+
+    const current = await Homepage.findOne({ singletonKey: "main" }).lean();
+
+    if (!current) {
+      return res.status(409).json({
+        message: "Homepage record not found. Refresh the Admin Control Center."
+      });
+    }
+
+    const { _id, __v, createdAt, updatedAt, ...homepageFields } = body;
+
     const merged = {
-      ...body,
+      ...homepageFields,
       affordableStore: {
         ...(current.affordableStore || {}),
         ...(body.affordableStore || {})
+      },
+      editorialSlider: {
+        ...(current.editorialSlider || {}),
+        ...(body.editorialSlider || {})
       },
       featuredProduct: {
         ...(current.featuredProduct || {}),
@@ -1453,10 +1686,24 @@ app.put("/api/admin/homepage", requireAdmin, async (req, res) => {
     };
 
     const homepage = await Homepage.findOneAndUpdate(
-      { singletonKey: "main" },
+      {
+        _id: current._id,
+        updatedAt: expectedUpdatedAt
+      },
       { $set: merged },
-      { upsert: true, new: true, lean: true }
+      { new: true, lean: true }
     );
+
+    if (!homepage) {
+      const latest = await Homepage.findOne({ singletonKey: "main" }).lean();
+
+      return res.status(409).json({
+        message:
+          "Homepage was updated by another session. The latest version has been returned. Please refresh and try again.",
+        homepage: latest
+      });
+    }
+
     await logAudit("UPDATE_HOMEPAGE_CMS", "Homepage / ProductPage / Footer", req);
     res.json({ homepage });
   } catch (err) {
@@ -1792,14 +2039,14 @@ app.get("/api/auth/orders", async (req, res) => {
 mongoose
   .connect(MONGO_URI)
   .then(async () => {
-    console.log("Connected to MongoDB");
+    console.log("Connected to MongoDB (Al-Zehra Silk)");
     await Order.init();
     console.log("Order collection and indexes ready");
     await PendingPayment.init();
     console.log("PendingPayment collection and indexes ready");
     await seedInitialData();
     app.listen(PORT, () =>
-      console.log(`CALZARE Control Center API running on http://localhost:${PORT}`)
+      console.log(`Al-Zehra Silk Control Center API running on http://localhost:${PORT}`)
     );
   })
   .catch((err) => {

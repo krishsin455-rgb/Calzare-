@@ -1,1225 +1,213 @@
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  ArrowDown,
   ArrowRight,
   ArrowUpRight,
+  Check,
   ChevronLeft,
   ChevronRight,
-  Film,
   Heart,
   Play,
-  RefreshCw,
-  ShieldCheck,
-  Sparkles,
-  Truck
+  Video
 } from "lucide-react";
 
-const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
-const DEFAULT_SIZES = ["UK 7", "UK 8", "UK 9", "UK 10"];
-
-const COLLECTIONS_STRIP = [
-  { key: "men", label: "MEN", subtitle: "Structured formals & daily pairs" },
-  { key: "women", label: "WOMEN", subtitle: "Versatile lows & relaxed slides" },
-  { key: "unisex", label: "UNISEX", subtitle: "Clean courts & everyday runners" },
-  { key: "kids", label: "KIDS", subtitle: "Easy-strap playground staples" }
+const OCCASIONS = [
+  { key: "dussehra-durga", title: "DUSSEHRA & DURGA POOJA", weave: "festive", caption: "A little something unforgettable" },
+  { key: "engagement", title: "ENGAGEMENT", weave: "banarasi", caption: "For the beginning of forever" },
+  { key: "wedding", title: "WEDDING", weave: "kanjivaram", caption: "Make every gathering special" },
+  { key: "festival", title: "FESTIVAL", weave: "kalamkari", caption: "Wear the joy of the moment" }
 ];
 
-const DEFAULT_EDITORIAL_SLIDES = [];
-
-const DEFAULT_SECTION_ORDER = [
-  "hero_main",
-  "trust_strip",
-  "collections_strip",
-  "affordable_store",
-  "editorial_slider",
-  "featured_product",
-  "intro_statement",
-  "shop_grid",
-  "reels_motion",
-  "campaign_banner",
-  "our_philosophy",
-  "journal_notes",
-  "newsletter"
+const HOUSE_EDIT = [
+  { key: "soft-silk", label: "DRESSES", subtitle: "COLLECTIONS" },
+  { key: "kanjivaram", label: "SAREES", subtitle: "COLLECTIONS" },
+  { key: "festive", label: "LEHENGA", subtitle: "COLLECTIONS" },
+  { key: "kalamkari", label: "SCARF", subtitle: "COLLECTIONS" }
 ];
 
-function getBlockAlignStyle(align = "left") {
-  const norm = align === "centre" ? "center" : align || "left";
-  if (norm === "center") {
-    return {
-      textAlign: "center",
-      alignItems: "center",
-      justifyContent: "center",
-      marginLeft: "auto",
-      marginRight: "auto"
-    };
-  }
-  if (norm === "right") {
-    return {
-      textAlign: "right",
-      alignItems: "flex-end",
-      justifyContent: "flex-end",
-      marginLeft: "auto",
-      marginRight: "0"
-    };
-  }
-  return {
-    textAlign: "left",
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-    marginLeft: "0",
-    marginRight: "auto"
-  };
+function getImage(product) {
+  const image = product?.image || product?.images?.[0] || product?.thumbnail || "";
+  if (typeof image !== "string" || !image.trim()) return "";
+  if (/^(file:|\/Users\/)/i.test(image)) return "";
+  if (typeof window !== "undefined" && window.location.hostname !== "localhost" && image.includes("localhost")) return "";
+  return image;
 }
 
-function EditorialShowcaseSlider({
-  slides,
-  products,
-  titleAlign = "center",
-  onOpenProductPage,
-  onNavigateCollection
-}) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const touchStartX = useRef(0);
+function getCollection(product) {
+  return String(product?.collection || product?.weave || "banarasi")
+    .toLowerCase().trim().replace(/\s+/g, "-");
+}
 
-  const list = (Array.isArray(slides) ? slides : []).filter(
-    (slide) => typeof slide?.image === "string" && slide.image.trim()
-  );
-  if (!list.length) return null;
-  const safeIndex = Math.min(activeIndex, list.length - 1);
-  const current = list[safeIndex];
-  const alignStyle = getBlockAlignStyle(titleAlign);
-  const ctaAlignStyle = getBlockAlignStyle(current.ctaAlign || "left");
+function priceLabel(product, money) {
+  return money?.(product?.price) || `₹${Number(product?.price || 0).toLocaleString("en-IN")}`;
+}
 
-  const handlePrev = () =>
-    setActiveIndex((prev) => (prev - 1 + list.length) % list.length);
-  const handleNext = () => setActiveIndex((prev) => (prev + 1) % list.length);
+function Ornament() {
+  return <div className="ornament-divider" aria-hidden="true" />;
+}
 
-  const handleSlideAction = (slide) => {
-    if (slide.productId) {
-      const found = (products || []).find(
-        (p) => String(p.id) === String(slide.productId)
-      );
-      if (found) {
-        onOpenProductPage?.(found);
-        return;
-      }
-      window.location.hash = `#product/${encodeURIComponent(String(slide.productId))}`;
-      return;
-    }
-
-    const url = (slide.redirectUrl || "").trim();
-    if (!url) return;
-
-    if (url.toLowerCase().startsWith("#product/")) {
-      const prodId = decodeURIComponent(url.slice("#product/".length)).trim();
-      const found = (products || []).find((p) => String(p.id) === String(prodId));
-      if (found) {
-        onOpenProductPage?.(found);
-      } else {
-        window.location.hash = url;
-      }
-      return;
-    }
-
-    if (["#men", "#women", "#unisex", "#kids", "#story"].includes(url.toLowerCase())) {
-      onNavigateCollection?.(url.replace("#", "").toLowerCase());
-      return;
-    }
-
-    if (url.startsWith("#")) {
-      window.location.hash = url;
-      try {
-        const target = document.querySelector(url);
-        target?.scrollIntoView({ behavior: "smooth" });
-      } catch (_) {}
-      return;
-    }
-
-    window.open(url, "_blank", "noopener,noreferrer");
-  };
+function ProductCard({ product, money, favorites, onToggleFavorite, onOpenProduct, onQuickView, onAdd }) {
+  const [size, setSize] = useState(product.sizes?.[0] || "Free Size");
+  const sizes = Array.isArray(product.sizes) && product.sizes.length ? product.sizes : ["Free Size"];
+  const id = product.id || product._id;
+  const image = getImage(product);
 
   return (
-    <section
-      className="editorial-showcase-slider"
-      aria-label="Editorial showcase"
-      style={{
-        position: "relative",
-        width: "100%",
-        overflow: "hidden",
-        background: "#0B0D10",
-        margin: "24px 0"
-      }}
-      onTouchStart={(e) => {
-        touchStartX.current = e.touches[0]?.clientX || 0;
-      }}
-      onTouchEnd={(e) => {
-        const delta = (e.changedTouches[0]?.clientX || 0) - touchStartX.current;
-        if (Math.abs(delta) > 45) {
-          if (delta < 0) handleNext();
-          else handlePrev();
-        }
-      }}
-    >
-      <div
-        style={{
-          position: "relative",
-          width: "100%",
-          height: current.slideHeightPx
-            ? `${Number(current.slideHeightPx)}px`
-            : "clamp(420px, 68vh, 640px)",
-          overflow: "hidden"
-        }}
-      >
-        <img
-          src={current.image}
-          alt={current.title || "Calzare Showcase"}
-          onError={(e) => {
-            e.currentTarget.style.display = "none";
-          }}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: current.imageFit || "cover",
-            objectPosition: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`,
-            transform: `scale(${Number(current.imageZoom) || 1})`,
-            transformOrigin: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`,
-            display: "block"
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "linear-gradient(180deg, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.58) 100%)"
-          }}
-        />
-
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: alignStyle.alignItems,
-            justifyContent: "center",
-            textAlign: alignStyle.textAlign,
-            padding: "24px clamp(24px, 6vw, 72px) 96px",
-            color: "#FFFFFF",
-            pointerEvents: "none"
-          }}
-        >
-          {current.title && (
-            <h2
-              style={{
-                margin: "0 0 10px",
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: "clamp(32px, 5vw, 58px)",
-                fontWeight: 500,
-                lineHeight: 1.08,
-                color: "#FFFFFF",
-                textAlign: alignStyle.textAlign
-              }}
-            >
-              {current.title}
-            </h2>
-          )}
-          {current.subtitle && (
-            <p
-              style={{
-                margin: 0,
-                maxWidth: "540px",
-                fontSize: "clamp(13px, 1.4vw, 16px)",
-                lineHeight: 1.55,
-                color: "rgba(255,255,255,0.9)",
-                textAlign: alignStyle.textAlign
-              }}
-            >
-              {current.subtitle}
-            </p>
-          )}
-        </div>
-
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: `${(Number(current.ctaBottomPx) || 14) + (list.length > 1 ? 26 : 0)}px`,
-            padding: "0 clamp(24px, 6vw, 72px)",
-            display: "flex",
-            justifyContent: ctaAlignStyle.justifyContent,
-            zIndex: 3
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => handleSlideAction(current)}
-            style={{
-              padding: "12px 28px",
-              borderRadius: "999px",
-              border: "1px solid #FFFFFF",
-              background: "#FFFFFF",
-              color: "#0F172A",
-              fontSize: "12px",
-              fontWeight: 700,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              cursor: "pointer"
-            }}
-          >
-            {current.ctaLabel || "Buy Now"}
-          </button>
-        </div>
-
-        {list.length > 1 && (
-          <>
-            <button
-              type="button"
-              aria-label="Previous slide"
-              onClick={handlePrev}
-              style={{
-                position: "absolute",
-                left: "16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: "40px",
-                height: "40px",
-                borderRadius: "999px",
-                border: "1px solid rgba(255,255,255,0.35)",
-                background: "rgba(0,0,0,0.42)",
-                color: "#FFFFFF",
-                display: "grid",
-                placeItems: "center",
-                cursor: "pointer",
-                zIndex: 4
-              }}
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button
-              type="button"
-              aria-label="Next slide"
-              onClick={handleNext}
-              style={{
-                position: "absolute",
-                right: "16px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                width: "40px",
-                height: "40px",
-                borderRadius: "999px",
-                border: "1px solid rgba(255,255,255,0.35)",
-                background: "rgba(0,0,0,0.42)",
-                color: "#FFFFFF",
-                display: "grid",
-                placeItems: "center",
-                cursor: "pointer",
-                zIndex: 4
-              }}
-            >
-              <ChevronRight size={18} />
-            </button>
-
-            <div
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: "14px",
-                display: "flex",
-                justifyContent: "center",
-                gap: "8px",
-                zIndex: 4
-              }}
-            >
-              {list.map((s, idx) => (
-                <button
-                  key={s.id || idx}
-                  type="button"
-                  aria-label={`Go to slide ${idx + 1}`}
-                  onClick={() => setActiveIndex(idx)}
-                  style={{
-                    width: idx === safeIndex ? "24px" : "8px",
-                    height: "8px",
-                    borderRadius: "999px",
-                    border: 0,
-                    padding: 0,
-                    background:
-                      idx === safeIndex ? "#FFFFFF" : "rgba(255,255,255,0.45)",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease"
-                  }}
-                />
-              ))}
-            </div>
-          </>
-        )}
+    <article className="product-card home-rail-card">
+      <div className="product-image-wrap clickable" onClick={() => onOpenProduct?.(product)}>
+        {image ? <img src={image} alt={product.name || "Al-Zehra Silk saree"} loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : <div className="home-product-placeholder"><span>AL-ZEHRA SILK</span></div>}
+        {product.badge && <span className="product-badge">{product.badge}</span>}
+        <button type="button" className={`favorite ${favorites.includes(id) ? "selected" : ""}`} aria-label="Save saree" onClick={(event) => { event.stopPropagation(); onToggleFavorite?.(id); }}>
+          <Heart size={17} fill={favorites.includes(id) ? "currentColor" : "none"} />
+        </button>
+        {product.videoUrl && <button className="video-pill" type="button" onClick={(event) => { event.stopPropagation(); onQuickView?.(product, true); }}><Play size={11} fill="currentColor" /> DRAPE VIDEO</button>}
+        {onAdd && <div className="home-product-actions" onClick={(event) => event.stopPropagation()}>
+          <select aria-label={`Choose size for ${product.name}`} value={sizes.includes(size) ? size : sizes[0]} onChange={(event) => setSize(event.target.value)}>{sizes.map((item) => <option key={item} value={item}>{item}</option>)}</select>
+          <button type="button" onClick={() => onAdd(product, size)}>ADD TO BAG</button>
+        </div>}
       </div>
+      <button type="button" className="product-meta home-product-meta" onClick={() => onOpenProduct?.(product)}>
+        <span><strong>{product.name || "Handpicked Silk Saree"}</strong><small>{[product.fabric, product.color || product.occasion].filter(Boolean).join(" · ") || "Silk · Festive"}</small></span>
+        <b>{priceLabel(product, money)}</b>
+      </button>
+      {product.oldPrice > product.price && <p className="home-old-price"><s>{priceLabel({ price: product.oldPrice }, money)}</s>{product.discount && <span>{product.discount}% off</span>}</p>}
+    </article>
+  );
+}
+
+function ProductRail({ id, title, eyebrow, products, money, favorites, onToggleFavorite, onOpenProduct, onQuickView, onAdd, onViewAll }) {
+  const railId = `rail-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  const move = (direction) => document.getElementById(railId)?.scrollBy({ left: direction * 420, behavior: "smooth" });
+  return (
+    <section className="home-products-section section-pad" id={id}>
+      <div className="home-rail-heading">
+        <div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div>
+        <div className="home-rail-controls">
+          {onViewAll && <button type="button" className="home-view-all-link" onClick={onViewAll}>View all <ArrowUpRight size={15} /></button>}
+          <button type="button" aria-label={`Previous ${title}`} onClick={() => move(-1)}><ChevronLeft size={19} /></button>
+          <button type="button" aria-label={`Next ${title}`} onClick={() => move(1)}><ChevronRight size={19} /></button>
+        </div>
+      </div>
+      {products.length ? <div className="home-product-rail" id={railId}>
+        {products.map((product) => <ProductCard key={product.id || product._id} product={product} money={money} favorites={favorites} onToggleFavorite={onToggleFavorite} onOpenProduct={onOpenProduct} onQuickView={onQuickView} onAdd={onAdd} />)}
+      </div> : <div className="home-empty-products">The next Al-Zehra edit is being prepared. Please check back soon.</div>}
     </section>
   );
 }
 
 export default function HomePage({
-  homepage = {},
-  storeSettings = {},
-  products = [],
-  visibleProducts = [],
-  reels = [],
-  categories = ["sneakers", "formal", "slides"],
-  allowedCollections = ["men", "women", "unisex", "kids"],
-  category,
-  setCategory,
-  favorites = [],
-  onToggleFavorite,
-  onOpenProductPage,
-  onOpenQuickView,
-  onDirectAddToCart,
-  onOpenReel,
-  onFeaturedClick,
-  onNavigateCollection,
-  under999Section,
-  email,
-  setEmail,
-  onSubscribe,
-  money
+  homepage = {}, storeSettings = {}, products = [], visibleProducts = [], reels = [], categories = [],
+  allowedCollections = [], favorites = [], onToggleFavorite, onOpenProductPage, onOpenQuickView,
+  onDirectAddToCart, onOpenReel, onFeaturedClick, onNavigateCollection, under999Section,
+  email = "", setEmail, onSubscribe, money
 }) {
-  const [hoveredProductId, setHoveredProductId] = useState(null);
-  const [campaignVideoFailed, setCampaignVideoFailed] = useState(false);
-  const [selectedSizes, setSelectedSizes] = useState({});
-  const [localAlignMap, setLocalAlignMap] = useState(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null");
-      const map = {};
-      (raw?.sections || []).forEach((s) => {
-        if (s?.key && s?.titleAlign) map[s.key] = s.titleAlign;
-      });
-      return map;
-    } catch (_) {
-      return {};
-    }
-  });
-
-  useEffect(() => {
-    const syncAlign = () => {
-      try {
-        const raw = JSON.parse(localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null");
-        const map = {};
-        (raw?.sections || []).forEach((s) => {
-          if (s?.key && s?.titleAlign) map[s.key] = s.titleAlign;
-        });
-        setLocalAlignMap(map);
-      } catch (_) {}
-    };
-    window.addEventListener("calzare_store_updated", syncAlign);
-    window.addEventListener("storage", syncAlign);
-    return () => {
-      window.removeEventListener("calzare_store_updated", syncAlign);
-      window.removeEventListener("storage", syncAlign);
-    };
-  }, []);
-
-  const displayedProducts = visibleProducts || [];
-
-  const visibleCollectionCards = COLLECTIONS_STRIP.filter((col) =>
-    Array.isArray(allowedCollections) ? allowedCollections.includes(col.key) : true
-  );
-
-  const categoryFilterPills = [
-    { key: "all", label: "ALL PIECES" },
-    ...(Array.isArray(categories) ? categories : []).map((cat) => ({
-      key: String(cat).toLowerCase(),
-      label: String(cat).toUpperCase()
-    }))
-  ];
-
-  const trustLayoutClass =
-    homepage?.mobileUI?.trustLayout === "stack" ? "" : "mobile-swipe-mode";
-
-  const customStoryBlocks = Array.isArray(storeSettings?.storySections)
-    ? storeSettings.storySections.filter(
-        (s) => s && (s.eyebrow || s.heading || s.body)
-      )
-    : [];
-
-  const cmsSections = Array.isArray(homepage?.sections) ? homepage.sections : [];
-  const sectionMap = Object.fromEntries(cmsSections.map((s) => [s.key, s]));
-
-  const getAlign = (key, fallback = "left") =>
-    sectionMap[key]?.titleAlign || localAlignMap[key] || fallback;
-
-  const isVisible = (key) => {
-    if (sectionMap[key] && sectionMap[key].visible === false) return false;
-    return true;
-  };
-
-  const orderedKeys = (() => {
-    const knownCmsKeys = cmsSections
-      .map((s) => s.key)
-      .filter((k) => DEFAULT_SECTION_ORDER.includes(k));
-    const missing = DEFAULT_SECTION_ORDER.filter((k) => !knownCmsKeys.includes(k));
-    return [...knownCmsKeys, ...missing];
-  })();
-
-  const sectionRenderers = {
-    hero_main: () => {
-      const a = getBlockAlignStyle(getAlign("hero_main", "left"));
-      return (
-        <section className="hero" key="hero_main">
-          <img
-            className="hero-image"
-            src={homepage?.heroImage || sectionMap.hero_main?.image || undefined}
-            onError={(e) => {
-              e.currentTarget.style.display = "none";
-            }}
-            alt={homepage?.heroTitle || "Minimal footwear editorial"}
-          />
-          <div className="hero-shade" />
-          <div
-            className="hero-copy"
-            style={{
-              textAlign: a.textAlign,
-              alignItems: a.alignItems,
-              width: "100%",
-              maxWidth: "1360px",
-              margin: "0 auto"
-            }}
-          >
-            <p className="eyebrow light" style={{ textAlign: a.textAlign }}>
-              {homepage?.heroEyebrow}
-            </p>
-            <h1 style={{ textAlign: a.textAlign }}>
-              {homepage?.heroTitle}
-              <br />
-              <em>{homepage?.heroTitleEmphasis}</em>
-            </h1>
-            <p
-              className="hero-sub"
-              style={{
-                textAlign: a.textAlign,
-                marginLeft: a.marginLeft,
-                marginRight: a.marginRight
-              }}
-            >
-              {homepage?.heroDescription}
-            </p>
-            <div className="hero-cta-row" style={{ justifyContent: a.justifyContent }}>
-              <a className="light-link" href="#shop">
-                DISCOVER THE COLLECTION <ArrowUpRight size={16} />
-              </a>
-              {homepage?.reelsEnabled !== false &&
-                isVisible("reels_motion") &&
-                reels.length > 0 && (
-                  <a className="light-link" href="#reels">
-                    WATCH IN MOTION <Play size={14} />
-                  </a>
-                )}
-            </div>
-          </div>
-
-          <a className="scroll-cue" href="#shop">
-            <ArrowDown size={15} /> SCROLL TO EXPLORE
-          </a>
-        </section>
-      );
-    },
-
-    trust_strip: () => {
-      const a = getBlockAlignStyle(getAlign("trust_strip", "left"));
-      return (
-        <section
-          key="trust_strip"
-          className={`trust-strip ${trustLayoutClass}`}
-          style={{ textAlign: a.textAlign, justifyContent: a.justifyContent }}
-          aria-label="Store highlights"
-        >
-          <div className="trust-item">
-            <Truck size={18} />
-            <div style={{ textAlign: a.textAlign }}>
-              <strong>FREE SHIPPING ₹2,999+</strong>
-              <span>Fast dispatch across India</span>
-            </div>
-          </div>
-          <div className="trust-item">
-            <RefreshCw size={18} />
-            <div style={{ textAlign: a.textAlign }}>
-              <strong>7-DAY SIZE EXCHANGE</strong>
-              <span>Hassle-free UK size swaps</span>
-            </div>
-          </div>
-          <div className="trust-item">
-            <Sparkles size={18} />
-            <div style={{ textAlign: a.textAlign }}>
-              <strong>ZERO BREAK-IN COMFORT</strong>
-              <span>Cushioned for long days</span>
-            </div>
-          </div>
-          <div className="trust-item">
-            <ShieldCheck size={18} />
-            <div style={{ textAlign: a.textAlign }}>
-              <strong>PARTIAL COD & UPI</strong>
-              <span>Flexible, secure checkout</span>
-            </div>
-          </div>
-        </section>
-      );
-    },
-
-    collections_strip: () => {
-      const a = getBlockAlignStyle(getAlign("collections_strip", "left"));
-      return visibleCollectionCards.length > 0 ? (
-        <section
-          className="collections-strip section-pad"
-          id="collections"
-          key="collections_strip"
-        >
-          <div
-            className="section-heading"
-            style={{
-              flexDirection: a.textAlign === "right" ? "row-reverse" : "row",
-              textAlign: a.textAlign
-            }}
-          >
-            <div
-              style={{
-                textAlign: a.textAlign,
-                marginLeft: a.marginLeft,
-                marginRight: a.marginRight
-              }}
-            >
-              <p className="eyebrow" style={{ textAlign: a.textAlign }}>
-                CURATED DEPARTMENTS
-              </p>
-              <h2 style={{ textAlign: a.textAlign }}>
-                Shop by <em>collection.</em>
-              </h2>
-            </div>
-            <button
-              type="button"
-              className="product-count"
-              style={{ background: "none", border: 0, cursor: "pointer" }}
-              onClick={() => onNavigateCollection?.("all")}
-            >
-              EXPLORE ALL
-            </button>
-          </div>
-
-          <div className="collection-cards-grid">
-            {visibleCollectionCards.map((col) => (
-              <button
-                type="button"
-                key={col.key}
-                className="collection-tile"
-                style={{ textAlign: a.textAlign }}
-                onClick={() => onNavigateCollection?.(col.key)}
-              >
-                {storeSettings?.collectionImages?.[col.key] ? (
-                  <img
-                    src={storeSettings.collectionImages[col.key]}
-                    alt={col.label}
-                    loading="lazy"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                ) : null}
-                <div className="collection-tile-scrim" />
-                <div
-                  className="collection-tile-copy"
-                  style={{ textAlign: a.textAlign, alignItems: a.alignItems }}
-                >
-                  <strong style={{ textAlign: a.textAlign }}>{col.label}</strong>
-                  <span style={{ textAlign: a.textAlign }}>{col.subtitle}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null;
-    },
-
-    affordable_store: () => {
-      const a = getBlockAlignStyle(getAlign("affordable_store", "left"));
-      return homepage?.affordableStore?.enabled !== false ? (
-        <div
-          key="affordable_store"
-          style={{
-            textAlign: a.textAlign,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: a.alignItems
-          }}
-        >
-          {under999Section}
-        </div>
-      ) : null;
-    },
-
-    editorial_slider: () =>
-      homepage?.editorialSlider?.enabled !== false ? (
-        <EditorialShowcaseSlider
-          key="editorial_slider"
-          slides={homepage?.editorialSlider?.slides}
-          products={products}
-          titleAlign={getAlign("editorial_slider", "center")}
-          onOpenProductPage={onOpenProductPage}
-          onNavigateCollection={onNavigateCollection}
-        />
-      ) : null,
-
-    featured_product: () => {
-      const a = getBlockAlignStyle(getAlign("featured_product", "left"));
-      return homepage?.featuredProduct?.enabled !== false && homepage?.featuredProduct ? (
-        <section className="exclusive-spotlight section-pad" key="featured_product">
-          <div className="exclusive-card" onClick={onFeaturedClick}>
-            <div className="exclusive-media">
-              <span className="product-badge">
-                {homepage.featuredProduct.sectionType || "EXCLUSIVE"}
-              </span>
-              <img
-                src={homepage.featuredProduct.image || undefined}
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-                alt={homepage.featuredProduct.title}
-              />
-            </div>
-            <div
-              className="exclusive-info"
-              style={{
-                textAlign: a.textAlign,
-                alignItems: a.alignItems,
-                marginLeft: a.marginLeft,
-                marginRight: a.marginRight
-              }}
-            >
-              <p className="eyebrow" style={{ textAlign: a.textAlign }}>
-                FEATURED DROP
-              </p>
-              <h2 style={{ textAlign: a.textAlign }}>{homepage.featuredProduct.title}</h2>
-              <p className="exclusive-price" style={{ textAlign: a.textAlign }}>
-                {money(homepage.featuredProduct.price)}
-              </p>
-              <span className="dark-link" style={{ justifyContent: a.justifyContent }}>
-                VIEW & SELECT SIZE <ArrowUpRight size={15} />
-              </span>
-            </div>
-          </div>
-        </section>
-      ) : null;
-    },
-
-    intro_statement: () => {
-      const a = getBlockAlignStyle(getAlign("intro_statement", "center"));
-      return (
-        <section
-          className="intro section-pad"
-          key="intro_statement"
-          style={{
-            textAlign: a.textAlign,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: a.alignItems
-          }}
-        >
-          <p className="eyebrow" style={{ textAlign: a.textAlign }}>
-            LESS, BUT BETTER
-          </p>
-          <h2 style={{ textAlign: a.textAlign }}>
-            Good design is felt
-            <br />
-            in <em>every step.</em>
-          </h2>
-          <p
-            style={{
-              textAlign: a.textAlign,
-              marginLeft: a.marginLeft,
-              marginRight: a.marginRight
-            }}
-          >
-            We believe the things you wear every day should be considered, comfortable and made to
-            last. Meet the new language of everyday footwear.
-          </p>
-        </section>
-      );
-    },
-
-    shop_grid: () => {
-      const a = getBlockAlignStyle(getAlign("shop_grid", "left"));
-      return (
-        <section className="shop-section section-pad" id="shop" key="shop_grid">
-          <div
-            className="section-heading"
-            style={{
-              flexDirection: a.textAlign === "right" ? "row-reverse" : "row",
-              textAlign: a.textAlign
-            }}
-          >
-            <div
-              style={{
-                textAlign: a.textAlign,
-                marginLeft: a.marginLeft,
-                marginRight: a.marginRight
-              }}
-            >
-              <p className="eyebrow" style={{ textAlign: a.textAlign }}>
-                THE CALZARE EDIT
-              </p>
-              <h2 style={{ textAlign: a.textAlign }}>
-                Find your <em>form.</em>
-              </h2>
-            </div>
-            <span className="product-count">
-              {displayedProducts.length.toString().padStart(2, "0")} PRODUCTS
-            </span>
-          </div>
-
-          <div className="filters" style={{ justifyContent: a.justifyContent }}>
-            {categoryFilterPills.map((item) => (
-              <button
-                type="button"
-                key={item.key}
-                className={category === item.key ? "filter active" : "filter"}
-                onClick={() => setCategory(item.key)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="product-grid">
-            {displayedProducts.map((product) => {
-              const sizes =
-                Array.isArray(product.sizes) && product.sizes.length > 0
-                  ? product.sizes
-                  : DEFAULT_SIZES;
-              const activeSize = selectedSizes[product.id] || sizes[1] || sizes[0];
-
-              return (
-                <article
-                  className="product-card"
-                  key={product.id}
-                  onMouseEnter={() => setHoveredProductId(product.id)}
-                  onMouseLeave={() => setHoveredProductId(null)}
-                >
-                  <div
-                    className="product-image-wrap clickable"
-                    onClick={() => onOpenProductPage(product)}
-                  >
-                    {hoveredProductId === product.id && product.videoUrl ? (
-                      <video
-                        src={product.videoUrl}
-                        poster={product.image || undefined}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        className="card-hover-video"
-                      />
-                    ) : (
-                      <img
-                        src={product.image || undefined}
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                        }}
-                        alt={product.name}
-                        loading="lazy"
-                      />
-                    )}
-                    {product.badge && (
-                      <span className="product-badge">{product.badge}</span>
-                    )}
-
-                    {product.videoUrl && (
-                      <button
-                        type="button"
-                        className="video-pill"
-                        title="Watch product video"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenQuickView(product, true);
-                        }}
-                      >
-                        <Film size={12} /> VIDEO
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      className={`favorite ${favorites.includes(product.id) ? "selected" : ""}`}
-                      aria-label="Add to wishlist"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFavorite(product.id);
-                      }}
-                    >
-                      <Heart
-                        size={18}
-                        fill={favorites.includes(product.id) ? "currentColor" : "none"}
-                      />
-                    </button>
-
-                    <button
-                      type="button"
-                      className="quick-add"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onDirectAddToCart) {
-                          onDirectAddToCart(product, activeSize);
-                        } else {
-                          onOpenQuickView(product, false);
-                        }
-                      }}
-                    >
-                      QUICK ADD ({activeSize}) <ArrowUpRight size={15} />
-                    </button>
-                  </div>
-
-                  <div className="product-meta" onClick={() => onOpenProductPage(product)}>
-                    <div>
-                      <h3>{product.name}</h3>
-                      <p>{product.color}</p>
-                    </div>
-                    <strong>{money(product.price)}</strong>
-                  </div>
-                  {product.oldPrice && <p className="old-price">{money(product.oldPrice)}</p>}
-
-                  <div
-                    className="card-size-row"
-                    style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {sizes.map((sz) => (
-                      <button
-                        type="button"
-                        key={sz}
-                        className={activeSize === sz ? "size-pill active" : "size-pill"}
-                        style={{ padding: "4px 8px", fontSize: "10px" }}
-                        onClick={() =>
-                          setSelectedSizes((prev) => ({ ...prev, [product.id]: sz }))
-                        }
-                      >
-                        {sz.replace("UK ", "")}
-                      </button>
-                    ))}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-
-          {!displayedProducts.length && (
-            <p className="empty-state">No pieces found. Try another category or search.</p>
-          )}
-        </section>
-      );
-    },
-
-    reels_motion: () => {
-      const a = getBlockAlignStyle(getAlign("reels_motion", "left"));
-      return homepage?.reelsEnabled !== false && reels.length > 0 ? (
-        <section className="reels-section section-pad" id="reels" key="reels_motion">
-          <div
-            className="section-heading"
-            style={{
-              flexDirection: a.textAlign === "right" ? "row-reverse" : "row",
-              textAlign: a.textAlign
-            }}
-          >
-            <div
-              style={{
-                textAlign: a.textAlign,
-                marginLeft: a.marginLeft,
-                marginRight: a.marginRight
-              }}
-            >
-              <p className="eyebrow" style={{ textAlign: a.textAlign }}>
-                SHOPPABLE REELS
-              </p>
-              <h2 style={{ textAlign: a.textAlign }}>
-                Calzare in <em>motion.</em>
-              </h2>
-            </div>
-            <span className="product-count">TAP ANY REEL TO SHOP</span>
-          </div>
-
-          <div className="reels-grid">
-            {reels.map((reel) => {
-              const linkedProduct =
-                products.find((p) => p.id === reel.productId) || products[0];
-              return (
-                <div className="reel-card" key={reel.id} onClick={() => onOpenReel(reel)}>
-                  {reel.videoUrl ? (
-                    <video
-                      src={reel.videoUrl}
-                      poster={reel.poster || undefined}
-                      muted
-                      loop
-                      playsInline
-                      autoPlay
-                      preload="metadata"
-                    />
-                  ) : (
-                    <img
-                      src={reel.poster || undefined}
-                      alt={reel.title}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  )}
-                  <div className="reel-overlay">
-                    <span className="reel-tag">{reel.tag}</span>
-                    <div
-                      className="reel-bottom"
-                      style={{ textAlign: a.textAlign, alignItems: a.alignItems }}
-                    >
-                      <h3 style={{ textAlign: a.textAlign }}>{reel.title}</h3>
-                      {linkedProduct && (
-                        <div className="reel-product-chip">
-                          <img
-                            src={linkedProduct.image || undefined}
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                            }}
-                            alt={linkedProduct.name}
-                          />
-                          <div>
-                            <strong>{linkedProduct.name}</strong>
-                            <span>{money(linkedProduct.price)}</span>
-                          </div>
-                          <ArrowUpRight size={15} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ) : null;
-    },
-
-    campaign_banner: () => {
-      const a = getBlockAlignStyle(getAlign("campaign_banner", "left"));
-      return (
-        <section className="campaign" key="campaign_banner">
-          <div className="campaign-image">
-            {homepage?.campaignVideoUrl && !campaignVideoFailed ? (
-              <video
-                src={homepage.campaignVideoUrl}
-                poster={sectionMap.campaign_banner?.image || undefined}
-                autoPlay
-                loop
-                muted
-                playsInline
-                onError={() => setCampaignVideoFailed(true)}
-              />
-            ) : (
-              sectionMap.campaign_banner?.image ? (
-                <img
-                  src={sectionMap.campaign_banner.image}
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                  alt="Footwear and everyday styling"
-                  loading="lazy"
-                />
-              ) : null
-            )}
-          </div>
-          <div
-            className="campaign-copy"
-            style={{
-              textAlign: a.textAlign,
-              alignItems: a.alignItems
-            }}
-          >
-            <p className="eyebrow" style={{ textAlign: a.textAlign }}>
-              A CALZARE STATE OF MIND
-            </p>
-            <h2 style={{ textAlign: a.textAlign }}>
-              Made to move.
-              <br />
-              <em>Made to matter.</em>
-            </h2>
-            <p style={{ textAlign: a.textAlign }}>
-              From slow mornings to the long way home, find pieces that feel like you.
-            </p>
-            <a
-              className="dark-link"
-              href="#collections"
-              style={{ justifyContent: a.justifyContent }}
-              onClick={(e) => {
-                e.preventDefault();
-                document
-                  .getElementById("collections")
-                  ?.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              SHOP THE EDIT <ArrowRight size={16} />
-            </a>
-          </div>
-        </section>
-      );
-    },
-
-    our_philosophy: () => {
-      const a = getBlockAlignStyle(getAlign("our_philosophy", "center"));
-      return (
-        <section
-          className="story section-pad"
-          id="story"
-          key="our_philosophy"
-          style={{
-            textAlign: a.textAlign,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: a.alignItems
-          }}
-        >
-          <p className="eyebrow" style={{ textAlign: a.textAlign }}>
-            {customStoryBlocks[0]?.eyebrow || "OUR PHILOSOPHY"}
-          </p>
-          <h2 style={{ textAlign: a.textAlign }}>
-            {customStoryBlocks[0]?.heading || (
-              <>
-                Wear what
-                <br />
-                moves <em>you.</em>
-              </>
-            )}
-          </h2>
-          <p
-            style={{
-              textAlign: a.textAlign,
-              marginLeft: a.marginLeft,
-              marginRight: a.marginRight
-            }}
-          >
-            {customStoryBlocks[0]?.body ||
-              "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention. We bring together considered silhouettes, versatile details and a point of view that never needs to shout."}
-          </p>
-          <button
-            type="button"
-            className="dark-link"
-            style={{
-              background: "none",
-              border: 0,
-              borderBottom: "1px solid currentColor",
-              cursor: "pointer",
-              justifyContent: a.justifyContent
-            }}
-            onClick={() => onNavigateCollection?.("story")}
-          >
-            GET TO KNOW US <ArrowUpRight size={16} />
-          </button>
-        </section>
-      );
-    },
-
-    journal_notes: () => {
-      const a = getBlockAlignStyle(getAlign("journal_notes", "left"));
-      return (
-        <section
-          className="journal section-pad"
-          id="journal"
-          key="journal_notes"
-          style={{
-            textAlign: a.textAlign,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: a.alignItems
-          }}
-        >
-          <div style={{ textAlign: a.textAlign, width: "100%" }}>
-            <p className="eyebrow" style={{ textAlign: a.textAlign }}>
-              NOTES FROM CALZARE
-            </p>
-            <h2 style={{ textAlign: a.textAlign }}>
-              The considered <em>life.</em>
-            </h2>
-          </div>
-          <div className="journal-card" style={{ width: "100%" }}>
-            {sectionMap.journal_notes?.image ? (
-              <img
-                src={sectionMap.journal_notes.image}
-                alt="Minimal design studio"
-                loading="lazy"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            ) : null}
-            <div
-              style={{
-                textAlign: a.textAlign,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: a.alignItems
-              }}
-            >
-              <span>01 — THE JOURNAL</span>
-              <h3 style={{ textAlign: a.textAlign }}>On choosing fewer, better things.</h3>
-              <a href="#story" style={{ justifyContent: a.justifyContent }}>
-                READ THE STORY <ArrowUpRight size={14} />
-              </a>
-            </div>
-          </div>
-        </section>
-      );
-    },
-
-    newsletter: () => {
-      const a = getBlockAlignStyle(getAlign("newsletter", "center"));
-      return (
-        <section
-          className="newsletter"
-          key="newsletter"
-          style={{
-            textAlign: a.textAlign,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: a.alignItems
-          }}
-        >
-          <p className="eyebrow light" style={{ textAlign: a.textAlign }}>
-            A NOTE, NOW AND THEN
-          </p>
-          <h2 style={{ textAlign: a.textAlign }}>
-            Stay in the <em>know.</em>
-          </h2>
-          <p
-            style={{
-              textAlign: a.textAlign,
-              marginLeft: a.marginLeft,
-              marginRight: a.marginRight
-            }}
-          >
-            New collections, thoughtful stories and a little inspiration for the everyday.
-          </p>
-          <form onSubmit={onSubscribe} style={{ justifyContent: a.justifyContent }}>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Your email address"
-              style={{ textAlign: a.textAlign }}
-            />
-          </form>
-        </section>
-      );
-    }
-  };
+  const [campaignFailed, setCampaignFailed] = useState(false);
+  const published = useMemo(() => (products || []).filter((product) => product && (product.status || "published") !== "draft"), [products]);
+  const displayProducts = useMemo(() => visibleProducts?.length ? visibleProducts : published, [visibleProducts, published]);
+  const newArrivals = useMemo(() => displayProducts.slice(0, 10), [displayProducts]);
+  const trending = useMemo(() => {
+    const marked = displayProducts.filter((product) => /trend|best|popular/i.test(`${product.badge || ""} ${product.tags || ""}`));
+    return (marked.length >= 4 ? marked : displayProducts.slice(2)).slice(0, 10);
+  }, [displayProducts]);
+  const handpicked = displayProducts.slice(4, 14).length ? displayProducts.slice(4, 14) : displayProducts;
+  const imagesForWeave = (weave) => published.filter((product) => getCollection(product) === weave && getImage(product));
+  const bannerImage = (weave, fallbackIndex = 0) => storeSettings.collectionImages?.[weave] || getImage(imagesForWeave(weave)[0]) || getImage(published[fallbackIndex]);
+  const campaignVideo = homepage.heroVideoUrl || homepage.campaignVideoUrl || "";
+  const heroPoster = homepage.heroImage || homepage.campaignImage || getImage(published[0]);
+  const activeCollections = allowedCollections.length ? allowedCollections : ["banarasi", "kanjivaram", "soft-silk", "kalamkari", "festive"];
+  const visibleHouseEdit = HOUSE_EDIT.filter((item) => activeCollections.includes(item.key));
+  const searchableCategories = Array.isArray(categories) ? categories : [];
+  const displayReels = reels.length ? reels : published.filter((product) => product.videoUrl).map((product, index) => ({
+    id: `product-reel-${product.id || product._id || index}`,
+    productId: product.id || product._id,
+    title: product.name || "A saree in motion",
+    tag: "DRAPE & DETAIL",
+    videoUrl: product.videoUrl,
+    poster: getImage(product)
+  }));
+  const supportPhone = String(storeSettings.supportPhone || "").replace(/\D/g, "");
+  const serviceHref = supportPhone
+    ? `https://wa.me/${supportPhone}`
+    : `mailto:${storeSettings.supportEmail || "care@alzehrasilk.in"}`;
 
   return (
-    <>
-      {orderedKeys.map((key) =>
-        isVisible(key) && sectionRenderers[key] ? sectionRenderers[key]() : null
-      )}
-    </>
+    <div className="home-reference-page">
+      <section className="home-split-hero">
+        <div className="home-split-copy">
+          <h1>{homepage.heroTitle || "Craftsmanship"}<br />{homepage.heroTitleEmphasis || "You Can Feel In Every Fold!"}</h1>
+          <p>{homepage.heroDescription || "Handcrafted sarees, thoughtfully chosen for modern Indian women. Discover a softer side of tradition."}</p>
+          <button type="button" className="home-brown-button" onClick={() => onNavigateCollection?.("all")}>{homepage.heroCtaLabel || "Shop now"} <ArrowRight size={16} /></button>
+        </div>
+        <div className="home-split-media">
+          {campaignVideo && !campaignFailed ? <video src={campaignVideo} poster={heroPoster || undefined} autoPlay muted loop playsInline onError={() => setCampaignFailed(true)} /> : heroPoster ? <img src={heroPoster} alt="Crafted silk saree from Al-Zehra Silk" /> : <div className="home-craft-placeholder"><span>WOVEN WITH CARE</span></div>}
+        </div>
+      </section>
+      <Ornament />
+
+      <ProductRail id="shop" title="New Arrivals" eyebrow="JUST WOVEN · JUST ARRIVED" products={newArrivals} money={money} favorites={favorites} onToggleFavorite={onToggleFavorite} onOpenProduct={onOpenProductPage} onQuickView={onOpenQuickView} onAdd={onDirectAddToCart} onViewAll={() => onNavigateCollection?.("all")} />
+
+      <section className="home-promo-pair section-pad">
+        {[{ title: "BEST SELLER", subtitle: "Join the trendsetters!", weave: "banarasi", link: "banarasi" }, { title: "OUR EXCLUSIVE COLLECTIONS", subtitle: "Discover tradition in every drape", weave: "kanjivaram", link: "kanjivaram" }].map((item, index) => (
+          <button type="button" className="home-promo-card" key={item.title} onClick={() => onNavigateCollection?.(item.link)}>
+            {bannerImage(item.weave, index) ? <img src={bannerImage(item.weave, index)} alt="" loading="lazy" /> : <span className={`home-promo-placeholder promo-${index}`} />}
+            <span className="home-promo-illustration" aria-hidden="true" />
+            <span className="home-promo-copy"><strong>{item.title}</strong><small>{item.subtitle}</small><i>SHOP NOW</i></span>
+          </button>
+        ))}
+      </section>
+      <Ornament />
+
+      {under999Section}
+
+      {displayReels.length > 0 && <section className="home-watch-section section-pad">
+        <div className="home-rail-heading"><div><p className="eyebrow">SEE IT. LOVE IT. MAKE IT YOURS.</p><h2>Watch &amp; Shop</h2></div><button type="button" className="home-view-all-link" onClick={() => onOpenReel?.(reels[0])}>View all <ArrowUpRight size={15} /></button></div>
+        <div className="home-watch-rail">{displayReels.slice(0, 8).map((reel, index) => {
+          const linked = published.find((product) => String(product.id || product._id) === String(reel.productId));
+          return <button type="button" className="home-watch-card" key={reel.id || reel._id || index} onClick={() => onOpenReel?.(reel)}>
+            {reel.poster || getImage(linked) ? <img src={reel.poster || getImage(linked)} alt={reel.title || linked?.name || "Saree draping video"} loading="lazy" /> : <span className="home-watch-placeholder" />}
+            <span className="home-watch-play"><Play size={17} fill="currentColor" /></span>
+            <span className="home-watch-copy"><small>{reel.tag || "WATCH & SHOP"}</small><strong>{reel.title || linked?.name || "A saree in motion"}</strong><i>{linked?.price ? priceLabel(linked, money) : "VIEW SAREE"}</i></span>
+          </button>;
+        })}</div>
+      </section>}
+
+      <Ornament />
+      <ProductRail title="Trending Now" eyebrow="THE PIECES EVERYONE LOVES" products={trending} money={money} favorites={favorites} onToggleFavorite={onToggleFavorite} onOpenProduct={onOpenProductPage} onQuickView={onOpenQuickView} onAdd={onDirectAddToCart} onViewAll={() => onNavigateCollection?.("all")} />
+
+      <section className="home-occasion-section section-pad">
+        <div className="home-center-heading"><p className="eyebrow">MADE FOR YOUR MOMENTS</p><h2>Shop by Occasion</h2><p>Styled for every moment.</p></div>
+        <div className="home-occasion-grid">{OCCASIONS.map((item, index) => {
+          const source = imagesForWeave(item.weave);
+          const image = storeSettings.categoryImages?.[item.key] || getImage(source[index % Math.max(source.length, 1)]) || bannerImage(item.weave, index);
+          return <button type="button" className="home-occasion-card" key={item.key} onClick={() => onNavigateCollection?.(item.weave)}>{image ? <img src={image} alt={`${item.title.toLowerCase()} saree edit`} loading="lazy" /> : <span className={`home-occasion-placeholder occasion-${index}`} />}<span className="home-occasion-scrim" /><span className="home-occasion-copy"><strong>{item.title}</strong><small>COLLECTIONS</small><i>SHOP NOW</i></span></button>;
+        })}</div>
+      </section>
+
+      <section className="home-house-section section-pad">
+        <div className="home-center-heading"><h2>The House Edit</h2><span className="home-heading-rule" /></div>
+        <div className="home-house-grid">{visibleHouseEdit.map((item, index) => {
+          const image = bannerImage(item.key, index);
+          return <button type="button" className="home-house-card" key={item.key} onClick={() => onNavigateCollection?.(item.key)}>
+            {image ? <img src={image} alt={`${item.label.toLowerCase()} collection`} loading="lazy" /> : <span className={`home-house-placeholder house-${index}`} />}
+            <span className="home-house-frame"><strong>{item.label}</strong><small>{item.subtitle}</small><i>✦</i></span>
+          </button>;
+        })}</div>
+      </section>
+
+      <section className="home-video-call">
+        <div className="home-video-call-copy"><p className="eyebrow">A PERSONAL STYLING EXPERIENCE</p><h2>Shop Via Video Call</h2><p>Experience the warmth of our studio from wherever you are. Our team can help you find a saree for your next special occasion.</p><a className="home-brown-button" href={serviceHref} target="_blank" rel="noreferrer"><Video size={16} /> BOOK A VIDEO CALL <ArrowUpRight size={15} /></a></div>
+        <div className="home-video-call-art">{bannerImage("soft-silk", 2) ? <img src={bannerImage("soft-silk", 2)} alt="Explore silk sarees with a personal stylist" loading="lazy" /> : <span className="home-craft-placeholder"><span>YOUR STUDIO, WHEREVER YOU ARE</span></span>}</div>
+      </section>
+      <Ornament />
+
+      <ProductRail title="Handpicked Sarees" eyebrow="CHOSEN BY AL-ZEHRA" products={handpicked} money={money} favorites={favorites} onToggleFavorite={onToggleFavorite} onOpenProduct={onOpenProductPage} onQuickView={onOpenQuickView} onAdd={onDirectAddToCart} onViewAll={() => onNavigateCollection?.("all")} />
+
+      {searchableCategories.filter((item) => /kurta|lehenga|dress/i.test(item)).map((item) => <ProductRail key={item} title={String(item).replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase())} eyebrow="MORE FROM THE AL-ZEHRA EDIT" products={published.filter((product) => String(product.category || "").toLowerCase() === String(item).toLowerCase()).slice(0, 10)} money={money} favorites={favorites} onToggleFavorite={onToggleFavorite} onOpenProduct={onOpenProductPage} onQuickView={onOpenQuickView} onAdd={onDirectAddToCart} onViewAll={() => onNavigateCollection?.("all")} />)}
+
+      <section className="home-newsletter section-pad">
+        <p className="eyebrow">A NOTE FROM OUR STUDIO</p><h2>A little silk in your inbox.</h2><p>Be first to hear about new arrivals and thoughtful offers.</p>
+        <form className="home-newsletter-form" onSubmit={onSubscribe}><label className="sr-only" htmlFor="home-email">Email address</label><input id="home-email" type="email" required placeholder="Your email address" value={email} onChange={(event) => setEmail?.(event.target.value)} /><button type="submit">JOIN US <ArrowUpRight size={14} /></button></form>
+        <div className="home-newsletter-note"><Check size={13} /> Only thoughtful updates from our studio.</div>
+      </section>
+    </div>
   );
 }

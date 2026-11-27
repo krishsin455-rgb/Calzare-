@@ -2,33 +2,40 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, ChevronRight, Film, Heart, Home } from "lucide-react";
 
 const COLLECTION_META = {
-  men: {
-    eyebrow: "MEN'S FOOTWEAR EDIT",
-    title: "Men's Collection",
-    subtitle: "Refined everyday silhouettes engineered for all-day comfort and clean versatility.",
+  banarasi: {
+    eyebrow: "BANARASI SILK EDIT",
+    title: "Banarasi Silk Collection",
+    subtitle: "Heirloom zari borders, rich brocade motifs, and celebratory drapes.",
     banner: ""
   },
-  women: {
-    eyebrow: "WOMEN'S FOOTWEAR EDIT",
-    title: "Women's Collection",
-    subtitle:
-      "Effortless proportions, supple finishes, and lightweight cushioning from morning to evening.",
+  kanjivaram: {
+    eyebrow: "KANJIVARAM HERITAGE",
+    title: "Kanjivaram Collection",
+    subtitle: "Distinctive temple borders and lustrous weaves crafted for weddings.",
     banner: ""
   },
-  unisex: {
-    eyebrow: "GENDER-NEUTRAL ESSENTIALS",
-    title: "Unisex Collection",
-    subtitle: "Universal forms designed to move across every wardrobe and daily rotation.",
+  "soft-silk": {
+    eyebrow: "FEATHERLIGHT DRAPES",
+    title: "Soft Silk Collection",
+    subtitle: "Supple finishes and effortless pleating from festive mornings to evenings.",
     banner: ""
   },
-  kids: {
-    eyebrow: "CALZARE JUNIOR",
-    title: "Kids' Collection",
-    subtitle: "Flexible soles, easy closures, and durable comfort built for active days.",
+  kalamkari: {
+    eyebrow: "ARTISANAL MOTIFS",
+    title: "Kalamkari Collection",
+    subtitle: "Expressive heritage prints and hand-inspired storytelling on silk.",
+    banner: ""
+  },
+  festive: {
+    eyebrow: "CELEBRATION EDIT",
+    title: "Festive & Wedding Collection",
+    subtitle: "Curated bridal, puja, and evening sarees designed to stand out.",
     banner: ""
   }
 };
 
+const VALID_COLLECTIONS = Object.keys(COLLECTION_META);
+const DEFAULT_SIZES = ["Free Size"];
 
 export default function CollectionPage({
   collection,
@@ -45,12 +52,13 @@ export default function CollectionPage({
   money
 }) {
   const [styleFilter, setStyleFilter] = useState("all");
-  const cleanCol = ["men", "women", "unisex", "kids"].includes(
-    String(collection || "").toLowerCase()
-  )
-    ? String(collection).toLowerCase()
-    : "unisex";
-  const meta = COLLECTION_META[cleanCol] || COLLECTION_META.unisex;
+
+  const cleanCol = useMemo(() => {
+    const raw = String(collection || "").toLowerCase();
+    return VALID_COLLECTIONS.includes(raw) ? raw : "banarasi";
+  }, [collection]);
+
+  const meta = COLLECTION_META[cleanCol] || COLLECTION_META.banarasi;
 
   const isCollectionAllowed = Array.isArray(allowedCollections)
     ? allowedCollections.includes(cleanCol)
@@ -60,14 +68,14 @@ export default function CollectionPage({
   const bannerHeightPx = Number(pageStyle.bannerHeightPx) || 320;
   const imageFit = pageStyle.imageFit || "cover";
   const posX = pageStyle.imagePosX ?? 50;
-  const posY = pageStyle.imagePosY ?? 50;
+  const posY = pageStyle.imagePosY ?? 20;
   const imageZoom = Number(pageStyle.imageZoom) || 1;
 
   const collectionProducts = useMemo(() => {
     const list = Array.isArray(products) ? products : [];
     return list.filter((p) => {
       if (!p || (p.status || "published") === "draft") return false;
-      const col = String(p.collection || p.gender || "unisex").toLowerCase();
+      const col = String(p.collection || p.weave || "banarasi").toLowerCase();
       return col === cleanCol;
     });
   }, [products, cleanCol]);
@@ -79,12 +87,13 @@ export default function CollectionPage({
 
     const baseCats = Array.isArray(allowedCategories)
       ? allowedCategories.map((c) => String(c).toLowerCase())
-      : Array.from(new Set(["sneakers", "formal", "slides", ...productCats]));
+      : Array.from(new Set(["sarees", "silk-sarees", "organza", ...productCats]));
 
     const visibleCats = Array.isArray(allowedCategories)
       ? baseCats.filter(
           (c) =>
-            productCats.includes(c) || ["sneakers", "formal", "slides"].includes(c)
+            productCats.includes(c) ||
+            ["sarees", "silk-sarees", "organza"].includes(c)
         )
       : baseCats;
 
@@ -103,8 +112,10 @@ export default function CollectionPage({
     return collectionProducts.filter((p) => {
       const cat = String(p.category || "").toLowerCase();
       const matchesStyle = styleFilter === "all" || cat === styleFilter;
-      const matchesSearch =
-        !term || `${p.name} ${p.color} ${p.description}`.toLowerCase().includes(term);
+      const searchable = `${p.name || ""} ${p.color || ""} ${p.fabric || ""} ${
+        p.occasion || ""
+      } ${p.description || ""}`.toLowerCase();
+      const matchesSearch = !term || searchable.includes(term);
 
       return matchesStyle && matchesSearch;
     });
@@ -113,7 +124,13 @@ export default function CollectionPage({
   const activeBanner =
     storeSettings?.collectionImages?.[cleanCol] ||
     (styleFilter !== "all" ? storeSettings?.categoryImages?.[styleFilter] : "") ||
+    meta.banner ||
     "";
+
+  const formatMoney =
+    typeof money === "function"
+      ? money
+      : (v) => `₹${Number(v || 0).toLocaleString("en-IN")}`;
 
   return (
     <>
@@ -160,23 +177,24 @@ export default function CollectionPage({
           overflow: "hidden"
         }}
       >
-        <img
-          src={activeBanner || undefined}
-          onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.style.display = "none";
-          }}
-          alt={meta.title}
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "block",
-            objectFit: imageFit,
-            objectPosition: `${posX}% ${posY}%`,
-            transform: `scale(${imageZoom})`,
-            transformOrigin: `${posX}% ${posY}%`
-          }}
-        />
+        {activeBanner ? (
+          <img
+            src={activeBanner}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+            alt={meta.title}
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "block",
+              objectFit: imageFit,
+              objectPosition: `${posX}% ${posY}%`,
+              transform: `scale(${imageZoom})`,
+              transformOrigin: `${posX}% ${posY}%`
+            }}
+          />
+        ) : null}
         <div className="collection-hero-shade" />
         <div className="collection-hero-copy">
           <p className="eyebrow light">{meta.eyebrow}</p>
@@ -188,7 +206,10 @@ export default function CollectionPage({
       <section className="shop-section section-pad">
         {!isCollectionAllowed ? (
           <div className="empty-state">
-            <p>The {cleanCol.toUpperCase()} collection is currently hidden on this page.</p>
+            <p>
+              The {cleanCol.replace(/-/g, " ").toUpperCase()} collection is currently
+              hidden on this page.
+            </p>
             <button
               type="button"
               className="dark-link"
@@ -208,97 +229,128 @@ export default function CollectionPage({
           <>
             <div className="section-heading">
               <div>
-                <p className="eyebrow">{cleanCol.toUpperCase()} CATALOGUE</p>
+                <p className="eyebrow">
+                  {cleanCol.replace(/-/g, " ").toUpperCase()} CATALOGUE
+                </p>
                 <h2>
-                  Explore <em>{cleanCol}.</em>
+                  Explore <em>{cleanCol.replace(/-/g, " ")}.</em>
                 </h2>
               </div>
               <span className="product-count">
-                {filteredProducts.length.toString().padStart(2, "0")} PRODUCTS
+                {filteredProducts.length.toString().padStart(2, "0")} SAREES
               </span>
             </div>
 
             <div className="filters">
               {filterOptions.map((item) => (
                 <button
+                  type="button"
                   key={item}
                   className={styleFilter === item ? "filter active" : "filter"}
                   onClick={() => setStyleFilter(item)}
                 >
-                  {item === "all" ? "ALL STYLES" : item.toUpperCase()}
+                  {item === "all"
+                    ? "ALL STYLES"
+                    : item.replace(/-/g, " ").toUpperCase()}
                 </button>
               ))}
             </div>
 
             <div className="product-grid">
-              {filteredProducts.map((product) => (
-                <article className="product-card" key={product.id}>
-                  <div
-                    className="product-image-wrap clickable"
-                    onClick={() => onOpenProduct(product, false)}
-                  >
-                    <img
-                      src={product.image || undefined}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                      alt={product.name}
-                      loading="lazy"
-                    />
-                    {product.badge && <span className="product-badge">{product.badge}</span>}
-                    {product.videoUrl && (
-                      <button
-                        type="button"
-                        className="video-pill"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenProduct(product, true);
-                        }}
-                      >
-                        <Film size={12} /> VIDEO
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className={`favorite ${favorites.includes(product.id) ? "selected" : ""}`}
-                      aria-label="Add to wishlist"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleFavorite(product.id);
-                      }}
-                    >
-                      <Heart
-                        size={18}
-                        fill={favorites.includes(product.id) ? "currentColor" : "none"}
-                      />
-                    </button>
-                    <button
-                      type="button"
-                      className="quick-add"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenProduct(product, false);
-                      }}
-                    >
-                      SELECT SIZE & VIEW <ArrowUpRight size={15} />
-                    </button>
-                  </div>
+              {filteredProducts.map((product) => {
+                const prodId = product.id || product._id;
+                const isFav = favorites.includes(prodId);
+                const sizes =
+                  Array.isArray(product.sizes) && product.sizes.length > 0
+                    ? product.sizes
+                    : DEFAULT_SIZES;
 
-                  <div className="product-meta" onClick={() => onOpenProduct(product, false)}>
-                    <div>
-                      <h3>{product.name}</h3>
-                      <p>{product.color}</p>
+                return (
+                  <article className="product-card" key={prodId}>
+                    <div
+                      className="product-image-wrap clickable"
+                      onClick={() => onOpenProduct?.(product, false)}
+                    >
+                      <img
+                        src={product.image || undefined}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                        alt={product.name}
+                        style={{
+                          objectFit:
+                            product.imageFit === "contain" ? "contain" : "cover",
+                          objectPosition: `${product.imagePosX ?? 50}% ${
+                            product.imagePosY ?? 20
+                          }%`,
+                          transform: `scale(${Number(product.imageZoom) || 1})`,
+                          transformOrigin: `${product.imagePosX ?? 50}% ${
+                            product.imagePosY ?? 20
+                          }%`
+                        }}
+                        loading="lazy"
+                      />
+
+                      {product.videoUrl && (
+                        <button
+                          type="button"
+                          className="video-pill"
+                          title="Watch drape preview"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenProduct?.(product, true);
+                          }}
+                        >
+                          <Film size={12} /> DRAPE
+                        </button>
+                      )}
+
+                      {typeof onToggleFavorite === "function" && (
+                        <button
+                          type="button"
+                          className={`favorite ${isFav ? "selected" : ""}`}
+                          aria-label="Add to wishlist"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFavorite(prodId);
+                          }}
+                        >
+                          <Heart
+                            size={18}
+                            fill={isFav ? "currentColor" : "none"}
+                          />
+                        </button>
+                      )}
                     </div>
-                    <strong>{money(product.price)}</strong>
-                  </div>
-                  {product.oldPrice && <p className="old-price">{money(product.oldPrice)}</p>}
-                </article>
-              ))}
+
+                    <div
+                      className="product-meta"
+                      onClick={() => onOpenProduct?.(product, false)}
+                    >
+                      <div>
+                        <h3>{product.name}</h3>
+                        <p>
+                          {[product.fabric, product.color || sizes[0]]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      </div>
+                      <strong>{formatMoney(product.price)}</strong>
+                    </div>
+                    {product.oldPrice && (
+                      <p className="old-price">{formatMoney(product.oldPrice)}</p>
+                    )}
+                  </article>
+                );
+              })}
             </div>
 
             {!filteredProducts.length && (
               <div className="empty-state">
-                <p>No footwear listed in {cleanCol.toUpperCase()} yet.</p>
+                <p>
+                  No sarees listed in {cleanCol.replace(/-/g, " ").toUpperCase()}{" "}
+                  yet.
+                </p>
                 <button
                   type="button"
                   className="dark-link"

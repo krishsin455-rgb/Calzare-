@@ -9,8 +9,8 @@ function toTitleCase(text) {
 }
 
 export default function Header({
-  homepage,
-  storeSettings,
+  homepage = {},
+  storeSettings = {},
   navItems = [],
   collection,
   storyPageOpen,
@@ -25,10 +25,12 @@ export default function Header({
   setCartOpen,
   currentUser,
   openAccountModal,
+  onOpenAuthModal,
   navigateCollection,
   openTrackOrderPage
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== "undefined" && window.innerWidth <= 768
   );
@@ -41,10 +43,46 @@ export default function Header({
 
   const mobileCfg = homepage?.mobileUI || {};
   const navCfg = homepage?.navbar || {};
+  const headerCfg = storeSettings?.header || homepage?.header || {};
+
+  const storeName =
+    storeSettings?.storeName ||
+    homepage?.storeName ||
+    headerCfg.brandName ||
+    "AL-ZEHRA SILK";
+
+  const accentColor =
+    storeSettings?.accentColor ||
+    homepage?.accentColor ||
+    headerCfg.badgeColor ||
+    "#7A1C24";
+
+  const searchPlaceholder =
+    headerCfg.searchPlaceholder ||
+    homepage?.searchPlaceholder ||
+    "Search Banarasi, Kanjivaram, Soft Silk, Kalamkari...";
+
+  const loginLabel =
+    headerCfg.loginLabel || homepage?.auth?.loginLabel || "Login";
+
+  const logoSrc =
+    storeSettings?.logoUrl ||
+    homepage?.logoUrl ||
+    navCfg.logoUrl ||
+    headerCfg.logoUrl ||
+    "/logo.png";
+
+  const logoHeight = isMobile
+    ? Number(mobileCfg.logoHeightPx) || 38
+    : Number(navCfg.logoHeightPx) || 46;
 
   const logoSize = isMobile
     ? Number(mobileCfg.logoSizePx) || 18
     : Number(navCfg.logoSizePx) || 22;
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [logoSrc]);
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
@@ -53,11 +91,22 @@ export default function Header({
     };
   }, [menuOpen]);
 
+  function handleAccountTrigger() {
+    if (!currentUser && typeof onOpenAuthModal === "function") {
+      onOpenAuthModal("login");
+      return;
+    }
+    openAccountModal?.();
+  }
+
   function handleNavClick(e, item) {
     e.preventDefault();
     setMenuOpen?.(false);
     const raw = String(item.url || item.label || "").trim();
-    if (raw.toLowerCase().includes("track")) {
+    const lower = raw.toLowerCase();
+    if (lower.includes("login") || lower.includes("sign") || lower.includes("account")) {
+      handleAccountTrigger();
+    } else if (lower.includes("track")) {
       openTrackOrderPage?.();
     } else {
       navigateCollection?.(raw);
@@ -69,30 +118,23 @@ export default function Header({
       <header
         className="header"
         style={{
-          background: navCfg.bgColor || "#ffffff",
-          color: navCfg.textColor || "#111111",
-          minHeight: isMobile ? `${Number(mobileCfg.navHeightPx) || 58}px` : "68px",
+          background: navCfg.bgColor || headerCfg.bgColor || "#ffffff",
+          color: navCfg.textColor || headerCfg.textColor || "#231917",
+          minHeight: isMobile
+            ? `${Number(mobileCfg.navHeightPx) || 72}px`
+            : `${Number(navCfg.heightPx) || 88}px`,
           padding: isMobile ? "0 16px" : "0 40px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          borderBottom: "none",
-          boxShadow: "none",
-          position: "relative",
+          position: "sticky",
+          top: 0,
           zIndex: 40
         }}
       >
-        {/* Left: Mobile Menu + Brand Wordmark */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            border: "none"
-          }}
-        >
-          {isMobile && (
-            <button
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button
+              className="header-menu-trigger"
               type="button"
               aria-label="Open menu"
               aria-expanded={menuOpen}
@@ -108,7 +150,19 @@ export default function Header({
               }}
             >
               <Menu size={20} />
-            </button>
+          </button>
+
+          {!isMobile && (
+            <label className="header-inline-search">
+              <Search size={18} strokeWidth={1.7} />
+              <input
+                type="search"
+                value={search || ""}
+                onChange={(event) => setSearch?.(event.target.value)}
+                placeholder="What are you looking for?"
+                aria-label="Search products"
+              />
+            </label>
           )}
 
           <a
@@ -126,20 +180,31 @@ export default function Header({
                 : "3px",
               textDecoration: "none",
               color: "inherit",
-              border: "none",
               display: "inline-flex",
-              alignItems: "baseline",
+              alignItems: "center",
               whiteSpace: "nowrap"
             }}
           >
-            {storeSettings?.storeName || "CALZARE"}
-            <sup style={{ fontSize: "0.45em", marginLeft: "2px", fontWeight: 500 }}>
-              ®
-            </sup>
+            {!logoError && logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={storeName}
+                onError={() => setLogoError(true)}
+                style={{
+                  height: `${logoHeight}px`,
+                  width: "auto",
+                  maxWidth: "170px",
+                  borderRadius: "6px",
+                  objectFit: "contain",
+                  display: "block"
+                }}
+              />
+            ) : (
+              storeName
+            )}
           </a>
         </div>
 
-        {/* Center: Clean Title Case Desktop Navigation */}
         {!isMobile && (
           <nav
             aria-label="Main navigation"
@@ -147,7 +212,7 @@ export default function Header({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "28px",
+              gap: "24px",
               flex: "1 1 auto",
               margin: "0 24px"
             }}
@@ -156,15 +221,21 @@ export default function Header({
               const rawLabel = String(item.label || "").trim();
               const labelUpper = rawLabel.toUpperCase();
               const displayLabel = toTitleCase(rawLabel);
+              const slugFromItem = String(item.url || rawLabel)
+                .replace(/^#/, "")
+                .trim()
+                .toLowerCase();
               const isActive =
                 (labelUpper === "HOME" &&
                   collection === "all" &&
                   !storyPageOpen &&
                   !trackPageOpen) ||
-                ((labelUpper === "OUR STORY" || labelUpper === "OUR. STORY") &&
+                ((labelUpper === "OUR STORY" ||
+                  labelUpper === "OUR CRAFT" ||
+                  slugFromItem === "story") &&
                   storyPageOpen) ||
                 (labelUpper === "TRACK ORDER" && trackPageOpen) ||
-                labelUpper.toLowerCase() === String(collection || "").toLowerCase();
+                slugFromItem === String(collection || "").toLowerCase();
 
               return (
                 <a
@@ -178,7 +249,6 @@ export default function Header({
                     textDecoration: isActive ? "underline" : "none",
                     textUnderlineOffset: "6px",
                     color: "inherit",
-                    border: "none",
                     padding: "4px 0",
                     whiteSpace: "nowrap"
                   }}
@@ -190,17 +260,16 @@ export default function Header({
           </nav>
         )}
 
-        {/* Right: Minimalist Icon Row (Search, Account, Wishlist, Bag) */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: isMobile ? "14px" : "18px",
-            border: "none"
+            gap: isMobile ? "12px" : "14px"
           }}
         >
           <button
             type="button"
+            className="header-search-toggle"
             aria-label="Toggle search"
             onClick={() => setSearchOpen((prev) => !prev)}
             style={{
@@ -218,20 +287,29 @@ export default function Header({
 
           <button
             type="button"
-            aria-label="Account"
-            onClick={openAccountModal}
+            className="header-account-trigger"
+            aria-label={currentUser ? "Account" : loginLabel}
+            onClick={handleAccountTrigger}
             style={{
-              border: "none",
+              border: !currentUser && !isMobile ? "1px solid currentColor" : "none",
+              borderRadius: "999px",
               background: "transparent",
               color: "inherit",
-              padding: "4px",
-              display: "grid",
-              placeItems: "center",
-              cursor: "pointer"
+              padding: !currentUser && !isMobile ? "5px 12px" : "4px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+              whiteSpace: "nowrap"
             }}
-            title={currentUser ? currentUser.name : "Account"}
+            title={currentUser ? currentUser.name : loginLabel}
           >
-            <User size={18} strokeWidth={1.8} />
+            <User size={17} strokeWidth={1.8} />
+            {!isMobile && (
+              <span>{currentUser ? currentUser.name || "Account" : loginLabel}</span>
+            )}
           </button>
 
           <button
@@ -265,7 +343,7 @@ export default function Header({
                   minWidth: "15px",
                   height: "15px",
                   borderRadius: "999px",
-                  background: "#dc2626",
+                  background: accentColor,
                   color: "#ffffff",
                   fontSize: "9.5px",
                   fontWeight: 700,
@@ -303,7 +381,7 @@ export default function Header({
                 minWidth: "15px",
                 height: "15px",
                 borderRadius: "999px",
-                background: "#dc2626",
+                background: accentColor,
                 color: "#ffffff",
                 fontSize: "9.5px",
                 fontWeight: 700,
@@ -318,7 +396,6 @@ export default function Header({
         </div>
       </header>
 
-      {/* Clean Expandable Search Bar */}
       {searchOpen && (
         <div
           style={{
@@ -334,7 +411,7 @@ export default function Header({
           <input
             type="search"
             autoFocus
-            placeholder="Search sneakers, slides, loafers..."
+            placeholder={searchPlaceholder}
             value={search}
             onChange={(e) => setSearch?.(e.target.value)}
             style={{
@@ -343,7 +420,7 @@ export default function Header({
               outline: "none",
               background: "transparent",
               fontSize: "14px",
-              color: "#111111"
+              color: "#231917"
             }}
           />
           {search && (
@@ -365,7 +442,6 @@ export default function Header({
         </div>
       )}
 
-      {/* Slide-Out Mobile Navigation Drawer */}
       {menuOpen && (
         <div
           className="mobile-nav-backdrop"
@@ -378,9 +454,23 @@ export default function Header({
             aria-label="Mobile menu"
           >
             <div className="mobile-drawer-head">
-              <strong style={{ letterSpacing: "2.5px", fontSize: "16px" }}>
-                {storeSettings?.storeName || "CALZARE"}®
-              </strong>
+              {!logoError && logoSrc ? (
+                <img
+                  src={logoSrc}
+                  alt={storeName}
+                  onError={() => setLogoError(true)}
+                  style={{
+                    height: "34px",
+                    width: "auto",
+                    borderRadius: "6px",
+                    objectFit: "contain"
+                  }}
+                />
+              ) : (
+                <strong style={{ letterSpacing: "2.5px", fontSize: "16px" }}>
+                  {storeName}
+                </strong>
+              )}
               <button
                 type="button"
                 onClick={() => setMenuOpen?.(false)}
@@ -412,12 +502,15 @@ export default function Header({
               <button
                 type="button"
                 className="primary-cta-btn"
+                style={{ background: accentColor }}
                 onClick={() => {
                   setMenuOpen?.(false);
-                  openAccountModal?.();
+                  handleAccountTrigger();
                 }}
               >
-                {currentUser ? `Account (${currentUser.name})` : "Sign In / Register"}
+                {currentUser
+                  ? `Account (${currentUser.name || "Member"})`
+                  : `${loginLabel} / Register`}
               </button>
             </div>
           </aside>

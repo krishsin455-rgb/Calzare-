@@ -4,6 +4,7 @@ import CollectionPage from "./pages/CollectionPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import PolicyPage from "./pages/PolicyPage.jsx";
 import ProductPage from "./pages/ProductPage.jsx";
+import OurStory from "./pages/OurStory.jsx";
 import TrackOrderPage from "./pages/TrackOrderPage.jsx";
 import Header from "./components/Header.jsx";
 import CartDrawer from "./components/CartDrawer.jsx";
@@ -18,12 +19,12 @@ import {
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:5003/api";
-const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
-const PAGE_ASSIGNMENTS_STORAGE_KEY = "calzare_page_assignments";
-const PAGE_STYLES_STORAGE_KEY = "calzare_page_styles_v1";
-const PRODUCTS_STORAGE_KEY = "calzare_products_v1";
-const REELS_STORAGE_KEY = "calzare_reels_v1";
-const SETTINGS_STORAGE_KEY = "calzare_settings_v1";
+const HOMEPAGE_STORAGE_KEY = "alzehrasilk_homepage_v1";
+const PAGE_ASSIGNMENTS_STORAGE_KEY = "alzehrasilk_page_assignments";
+const PAGE_STYLES_STORAGE_KEY = "alzehrasilk_page_styles_v1";
+const PRODUCTS_STORAGE_KEY = "alzehrasilk_products_v1";
+const REELS_STORAGE_KEY = "alzehrasilk_reels_v1";
+const SETTINGS_STORAGE_KEY = "alzehrasilk_settings_v1";
 
 function readCache(key, fallback) {
   try {
@@ -33,21 +34,36 @@ function readCache(key, fallback) {
   return fallback;
 }
 
-
 const BROKEN_IMAGE_IDS = [
   "photo-1614252369475-531506b0b9e9",
   "photo-1520256862855-9981c41d8ba0"
 ];
 
-const VALID_COLLECTIONS = ["men", "women", "unisex", "kids"];
+const VALID_COLLECTIONS = [
+  "banarasi",
+  "kanjivaram",
+  "soft-silk",
+  "kalamkari",
+  "festive"
+];
+
+const DEFAULT_CATEGORIES = [
+  "sarees",
+  "silk-sarees",
+  "organza",
+  "cotton-sarees",
+  "lehengas",
+  "kurta-sets"
+];
 
 const DEFAULT_PAGE_ASSIGNMENTS = {
-  home: { collections: [...VALID_COLLECTIONS], categories: ["sneakers", "formal", "slides"] },
-  men: { collections: ["men", "unisex"], categories: ["sneakers", "formal", "slides"] },
-  women: { collections: ["women", "unisex"], categories: ["sneakers", "formal", "slides"] },
-  unisex: { collections: ["unisex"], categories: ["sneakers", "formal", "slides"] },
-  kids: { collections: ["kids"], categories: ["sneakers", "formal", "slides"] },
-  shop: { collections: [...VALID_COLLECTIONS], categories: ["sneakers", "formal", "slides"] }
+  home: { collections: [...VALID_COLLECTIONS], categories: [...DEFAULT_CATEGORIES] },
+  banarasi: { collections: ["banarasi"], categories: [...DEFAULT_CATEGORIES] },
+  kanjivaram: { collections: ["kanjivaram"], categories: [...DEFAULT_CATEGORIES] },
+  "soft-silk": { collections: ["soft-silk"], categories: [...DEFAULT_CATEGORIES] },
+  kalamkari: { collections: ["kalamkari"], categories: [...DEFAULT_CATEGORIES] },
+  festive: { collections: ["festive"], categories: [...DEFAULT_CATEGORIES] },
+  shop: { collections: [...VALID_COLLECTIONS], categories: [...DEFAULT_CATEGORIES] }
 };
 
 function readLocalPageAssignments() {
@@ -103,7 +119,7 @@ function loadRazorpayScript() {
   return new Promise((resolve) => {
     if (window.Razorpay) return resolve(true);
     const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/magic-checkout.js";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.onload = () => resolve(true);
     script.onerror = () => resolve(false);
     document.body.appendChild(script);
@@ -118,22 +134,21 @@ const money = (value) =>
   }).format(Number(value) || 0);
 
 const FALLBACK_PRODUCTS = [];
-
 const FALLBACK_REELS = [];
 
 const DEFAULT_HOMEPAGE = {
   reelsEnabled: true,
   heroVideoUrl: "",
   heroImage: "",
-  heroEyebrow: "THE EVERYDAY COLLECTION — 2026",
-  heroTitle: "Walk your",
-  heroTitleEmphasis: "own way.",
+  heroEyebrow: "AL-ZEHRA SILK · OUR CRAFT",
+  heroTitle: "Craftsmanship",
+  heroTitleEmphasis: "You Can Feel In Every Fold!",
   heroDescription:
-    "Thoughtful footwear. Quiet confidence. Made for wherever the day takes you.",
+    "Handcrafted sarees, thoughtfully made for modern Indian women.",
   campaignVideoUrl: "",
   mobileUI: {
     navHeightPx: 58,
-    logoSizePx: 17,
+    logoSizePx: 18,
     logoTracking: 2.4,
     heroTitleSizePx: 34,
     collectionTitleSizePx: 26,
@@ -141,26 +156,26 @@ const DEFAULT_HOMEPAGE = {
   },
   pipVideo: {
     enabled: true,
-    label: "WATCH FIT & FLEX",
-    productId: "c-001",
+    label: "WATCH DRAPE & FALL",
+    productId: "azs-001",
     videoUrl: "",
     poster: ""
   },
   featuredProduct: {
     enabled: true,
     sectionType: "EXCLUSIVE / MOST SELLING",
-    productId: "c-001",
+    productId: "azs-001",
     redirectUrl: "",
     image: "",
-    title: "FORMA COURT — SIGNATURE EDITION",
-    price: 3499
+    title: "ROYAL BANARASI SILK SAREE — SIGNATURE EDITION",
+    price: 2499
   },
   affordableStore: {
     enabled: true,
     sectionHeightPx: 480,
-    badgeLabel: "/999 Store",
-    title: "Your day\nfound its footing.",
-    subtitle: "Everyday Calzare, everyday price.\nStarting ₹999",
+    badgeLabel: "Under ₹999",
+    title: "Everyday elegance,\nunder ₹999.",
+    subtitle: "Graceful drapes at everyday prices.\nStarting ₹799",
     ctaLabel: "EXPLORE",
     maxPrice: 999,
     customSlides: []
@@ -172,27 +187,30 @@ const DEFAULT_HOMEPAGE = {
 };
 
 const DEFAULT_SETTINGS = {
-  storeName: "CALZARE",
-  supportEmail: "support@calzare.in",
+  storeName: "AL-ZEHRA SILK",
+  supportEmail: "care@alzehrasilk.in",
   supportPhone: "+91 98765 43210",
-  freeShippingThreshold: 2999,
-  categories: ["sneakers", "formal", "slides"],
+  freeShippingThreshold: 999,
+  standardShippingFee: 99,
+  partialCodAdvance: 199,
+  categories: [...DEFAULT_CATEGORIES],
   pageAssignments: DEFAULT_PAGE_ASSIGNMENTS,
   pageStyles: readLocalPageStyles(),
   navigation: [
     { label: "HOME", url: "#home" },
-    { label: "MEN", url: "#men" },
-    { label: "WOMEN", url: "#women" },
-    { label: "UNISEX", url: "#unisex" },
-    { label: "KIDS", url: "#kids" },
+    { label: "BANARASI", url: "#banarasi" },
+    { label: "KANJIVARAM", url: "#kanjivaram" },
+    { label: "SOFT SILK", url: "#soft-silk" },
+    { label: "KALAMKARI", url: "#kalamkari" },
     { label: "TRACK ORDER", url: "#track-order" },
-    { label: "OUR STORY", url: "#story" }
+    { label: "OUR CRAFT", url: "#story" },
+    { label: "LOGIN", url: "#login" }
   ],
   storySections: [
     {
-      eyebrow: "OUR PHILOSOPHY",
-      heading: "Wear what moves you.",
-      body: "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention.",
+      eyebrow: "OUR CRAFT",
+      heading: "Woven with heritage.",
+      body: "Al-Zehra Silk celebrates timeless Indian weaves—handpicked Banarasi, Kanjivaram, Soft Silk, and Kalamkari drapes crafted for every celebration.",
       image: ""
     }
   ]
@@ -205,10 +223,21 @@ function normalizeSlug(value) {
     ? new URL(withoutHash).pathname
     : withoutHash;
   const clean = pathPart.replace(/^\/+|\/+$/g, "").split("/").pop() || "";
-  if (clean === "kid") return "kids";
-  if (clean === "our-story" || clean === "our_story" || clean === "about") return "story";
-  if (clean === "track" || clean === "track-order" || clean === "track_order")
+  if (clean === "softsilk" || clean === "soft_silk") return "soft-silk";
+  if (
+    clean === "our-story" ||
+    clean === "our_story" ||
+    clean === "our-craft" ||
+    clean === "about"
+  ) {
+    return "story";
+  }
+  if (clean === "track" || clean === "track-order" || clean === "track_order") {
     return "track-order";
+  }
+  if (clean === "login" || clean === "signin" || clean === "sign-in") {
+    return "login";
+  }
   return clean;
 }
 
@@ -331,80 +360,61 @@ function applyHomepagePayload(hp, setHomepage) {
   setHomepage((prev) => ({
     ...prev,
     ...hp,
-    reelsEnabled: hp.reelsEnabled !== undefined ? Boolean(hp.reelsEnabled) : prev.reelsEnabled,
-    heroImage: safeImg(Object.prototype.hasOwnProperty.call(hp, "heroImage") ? hp.heroImage : prev.heroImage),
+    reelsEnabled:
+      hp.reelsEnabled !== undefined ? Boolean(hp.reelsEnabled) : prev.reelsEnabled,
+    heroImage: safeImg(
+      Object.prototype.hasOwnProperty.call(hp, "heroImage")
+        ? hp.heroImage
+        : prev.heroImage
+    ),
     heroVideoUrl: safeVid(hp.heroVideoUrl),
     campaignVideoUrl: safeVid(hp.campaignVideoUrl),
-    mobileUI: hp.mobileUI
-      ? {
-          ...prev.mobileUI,
-          ...hp.mobileUI
-        }
-      : prev.mobileUI,
+    mobileUI: hp.mobileUI ? { ...prev.mobileUI, ...hp.mobileUI } : prev.mobileUI,
     pipVideo: hp.pipVideo
       ? {
           ...prev.pipVideo,
           ...hp.pipVideo,
           videoUrl: safeVid(hp.pipVideo.videoUrl),
-          poster: safeImg(Object.prototype.hasOwnProperty.call(hp.pipVideo, "poster") ? hp.pipVideo.poster : prev.pipVideo.poster),
-          enabled: hp.pipVideo.enabled !== undefined ? Boolean(hp.pipVideo.enabled) : prev.pipVideo.enabled
+          poster: safeImg(
+            Object.prototype.hasOwnProperty.call(hp.pipVideo, "poster")
+              ? hp.pipVideo.poster
+              : prev.pipVideo.poster
+          ),
+          enabled:
+            hp.pipVideo.enabled !== undefined
+              ? Boolean(hp.pipVideo.enabled)
+              : prev.pipVideo.enabled
         }
       : prev.pipVideo,
     featuredProduct: hp.featuredProduct
       ? {
           ...prev.featuredProduct,
           ...hp.featuredProduct,
-          image: safeImg(Object.prototype.hasOwnProperty.call(hp.featuredProduct, "image") ? hp.featuredProduct.image : prev.featuredProduct.image)
+          image: safeImg(
+            Object.prototype.hasOwnProperty.call(hp.featuredProduct, "image")
+              ? hp.featuredProduct.image
+              : prev.featuredProduct.image
+          )
         }
       : prev.featuredProduct,
     affordableStore: hp.affordableStore
-      ? {
-          ...prev.affordableStore,
-          ...hp.affordableStore
-        }
+      ? { ...prev.affordableStore, ...hp.affordableStore }
       : prev.affordableStore,
     editorialSlider: hp.editorialSlider
-      ? {
-          ...prev.editorialSlider,
-          ...hp.editorialSlider
-        }
+      ? { ...prev.editorialSlider, ...hp.editorialSlider }
       : prev.editorialSlider,
     productPage: hp.productPage
-      ? {
-          ...prev.productPage,
-          ...hp.productPage
-        }
+      ? { ...prev.productPage, ...hp.productPage }
       : prev.productPage,
-    theme: hp.theme
-      ? {
-          ...prev.theme,
-          ...hp.theme
-        }
-      : prev.theme,
+    theme: hp.theme ? { ...prev.theme, ...hp.theme } : prev.theme,
     cartPromoBox: hp.cartPromoBox
-      ? {
-          ...(prev.cartPromoBox || {}),
-          ...hp.cartPromoBox
-        }
+      ? { ...(prev.cartPromoBox || {}), ...hp.cartPromoBox }
       : prev.cartPromoBox,
     cartRewardBanner: hp.cartRewardBanner
-      ? {
-          ...(prev.cartRewardBanner || {}),
-          ...hp.cartRewardBanner
-        }
+      ? { ...(prev.cartRewardBanner || {}), ...hp.cartRewardBanner }
       : prev.cartRewardBanner,
-    navbar: hp.navbar
-      ? {
-          ...prev.navbar,
-          ...hp.navbar
-        }
-      : prev.navbar,
-    footer: hp.footer
-      ? {
-          ...prev.footer,
-          ...hp.footer
-        }
-      : prev.footer
+    navbar: hp.navbar ? { ...prev.navbar, ...hp.navbar } : prev.navbar,
+    footer: hp.footer ? { ...prev.footer, ...hp.footer } : prev.footer
   }));
 }
 
@@ -414,11 +424,11 @@ export function StorySection({ homepage, storeSettings, onExploreShop, onGoHome 
       ? storeSettings.storySections
       : [
           {
-            eyebrow: "OUR PHILOSOPHY",
-            heading: "Wear what moves you.",
+            eyebrow: "OUR CRAFT",
+            heading: "Woven with heritage.",
             body:
               homepage?.heroDescription ||
-              "CALZARE is built around a simple idea: everyday essentials deserve exceptional attention.",
+              "Al-Zehra Silk celebrates timeless Indian weaves—handpicked Banarasi, Kanjivaram, Soft Silk, and Kalamkari drapes crafted for every celebration.",
             image: safeImg(homepage?.heroImage)
           }
         ];
@@ -436,8 +446,8 @@ export function StorySection({ homepage, storeSettings, onExploreShop, onGoHome 
 
         {sections.map((st, idx) => (
           <div key={idx} style={{ marginBottom: idx < sections.length - 1 ? "48px" : 0 }}>
-            <p className="eyebrow">{st.eyebrow || "OUR STORY"}</p>
-            <h2>{st.heading || "Wear what moves you."}</h2>
+            <p className="eyebrow">{st.eyebrow || "OUR CRAFT"}</p>
+            <h2>{st.heading || "Woven with heritage."}</h2>
             <p>{st.body}</p>
             {st.image && (
               <div
@@ -450,7 +460,7 @@ export function StorySection({ homepage, storeSettings, onExploreShop, onGoHome 
               >
                 <img
                   src={safeImg(st.image)}
-                  alt={st.heading || "Calzare Story"}
+                  alt={st.heading || "Al-Zehra Silk Craft"}
                   style={{
                     width: "100%",
                     maxHeight: "420px",
@@ -471,7 +481,7 @@ export function StorySection({ homepage, storeSettings, onExploreShop, onGoHome 
               style={{ maxWidth: "240px", margin: "0 auto" }}
               onClick={onExploreShop}
             >
-              EXPLORE FOOTWEAR <ArrowRight size={15} />
+              EXPLORE SAREES <ArrowRight size={15} />
             </button>
           </div>
         )}
@@ -501,22 +511,15 @@ export function Under999StoreSection({
   const config = homepage?.affordableStore || {};
   if (config.enabled === false || config.visible === false) return null;
 
-  const badgeLabel = config.badgeLabel ?? "/999 Store";
+  const badgeLabel = config.badgeLabel ?? "Under ₹999";
   const rawTitle = String(config.title ?? "").trim();
-  const title =
-    !rawTitle || rawTitle.toUpperCase() === "THE UNDER ₹999 STORE"
-      ? "Your day\nfound its footing."
-      : rawTitle;
+  const title = rawTitle || "Everyday elegance,\nunder ₹999.";
 
   const rawSubtitle = String(config.subtitle ?? "").trim();
-  const subtitle =
-    !rawSubtitle || rawSubtitle.startsWith("High performance foam")
-      ? "Everyday Calzare, everyday price.\nStarting ₹999"
-      : rawSubtitle;
+  const subtitle = rawSubtitle || "Graceful drapes at everyday prices.\nStarting ₹799";
 
   const rawCta = String(config.ctaLabel ?? "").trim();
-  const ctaLabel =
-    !rawCta || rawCta.toUpperCase() === "EXPLORE DROP" ? "EXPLORE" : rawCta;
+  const ctaLabel = rawCta || "EXPLORE";
 
   const maxPrice = Number(config.maxPrice ?? 999);
   const sectionHeightPx = Number(config.sectionHeightPx) || 480;
@@ -537,12 +540,12 @@ export function Under999StoreSection({
         publishedProducts.find((p) => String(p.id) === String(s.productId)) || null;
       return {
         key: s.id || `custom-999-${i}`,
-        alt: s.title || linkedProd?.name || `Calzare ₹${maxPrice} Slide ${i + 1}`,
+        alt: s.title || linkedProd?.name || `Al-Zehra Silk ₹${maxPrice} Slide ${i + 1}`,
         slideImage: safeImg(s.image.trim()),
         slideHeightPx: Number(s.slideHeightPx) || 260,
-        imageFit: s.imageFit || "contain",
+        imageFit: s.imageFit || "cover",
         imagePosX: s.imagePosX ?? 50,
-        imagePosY: s.imagePosY ?? 50,
+        imagePosY: s.imagePosY ?? 20,
         imageZoom: Number(s.imageZoom) || 1,
         targetProduct: linkedProd,
         redirectUrl: String(s.redirectUrl || "").trim()
@@ -616,11 +619,7 @@ export function Under999StoreSection({
           </div>
 
           <div style={under999Styles.bannerBottomRow}>
-            <button
-              type="button"
-              onClick={onExploreDrop}
-              style={under999Styles.leftBtn}
-            >
+            <button type="button" onClick={onExploreDrop} style={under999Styles.leftBtn}>
               {ctaLabel}
             </button>
 
@@ -633,19 +632,17 @@ export function Under999StoreSection({
             >
               <defs>
                 <path
-                  id="calzareSealPath"
+                  id="alzehraSealPath"
                   d="M 50, 50 m -35, 0 a 35,35 0 1,1 70,0 a 35,35 0 1,1 -70,0"
                 />
               </defs>
               <text
                 fill="rgba(255,255,255,0.9)"
-                fontSize="9"
+                fontSize="8.5"
                 fontWeight="700"
-                letterSpacing="2.2"
+                letterSpacing="2"
               >
-                <textPath href="#calzareSealPath">
-                  FACTORY DIRECT • CALZARE •
-                </textPath>
+                <textPath href="#alzehraSealPath">AL-ZEHRA SILK • WEAVES •</textPath>
               </text>
               <circle
                 cx="50"
@@ -774,9 +771,9 @@ const under999Styles = {
     borderRadius: "20px",
     padding: "28px 28px 26px",
     minHeight: "480px",
-    backgroundColor: "#03226B",
+    backgroundColor: "#5C1219",
     backgroundImage:
-      "radial-gradient(circle at 80% 15%, #0D57DC 0%, #053396 46%, #02184E 100%)",
+      "radial-gradient(circle at 80% 15%, #9B2330 0%, #7A1C24 46%, #3D0B10 100%)",
     color: "#FFFFFF",
     display: "flex",
     flexDirection: "column",
@@ -824,7 +821,7 @@ const under999Styles = {
     paddingBottom: "2px"
   },
   leftBtn: {
-    background: "rgba(9, 53, 150, 0.45)",
+    background: "rgba(255, 255, 255, 0.14)",
     color: "#FFFFFF",
     border: "1px solid rgba(255, 255, 255, 0.55)",
     borderRadius: "999px",
@@ -866,6 +863,7 @@ const under999Styles = {
     height: "260px",
     background: "#FFFFFF",
     overflow: "hidden",
+    borderRadius: "12px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center"
@@ -873,7 +871,7 @@ const under999Styles = {
   productImg: {
     width: "100%",
     height: "100%",
-    objectFit: "contain",
+    objectFit: "cover",
     display: "block",
     background: "#FFFFFF"
   },
@@ -898,8 +896,6 @@ const under999Styles = {
   }
 };
 
-const DEFAULT_SHORT_VIDEOS = [];
-
 export function ShortVideoReelsSection({
   reels = [],
   products = [],
@@ -916,9 +912,9 @@ export function ShortVideoReelsSection({
     >
       <div className="section-heading" style={{ marginBottom: "20px" }}>
         <div>
-          <p className="eyebrow">SOLA PLAY • ON-FOOT CLIPS</p>
+          <p className="eyebrow">DRAPE IN MOTION • SILK REELS</p>
           <h2>
-            Calzare <em>in Motion.</em>
+            Al-Zehra Silk <em>in Motion.</em>
           </h2>
         </div>
       </div>
@@ -1016,7 +1012,7 @@ export function ShortVideoReelsSection({
                       textTransform: "uppercase"
                     }}
                   >
-                    {clip.tag || "SOLA PLAY"}
+                    {clip.tag || "FESTIVE DRAPE"}
                   </span>
 
                   <span
@@ -1060,9 +1056,7 @@ export function ShortVideoReelsSection({
                             e.stopPropagation();
                             onQuickAdd(
                               linkedProduct,
-                              linkedProduct.sizes?.[2] ||
-                                linkedProduct.sizes?.[0] ||
-                                "UK 8"
+                              linkedProduct.sizes?.[0] || "Free Size"
                             );
                           }}
                           style={{
@@ -1119,17 +1113,22 @@ function App() {
   const [policyPageKey, setPolicyPageKey] = useState(initialRoute.policyKey);
 
   const [currentUser, setCurrentUser] = useState(() =>
-    JSON.parse(localStorage.getItem("calzare_user") || "null")
+    JSON.parse(localStorage.getItem("alzehrasilk_user") || "null")
   );
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState("login");
-  const [authForm, setAuthForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [authForm, setAuthForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    password: ""
+  });
   const [authError, setAuthError] = useState("");
   const [myOrders, setMyOrders] = useState([]);
   const [productPageId, setProductPageId] = useState(initialRoute.productId);
 
   const [cart, setCart] = useState(() =>
-    JSON.parse(localStorage.getItem("calzare_cart_v2") || "[]")
+    JSON.parse(localStorage.getItem("alzehrasilk_cart_v2") || "[]")
   );
   const [favorites, setFavorites] = useState([]);
   const [search, setSearch] = useState("");
@@ -1140,12 +1139,12 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(initialRoute.isAdmin);
 
   const [activeProduct, setActiveProduct] = useState(null);
-  const [selectedSize, setSelectedSize] = useState("UK 8");
+  const [selectedSize, setSelectedSize] = useState("Free Size");
   const [showProductVideo, setShowProductVideo] = useState(false);
 
   const [activeReel, setActiveReel] = useState(null);
   const [reelMuted, setReelMuted] = useState(false);
-  const [reelSize, setReelSize] = useState("UK 8");
+  const [reelSize, setReelSize] = useState("Free Size");
 
   const [pipVisible, setPipVisible] = useState(true);
   const [pipMuted, setPipMuted] = useState(true);
@@ -1159,7 +1158,7 @@ function App() {
     address: "",
     city: "",
     pincode: "",
-    paymentMethod: "Razorpay Magic Checkout"
+    paymentMethod: "UPI / Cards / NetBanking"
   });
 
   const [couponInput, setCouponInput] = useState("");
@@ -1186,7 +1185,8 @@ function App() {
   }, [currentUser]);
 
   const canManageReviews = Boolean(
-    currentUser?.role === "admin" || sessionStorage.getItem("calzare_admin_token")
+    currentUser?.role === "admin" ||
+      sessionStorage.getItem("alzehrasilk_admin_token")
   );
 
   function scrollToCatalogSection() {
@@ -1219,6 +1219,24 @@ function App() {
     };
   }, []);
 
+  function openAuthDialog(mode = "login") {
+    setAuthMode(mode === "register" ? "register" : "login");
+    setAuthError("");
+    setMenuOpen(false);
+    setAuthOpen(true);
+    if (currentUser?.phone || currentUser?.name) {
+      const q = currentUser.phone
+        ? `phone=${encodeURIComponent(currentUser.phone)}`
+        : `name=${encodeURIComponent(currentUser.name)}`;
+      fetch(`${API}/auth/orders?${q}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d?.orders) setMyOrders(d.orders);
+        })
+        .catch(() => {});
+    }
+  }
+
   function openTrackOrderPage(orderId = "") {
     setCollection("all");
     setStoryPageOpen(false);
@@ -1246,6 +1264,11 @@ function App() {
 
   function navigateCollection(target) {
     const normalized = normalizeSlug(target) || "all";
+
+    if (normalized === "login") {
+      openAuthDialog("login");
+      return;
+    }
 
     if (normalized === "home" || normalized === "all") {
       setCollection("all");
@@ -1316,7 +1339,9 @@ function App() {
     };
 
     try {
-      const cachedHp = JSON.parse(localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null");
+      const cachedHp = JSON.parse(
+        localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null"
+      );
       if (cachedHp) {
         applyHomepagePayload(cachedHp, setHomepage);
       }
@@ -1415,9 +1440,12 @@ function App() {
                 ...(prev.categoryImages || {}),
                 ...(incoming.categoryImages || {})
               },
-              categories: incoming.categories?.length ? incoming.categories : prev.categories,
+              categories: incoming.categories?.length
+                ? incoming.categories
+                : prev.categories,
               pageAssignments:
-                incoming.pageAssignments && typeof incoming.pageAssignments === "object"
+                incoming.pageAssignments &&
+                typeof incoming.pageAssignments === "object"
                   ? {
                       ...(prev.pageAssignments || DEFAULT_PAGE_ASSIGNMENTS),
                       ...incoming.pageAssignments,
@@ -1432,7 +1460,9 @@ function App() {
                       ...readLocalPageStyles()
                     }
                   : prev.pageStyles || readLocalPageStyles(),
-              navigation: incoming.navigation?.length ? incoming.navigation : prev.navigation,
+              navigation: incoming.navigation?.length
+                ? incoming.navigation
+                : prev.navigation,
               storySections: incoming.storySections?.length
                 ? incoming.storySections
                 : prev.storySections
@@ -1453,7 +1483,7 @@ function App() {
 
     const onStorage = (e) => {
       if (
-        e.key === "calzare_store_sync" ||
+        e.key === "alzehrasilk_store_sync" ||
         e.key === HOMEPAGE_STORAGE_KEY ||
         e.key === PAGE_ASSIGNMENTS_STORAGE_KEY ||
         e.key === PAGE_STYLES_STORAGE_KEY ||
@@ -1466,17 +1496,17 @@ function App() {
     const onFocus = () => refreshStore();
 
     window.addEventListener("storage", onStorage);
-    window.addEventListener("calzare_store_updated", onStoreUpdatedEvent);
+    window.addEventListener("alzehrasilk_store_updated", onStoreUpdatedEvent);
     window.addEventListener("focus", onFocus);
     return () => {
       window.removeEventListener("storage", onStorage);
-      window.removeEventListener("calzare_store_updated", onStoreUpdatedEvent);
+      window.removeEventListener("alzehrasilk_store_updated", onStoreUpdatedEvent);
       window.removeEventListener("focus", onFocus);
     };
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("calzare_cart_v2", JSON.stringify(cart));
+    localStorage.setItem("alzehrasilk_cart_v2", JSON.stringify(cart));
   }, [cart]);
 
   const activePageKey = collection !== "all" ? collection : "home";
@@ -1486,12 +1516,13 @@ function App() {
     DEFAULT_PAGE_ASSIGNMENTS.home;
 
   const activeCategories = useMemo(() => {
-    const baseCats = ["sneakers", "slides", "formal"];
     const allKnownCats = Array.from(
       new Set([
-        ...baseCats,
+        ...DEFAULT_CATEGORIES,
         ...(storeSettings.categories || []).map((c) => String(c).toLowerCase()),
-        ...products.map((p) => String(p.category || "").toLowerCase()).filter(Boolean)
+        ...products
+          .map((p) => String(p.category || "").toLowerCase())
+          .filter(Boolean)
       ])
     );
 
@@ -1527,19 +1558,21 @@ function App() {
   const visibleProducts = useMemo(() => {
     const list = Array.isArray(products) ? products : [];
     const term = search.trim().toLowerCase();
-    const published = list.filter((p) => p && (p.status || "published") !== "draft");
+    const published = list.filter(
+      (p) => p && (p.status || "published") !== "draft"
+    );
 
     return published.filter((p) => {
-      const productCol = normalizeSlug(p.collection || p.gender || "unisex");
+      const productCol = normalizeSlug(p.collection || p.weave || "banarasi");
       const productCat = String(p.category || "").toLowerCase();
 
       const matchesCollection =
-        collection === "all" ||
-        productCol === collection ||
-        (collection !== "kids" && productCol === "unisex");
+        collection === "all" || productCol === collection;
 
       const matchesPageCategories =
-        activeCategories.length === 0 ? true : activeCategories.includes(productCat);
+        activeCategories.length === 0
+          ? true
+          : activeCategories.includes(productCat);
 
       const matchesCategory =
         category === "all"
@@ -1549,21 +1582,33 @@ function App() {
           : productCat === category;
 
       const matchesSearch =
-        !term || `${p.name} ${p.color} ${p.description}`.toLowerCase().includes(term);
+        !term ||
+        `${p.name} ${p.color || ""} ${p.fabric || ""} ${p.weave || ""} ${
+          p.occasion || ""
+        } ${p.description || ""}`
+          .toLowerCase()
+          .includes(term);
 
       return matchesCollection && matchesCategory && matchesSearch;
     });
   }, [products, collection, category, search, maxBudgetPrice, activeCategories]);
 
-  const freeShipMin = Number(storeSettings.freeShippingThreshold ?? 2999);
+  const freeShipMin = Number(storeSettings.freeShippingThreshold ?? 999);
+  const partialCodAdvance = Math.max(
+    0,
+    Number(storeSettings.partialCodAdvance ?? 199)
+  );
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const cartSubtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const cartSubtotal = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
   const mrpSubtotal = cart.reduce(
-    (sum, item) => sum + (Number(item.oldPrice) || item.price) * item.quantity,
+    (sum, item) =>
+      sum + (Number(item.oldPrice) || item.price) * item.quantity,
     0
   );
 
-  // Sola World–style Bundle Logic: Buy 2 = 10% OFF | Buy 3+ = Cheapest 1 Pair FREE
   const bundleTier = useMemo(() => {
     if (cartCount >= 3) {
       let cheapest = null;
@@ -1613,27 +1658,11 @@ function App() {
   const shippingFee =
     cartSubtotal >= freeShipMin || cartSubtotal === 0
       ? 0
-      : Math.max(0, Number(storeSettings.standardShippingFee ?? 149));
+      : Math.max(0, Number(storeSettings.standardShippingFee ?? 99));
   const cartFinalTotal = Math.max(
     0,
     cartSubtotal - discountAmount - couponDiscount + shippingFee
   );
-
-  const tierProgress = useMemo(() => {
-    if (cartCount === 0) {
-      return { percent: 8, text: "Add any pair to start unlocking bundle rewards." };
-    }
-    if (cartCount === 1) {
-      return { percent: 55, text: "Add 1 more pair to unlock 10% OFF your entire bag." };
-    }
-    if (cartCount === 2) {
-      return { percent: 82, text: "10% OFF unlocked! Add 1 more pair for 15% OFF." };
-    }
-    return {
-      percent: 100,
-      text: "Maximum 15% OFF + Complimentary Express Shipping unlocked!"
-    };
-  }, [cartCount]);
 
   const upsellProducts = useMemo(() => {
     const inBagIds = new Set(cart.map((c) => c.baseProductId || c.id));
@@ -1662,8 +1691,12 @@ function App() {
 
   function openProductModal(product, startWithVideo = false) {
     const vid = safeVid(product.videoUrl);
-    setActiveProduct({ ...product, image: safeImg(product.image), videoUrl: vid });
-    setSelectedSize(product.sizes?.[2] || product.sizes?.[0] || "UK 8");
+    setActiveProduct({
+      ...product,
+      image: safeImg(product.image),
+      videoUrl: vid
+    });
+    setSelectedSize(product.sizes?.[0] || "Free Size");
     setShowProductVideo(startWithVideo && Boolean(vid));
   }
 
@@ -1696,10 +1729,10 @@ function App() {
     setActiveReel(reel);
     setReelMuted(false);
     const linked = products.find((p) => p.id === reel.productId) || products[0];
-    setReelSize(linked?.sizes?.[2] || "UK 8");
+    setReelSize(linked?.sizes?.[0] || "Free Size");
   }
 
-  function addToCart(product, size = "UK 8", qtyOrOpenDrawer = true) {
+  function addToCart(product, size = "Free Size", qtyOrOpenDrawer = true) {
     const cleanItem = { ...product, image: safeImg(product.image) };
     const qtyToAdd =
       typeof qtyOrOpenDrawer === "number" && qtyOrOpenDrawer > 0
@@ -1717,10 +1750,7 @@ function App() {
               ? { ...item, quantity: item.quantity + qtyToAdd }
               : item
           )
-        : [
-            ...current,
-            { ...cleanItem, size, cartKey, quantity: qtyToAdd }
-          ];
+        : [...current, { ...cleanItem, size, cartKey, quantity: qtyToAdd }];
     });
     setNotice(`${cleanItem.name} (${size}) added to your bag.`);
     if (shouldOpenDrawer) setCartOpen(true);
@@ -1730,7 +1760,9 @@ function App() {
     setCart((current) =>
       current
         .map((item) =>
-          item.cartKey === cartKey ? { ...item, quantity: item.quantity + amount } : item
+          item.cartKey === cartKey
+            ? { ...item, quantity: item.quantity + amount }
+            : item
         )
         .filter((item) => item.quantity > 0)
     );
@@ -1755,19 +1787,7 @@ function App() {
   }
 
   async function openAccountModal() {
-    setAuthError("");
-    setAuthOpen(true);
-    if (currentUser?.phone || currentUser?.name) {
-      const q = currentUser.phone
-        ? `phone=${encodeURIComponent(currentUser.phone)}`
-        : `name=${encodeURIComponent(currentUser.name)}`;
-      fetch(`${API}/auth/orders?${q}`)
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d) => {
-          if (d?.orders) setMyOrders(d.orders);
-        })
-        .catch(() => {});
-    }
+    openAuthDialog(currentUser ? "login" : authMode);
   }
 
   async function handleAuthSubmit(e) {
@@ -1784,11 +1804,11 @@ function App() {
       if (!res.ok) throw new Error(data.message || "Authentication failed.");
 
       if (data.user?.role === "admin" && data.user?.adminToken) {
-        sessionStorage.setItem("calzare_admin_token", data.user.adminToken);
+        sessionStorage.setItem("alzehrasilk_admin_token", data.user.adminToken);
       }
 
       setCurrentUser(data.user);
-      localStorage.setItem("calzare_user", JSON.stringify(data.user));
+      localStorage.setItem("alzehrasilk_user", JSON.stringify(data.user));
       setCheckoutForm((prev) => ({
         ...prev,
         name: prev.name || data.user.name || "",
@@ -1813,8 +1833,8 @@ function App() {
     setCurrentUser(null);
     setMyOrders([]);
     setIsAdmin(false);
-    localStorage.removeItem("calzare_user");
-    sessionStorage.removeItem("calzare_admin_token");
+    localStorage.removeItem("alzehrasilk_user");
+    sessionStorage.removeItem("alzehrasilk_admin_token");
     if (window.location.hash.toLowerCase() === "#admin") {
       window.location.hash = "";
     }
@@ -1826,7 +1846,7 @@ function App() {
     if (!orderObj) return;
     try {
       const existing = JSON.parse(
-        localStorage.getItem("calzare_recent_orders") || "[]"
+        localStorage.getItem("alzehrasilk_recent_orders") || "[]"
       );
       const next = [
         orderObj,
@@ -1834,7 +1854,7 @@ function App() {
           ? existing.filter((o) => o.orderId !== orderObj.orderId)
           : [])
       ].slice(0, 15);
-      localStorage.setItem("calzare_recent_orders", JSON.stringify(next));
+      localStorage.setItem("alzehrasilk_recent_orders", JSON.stringify(next));
     } catch {}
   }
 
@@ -1847,7 +1867,7 @@ function App() {
     }
 
     const chosenMethod =
-      overrideMethod || checkoutForm.paymentMethod || "Razorpay Magic Checkout";
+      overrideMethod || checkoutForm.paymentMethod || "UPI / Cards / NetBanking";
 
     const customerData = {
       name: (checkoutForm.name || currentUser?.name || "").trim(),
@@ -1896,17 +1916,12 @@ function App() {
       return;
     }
 
-    const chargeAmount = customerData.paymentMethod.includes("Partial COD")
-      ? Math.min(
-          Math.max(0, Number(storeSettings.partialCodAdvance ?? 299)),
-          cartFinalTotal
-        )
-      : cartFinalTotal;
-
     try {
       const sdkReady = await loadRazorpayScript();
       if (!sdkReady || !window.Razorpay) {
-        throw new Error("Razorpay SDK failed to load. Check your internet connection.");
+        throw new Error(
+          "Razorpay SDK failed to load. Check your internet connection."
+        );
       }
 
       const createRes = await fetch(`${API}/payments/razorpay/create-order`, {
@@ -1936,26 +1951,13 @@ function App() {
           ? `+${rawPhone}`
           : "";
 
-      const cleanOrderPayload = {
-        customer: customerData,
-        items: orderPayload.items,
-        subtotal: orderPayload.subtotal,
-        discount: orderPayload.discount,
-        couponCode: orderPayload.couponCode || null,
-        couponDiscount: orderPayload.couponDiscount || 0,
-        total: orderPayload.total,
-        paymentMethod: customerData.paymentMethod
-      };
-
       const options = {
         key: rzpData.keyId,
         amount: rzpData.amount,
         currency: rzpData.currency || "INR",
-        name: `${storeSettings.storeName || "CALZARE"}®`,
+        name: `${storeSettings.storeName || "AL-ZEHRA SILK"}`,
         description: customerData.paymentMethod,
         order_id: rzpData.order_id,
-        one_click_checkout: true,
-        show_coupons: true,
         prefill: {
           name: customerData.name,
           email: customerData.email,
@@ -1967,36 +1969,19 @@ function App() {
           payment_mode: customerData.paymentMethod,
           coupon_code: appliedCoupon?.code || ""
         },
-        theme: { color: homepage.theme?.accentColor || "#252a22" },
+        theme: { color: homepage.theme?.accentColor || "#7A1C24" },
         modal: {
           ondismiss: () => setNotice("Payment cancelled. No charge was made.")
         },
         handler: async function (response) {
           try {
-            const magicAddress =
-              response?.shipping_address ||
-              response?.address ||
-              response?.customer_details?.address ||
-              null;
-
             const mergedCustomer = {
-              name:
-                response?.customer_details?.name ||
-                magicAddress?.name ||
-                customerData.name,
-              phone:
-                response?.customer_details?.contact ||
-                magicAddress?.contact ||
-                customerData.phone,
-              email: response?.customer_details?.email || customerData.email || "",
-              address:
-                magicAddress?.line1 ||
-                magicAddress?.street ||
-                magicAddress?.address ||
-                customerData.address,
-              city: magicAddress?.city || customerData.city,
-              pincode:
-                magicAddress?.zipcode || magicAddress?.pincode || customerData.pincode
+              name: customerData.name,
+              phone: customerData.phone,
+              email: customerData.email || "",
+              address: customerData.address,
+              city: customerData.city,
+              pincode: customerData.pincode
             };
 
             const verifyRes = await fetch(`${API}/payments/razorpay/verify`, {
@@ -2037,7 +2022,7 @@ function App() {
       });
       rzp.open();
     } catch (err) {
-      console.error("Magic Checkout launch error:", err);
+      console.error("Razorpay Checkout launch error:", err);
       setNotice(err.message || "Payment could not be started.");
     }
   }
@@ -2063,7 +2048,8 @@ function App() {
       ) ||
       safeVid(
         reels.find(
-          (r) => r.productId === currentProductPageProduct.id && safeVid(r.videoUrl)
+          (r) =>
+            r.productId === currentProductPageProduct.id && safeVid(r.videoUrl)
         )?.videoUrl
       )
     : "";
@@ -2082,18 +2068,25 @@ function App() {
       ? raw
       : [...raw, { label: "TRACK ORDER", url: "#track-order" }];
 
-    const homeIdx = withTrack.findIndex(
+    const hasLogin = withTrack.some(
+      (item) => normalizeSlug(item.url || item.label) === "login"
+    );
+    const withLogin = hasLogin
+      ? withTrack
+      : [...withTrack, { label: "LOGIN", url: "#login" }];
+
+    const homeIdx = withLogin.findIndex(
       (item) => normalizeSlug(item.url || item.label) === "home"
     );
 
     if (homeIdx > 0) {
-      const [homeEntry] = withTrack.splice(homeIdx, 1);
-      return [homeEntry, ...withTrack];
+      const [homeEntry] = withLogin.splice(homeIdx, 1);
+      return [homeEntry, ...withLogin];
     }
     if (homeIdx === -1) {
-      return [{ label: "HOME", url: "#home" }, ...withTrack];
+      return [{ label: "HOME", url: "#home" }, ...withLogin];
     }
-    return withTrack;
+    return withLogin;
   }, [storeSettings.navigation]);
 
   if (isAdmin) {
@@ -2119,15 +2112,15 @@ function App() {
           minHeight: "100vh",
           display: "grid",
           placeItems: "center",
-          background: "#f7f6f2",
-          color: "#252a22",
-          fontFamily: "'DM Sans', sans-serif",
-          letterSpacing: "0.12em",
-          fontSize: "12px",
+          background: "#FAF7F2",
+          color: "#7A1C24",
+          fontFamily: "'Playfair Display', Georgia, serif",
+          letterSpacing: "0.14em",
+          fontSize: "14px",
           fontWeight: 600
         }}
       >
-        CALZARE
+        {storeSettings.storeName || "AL-ZEHRA SILK"}
       </div>
     );
   }
@@ -2159,23 +2152,27 @@ function App() {
     <div
       className="site-shell"
       style={{
-        "--paper": homepage.theme?.pageBgColor || "#f7f6f2",
-        "--ink": homepage.theme?.textColor || "#1e211d",
-        "--surface": homepage.theme?.surfaceColor || "#f2f1eb",
-        "--surface-alt": homepage.theme?.cardBgColor || "#eeede7",
-        "--accent": homepage.theme?.accentColor || "#252a22",
-        "--accent-ink": homepage.theme?.accentTextColor || "#f7f6f2",
+        "--paper": homepage.theme?.pageBgColor || "#FFF7F3",
+        "--ink": homepage.theme?.textColor || "#4B2D23",
+        "--surface": homepage.theme?.surfaceColor || "#F8ECE6",
+        "--surface-alt": homepage.theme?.cardBgColor || "#F1E0D8",
+        "--accent": homepage.theme?.accentColor || "#63371F",
+        "--accent-ink": homepage.theme?.accentTextColor || "#FFF7F3",
         "--mobile-nav-height": `${homepage.mobileUI?.navHeightPx || 58}px`,
-        "--mobile-logo-size": `${homepage.mobileUI?.logoSizePx || 17}px`,
+        "--mobile-logo-size": `${homepage.mobileUI?.logoSizePx || 18}px`,
         "--mobile-hero-title-size": `${homepage.mobileUI?.heroTitleSizePx || 34}px`,
-        "--mobile-collection-title-size": `${homepage.mobileUI?.collectionTitleSizePx || 26}px`,
+        "--mobile-collection-title-size": `${
+          homepage.mobileUI?.collectionTitleSizePx || 26
+        }px`,
         fontFamily: homepage.theme?.fontFamily || "'DM Sans', sans-serif",
-        fontSize: homepage.theme?.fontSizePx ? `${homepage.theme.fontSizePx}px` : undefined
+        fontSize: homepage.theme?.fontSizePx
+          ? `${homepage.theme.fontSizePx}px`
+          : undefined
       }}
     >
       <div className="announcement">
         {homepage.navbar?.announcementText ||
-          `COMPLIMENTARY SHIPPING ABOVE ${money(freeShipMin)}  •  BUY 2 GET 10% OFF  •  BUY 3 GET 15% OFF`}
+          "Returns within 48 hours  ·  Learn more"}
       </div>
 
       <Header
@@ -2192,9 +2189,15 @@ function App() {
         search={search}
         setSearch={setSearch}
         cartCount={cartCount}
+        wishlistCount={favorites.length}
+        onOpenWishlist={() => {
+          navigateCollection("all");
+          scrollToCatalogSection();
+        }}
         setCartOpen={setCartOpen}
         currentUser={currentUser}
         openAccountModal={openAccountModal}
+        onOpenAuthModal={openAuthDialog}
         navigateCollection={navigateCollection}
         openTrackOrderPage={openTrackOrderPage}
       />
@@ -2216,27 +2219,27 @@ function App() {
             onGoHome={() => navigateCollection("home")}
           />
         ) : storyPageOpen ? (
-          <StorySection
-            homepage={homepage}
+          <OurStory
             storeSettings={storeSettings}
             onGoHome={() => navigateCollection("home")}
-            onExploreShop={() => {
-              navigateCollection("all");
-              scrollToCatalogSection();
-            }}
+            onNavigateCollection={navigateCollection}
           />
         ) : productPageId ? (
           <>
             <ProductPage
               homepage={homepage}
-              product={products.find((p) => p.id === productPageId) || products[0]}
+              product={
+                products.find((p) => p.id === productPageId) || products[0]
+              }
               products={products}
               reels={reels}
               favorites={favorites}
               canManageReviews={canManageReviews}
               onToggleFavorite={(id) =>
                 setFavorites((old) =>
-                  old.includes(id) ? old.filter((item) => item !== id) : [...old, id]
+                  old.includes(id)
+                    ? old.filter((item) => item !== id)
+                    : [...old, id]
                 )
               }
               onAddToCart={(prod, sz, qty) => addToCart(prod, sz, qty || 1)}
@@ -2261,22 +2264,30 @@ function App() {
           <div
             style={{
               "--paper":
-                activeColStyle.pageBgColor || homepage.theme?.pageBgColor || "#f7f6f2",
+                activeColStyle.pageBgColor ||
+                homepage.theme?.pageBgColor ||
+                "#FAF7F2",
               "--surface":
-                activeColStyle.surfaceColor || homepage.theme?.surfaceColor || "#f2f1eb",
+                activeColStyle.surfaceColor ||
+                homepage.theme?.surfaceColor ||
+                "#F3ECE1",
               "--ink":
-                activeColStyle.textColor || homepage.theme?.textColor || "#1e211d",
+                activeColStyle.textColor ||
+                homepage.theme?.textColor ||
+                "#231917",
               "--accent":
-                activeColStyle.accentColor || homepage.theme?.accentColor || "#252a22",
+                activeColStyle.accentColor ||
+                homepage.theme?.accentColor ||
+                "#7A1C24",
               "--collection-banner-height": `${
                 Number(activeColStyle.bannerHeightPx) || 380
               }px`,
               "--collection-card-image-height": `${
-                Number(activeColStyle.cardImageHeightPx) || 280
+                Number(activeColStyle.cardImageHeightPx) || 340
               }px`,
               "--collection-image-fit": activeColStyle.imageFit || "cover",
               "--collection-image-position": `${activeColStyle.imagePosX ?? 50}% ${
-                activeColStyle.imagePosY ?? 50
+                activeColStyle.imagePosY ?? 20
               }%`,
               "--collection-image-scale": Number(activeColStyle.imageZoom) || 1,
               backgroundColor: "var(--paper)",
@@ -2289,7 +2300,9 @@ function App() {
               products={
                 visibleProducts.length > 0
                   ? visibleProducts
-                  : products.filter((p) => p && (p.status || "published") !== "draft")
+                  : products.filter(
+                      (p) => p && (p.status || "published") !== "draft"
+                    )
               }
               storeSettings={storeSettings}
               allowedCategories={activeCategories}
@@ -2298,7 +2311,9 @@ function App() {
               favorites={favorites}
               onToggleFavorite={(id) =>
                 setFavorites((old) =>
-                  old.includes(id) ? old.filter((item) => item !== id) : [...old, id]
+                  old.includes(id)
+                    ? old.filter((item) => item !== id)
+                    : [...old, id]
                 )
               }
               onOpenProduct={(p, startVideo) =>
@@ -2322,7 +2337,9 @@ function App() {
             favorites={favorites}
             onToggleFavorite={(id) =>
               setFavorites((old) =>
-                old.includes(id) ? old.filter((item) => item !== id) : [...old, id]
+                old.includes(id)
+                  ? old.filter((item) => item !== id)
+                  : [...old, id]
               )
             }
             onOpenProductPage={openFullProductPage}
@@ -2343,25 +2360,45 @@ function App() {
       <footer className="site-footer-dark">
         <div className="footer-grid-4">
           <div>
+            <img
+              src={storeSettings.logoUrl || homepage.footer?.logo || "/logo.jpeg"}
+              alt={storeSettings.storeName || "Al-Zehra Silk"}
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
+              style={{
+                height: "56px",
+                width: "auto",
+                borderRadius: "8px",
+                objectFit: "contain",
+                display: "block",
+                marginBottom: "14px"
+              }}
+            />
             <p className="footer-brand-blurb">
               {homepage.footer?.tagline ||
-                "We design and make every pair ourselves, then ship it straight to you."}
+                "Timeless Indian weaves crafted for weddings, festivities, and everyday grace."}
             </p>
             <p className="footer-connect-title">Connect with us</p>
             <a
-              href={`mailto:${storeSettings.supportEmail || "support@calzare.in"}`}
+              href={`mailto:${
+                storeSettings.supportEmail || "care@alzehrasilk.in"
+              }`}
               className="footer-contact-link"
             >
-              {storeSettings.supportEmail || "support@calzare.in"}
+              {storeSettings.supportEmail || "care@alzehrasilk.in"}
             </a>
             <a
-              href={`tel:${(storeSettings.supportPhone || "+91 98765 43210").replace(/\s+/g, "")}`}
+              href={`tel:${(
+                storeSettings.supportPhone || "+91 98765 43210"
+              ).replace(/\s+/g, "")}`}
               className="footer-contact-link"
             >
               {storeSettings.supportPhone || "+91 98765 43210"}
             </a>
             <p className="footer-hours">
-              {homepage.footer?.hours || "Monday to Friday, 10:00 AM to 6:00 PM."}
+              {homepage.footer?.hours ||
+                "Monday to Saturday, 10:00 AM to 7:00 PM."}
             </p>
             <div className="footer-social-row">
               <a
@@ -2376,7 +2413,9 @@ function App() {
                 IG
               </a>
               <a
-                href={`mailto:${storeSettings.supportEmail || "support@calzare.in"}`}
+                href={`mailto:${
+                  storeSettings.supportEmail || "care@alzehrasilk.in"
+                }`}
                 className="footer-social-btn"
                 aria-label="Email"
               >
@@ -2408,7 +2447,7 @@ function App() {
                     scrollToCatalogSection();
                   }}
                 >
-                  Shop
+                  Shop All Sarees
                 </a>
               </li>
               <li>
@@ -2430,7 +2469,18 @@ function App() {
                     navigateCollection("story");
                   }}
                 >
-                  About Us
+                  Our Craft
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#login"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openAuthDialog("login");
+                  }}
+                >
+                  {currentUser ? "Account" : "Login"}
                 </a>
               </li>
               <li>
@@ -2448,28 +2498,50 @@ function App() {
           </div>
 
           <div>
-            <h4 className="footer-col-heading">Useful Links</h4>
+            <h4 className="footer-col-heading">Shop by Weave</h4>
             <ul className="footer-col-list">
               <li>
                 <a
-                  href="#men"
+                  href="#banarasi"
                   onClick={(e) => {
                     e.preventDefault();
-                    navigateCollection("men");
+                    navigateCollection("banarasi");
                   }}
                 >
-                  Men
+                  Banarasi Silk
                 </a>
               </li>
               <li>
                 <a
-                  href="#women"
+                  href="#kanjivaram"
                   onClick={(e) => {
                     e.preventDefault();
-                    navigateCollection("women");
+                    navigateCollection("kanjivaram");
                   }}
                 >
-                  Women
+                  Kanjivaram
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#soft-silk"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateCollection("soft-silk");
+                  }}
+                >
+                  Soft Silk
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#kalamkari"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigateCollection("kalamkari");
+                  }}
+                >
+                  Kalamkari
                 </a>
               </li>
               <li>
@@ -2491,7 +2563,7 @@ function App() {
                     openPolicyPage("refund-policy");
                   }}
                 >
-                  Refund & Exchange Policy
+                  Return & Exchange Policy
                 </a>
               </li>
             </ul>
@@ -2500,11 +2572,11 @@ function App() {
           <div>
             <h4 className="footer-col-heading">
               {homepage.footer?.newsletterHeading ||
-                `Join the ${storeSettings.storeName || "Calzare"} team`}
+                `Join the ${storeSettings.storeName || "Al-Zehra Silk"} studio`}
             </h4>
             <p className="footer-newsletter-copy">
               {homepage.footer?.newsletterCopy ||
-                "Sign up for early access to drops and free shipping updates on new collections."}
+                "Sign up for early access to festive silk drops and exclusive weave editions."}
             </p>
             <form className="footer-newsletter-form" onSubmit={subscribe}>
               <input
@@ -2520,7 +2592,7 @@ function App() {
               </button>
             </form>
             <p className="footer-privacy-note">
-              By entering the e-mail you accept the{" "}
+              By entering your email you accept the{" "}
               <a
                 href="#shipping-policy"
                 onClick={(e) => {
@@ -2536,19 +2608,25 @@ function App() {
         </div>
 
         <div className="footer-watermark-wordmark" aria-hidden="true">
-          {storeSettings.storeName || "Calzare"}
+          {storeSettings.storeName || "AL-ZEHRA SILK"}
         </div>
 
         <div className="footer-bottom-bar">
           <span>
             {homepage.footer?.copyright ||
-              `© 2026 ${storeSettings.storeName || "Calzare"}. All rights reserved.`}
+              `© 2026 ${
+                storeSettings.storeName || "AL-ZEHRA SILK"
+              }. All rights reserved.`}
           </span>
           <div className="footer-payment-badges">
-            <span className="footer-pay-pill">VISA</span>
-            <span className="footer-pay-pill">MASTERCARD</span>
-            <span className="footer-pay-pill">RuPay</span>
-            <span className="footer-pay-pill">UPI</span>
+            {(storeSettings.paymentMethods?.length
+              ? storeSettings.paymentMethods
+              : ["VISA", "MASTERCARD", "RuPay", "UPI"]
+            ).map((badge) => (
+              <span key={badge} className="footer-pay-pill">
+                {badge}
+              </span>
+            ))}
           </div>
         </div>
       </footer>
@@ -2560,7 +2638,9 @@ function App() {
           <div className="pip-widget">
             <video
               src={pipVideoUrl || undefined}
-              poster={safeImg(currentProductPageProduct?.image || homepage.pipVideo.poster)}
+              poster={safeImg(
+                currentProductPageProduct?.image || homepage.pipVideo.poster
+              )}
               autoPlay
               loop
               muted={pipMuted}
@@ -2653,7 +2733,7 @@ function App() {
                     className={showProductVideo ? "active" : ""}
                     onClick={() => setShowProductVideo(true)}
                   >
-                    <Play size={11} /> MOTION FIT
+                    <Play size={11} /> DRAPE VIEW
                   </button>
                 </div>
               )}
@@ -2661,13 +2741,20 @@ function App() {
 
             <div className="pdp-details">
               <p className="eyebrow">
-                {activeProduct.category.toUpperCase()} — {activeProduct.color.toUpperCase()}
+                {(
+                  activeProduct.fabric ||
+                  activeProduct.category ||
+                  "SILK"
+                ).toUpperCase()}{" "}
+                — {(activeProduct.color || "HERITAGE").toUpperCase()}
               </p>
               <h2>{activeProduct.name}</h2>
               <div className="pdp-price-row">
                 <strong>{money(activeProduct.price)}</strong>
                 {activeProduct.oldPrice && (
-                  <span className="old-price">{money(activeProduct.oldPrice)}</span>
+                  <span className="old-price">
+                    {money(activeProduct.oldPrice)}
+                  </span>
                 )}
               </div>
               <p className="pdp-desc">{activeProduct.description}</p>
@@ -2683,13 +2770,18 @@ function App() {
               )}
 
               <div className="size-block">
-                <span className="size-label">SELECT UK SIZE</span>
+                <span className="size-label">SELECT SIZE</span>
                 <div className="size-grid">
-                  {(activeProduct.sizes || ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"]).map((sz) => (
+                  {(activeProduct.sizes?.length
+                    ? activeProduct.sizes
+                    : ["Free Size"]
+                  ).map((sz) => (
                     <button
                       key={sz}
                       type="button"
-                      className={selectedSize === sz ? "size-pill active" : "size-pill"}
+                      className={
+                        selectedSize === sz ? "size-pill active" : "size-pill"
+                      }
                       onClick={() => setSelectedSize(sz)}
                     >
                       {sz}
@@ -2706,7 +2798,8 @@ function App() {
                   setActiveProduct(null);
                 }}
               >
-                ADD TO BAG — {money(activeProduct.price)} <ArrowUpRight size={16} />
+                ADD TO BAG — {money(activeProduct.price)}{" "}
+                <ArrowUpRight size={16} />
               </button>
             </div>
           </div>
@@ -2772,7 +2865,10 @@ function App() {
 
               <span className="size-label">CHOOSE SIZE</span>
               <div className="size-grid">
-                {(activeReelProduct.sizes || ["UK 7", "UK 8", "UK 9", "UK 10"]).map((sz) => (
+                {(activeReelProduct.sizes?.length
+                  ? activeReelProduct.sizes
+                  : ["Free Size"]
+                ).map((sz) => (
                   <button
                     key={sz}
                     type="button"
@@ -2840,17 +2936,22 @@ function App() {
         onCheckout={() => {
           setCartOpen(false);
           setOrderConfirmed(null);
-          handlePlaceOrder(null, "Razorpay Magic Checkout");
+          setCheckoutOpen(true);
         }}
         money={money}
         promoBoxSetting={homepage.cartPromoBox}
         rewardBannerSetting={homepage.cartRewardBanner}
+        storeSettings={storeSettings}
+        homepage={homepage}
       />
 
       {checkoutOpen && (
         <div className="modal-backdrop" onClick={() => setCheckoutOpen(false)}>
           <div className="checkout-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setCheckoutOpen(false)}>
+            <button
+              className="modal-close"
+              onClick={() => setCheckoutOpen(false)}
+            >
               <X size={18} />
             </button>
 
@@ -2858,7 +2959,7 @@ function App() {
               <div className="order-success">
                 <p className="eyebrow">ORDER CONFIRMED</p>
                 <h2>
-                  Thank you for walking with <em>CALZARE.</em>
+                  Thank you for draping with <em>AL-ZEHRA SILK.</em>
                 </h2>
                 <p>
                   Reference ID: <strong>{orderConfirmed.orderId}</strong>
@@ -2890,65 +2991,97 @@ function App() {
               </div>
             ) : (
               <form className="checkout-form" onSubmit={handlePlaceOrder}>
-                <p className="eyebrow">RAZORPAY MAGIC CHECKOUT</p>
+                <p className="eyebrow">SECURE ONLINE CHECKOUT</p>
                 <h3>Quick Contact & Checkout</h3>
-                <p style={{ fontSize: "11.5px", color: "var(--muted)", margin: 0 }}>
-                  Saved delivery addresses and payment methods will auto-fill inside Magic Checkout.
+                <p
+                  style={{
+                    fontSize: "11.5px",
+                    color: "var(--muted)",
+                    margin: 0
+                  }}
+                >
+                  Enter your delivery details and continue to secure payment.
                 </p>
                 <input
                   required
                   placeholder="Full Name"
                   value={checkoutForm.name}
-                  onChange={(e) => setCheckoutForm({ ...checkoutForm, name: e.target.value })}
+                  onChange={(e) =>
+                    setCheckoutForm({ ...checkoutForm, name: e.target.value })
+                  }
                 />
                 <input
                   required
                   placeholder="Mobile Number (10-digit Indian number)"
                   value={checkoutForm.phone}
-                  onChange={(e) => setCheckoutForm({ ...checkoutForm, phone: e.target.value })}
+                  onChange={(e) =>
+                    setCheckoutForm({ ...checkoutForm, phone: e.target.value })
+                  }
                 />
                 <input
                   type="email"
                   placeholder="Email Address (optional)"
                   value={checkoutForm.email}
-                  onChange={(e) => setCheckoutForm({ ...checkoutForm, email: e.target.value })}
+                  onChange={(e) =>
+                    setCheckoutForm({ ...checkoutForm, email: e.target.value })
+                  }
                 />
                 <input
-                  placeholder="Street Address / Apartment (optional if using saved address)"
+                  placeholder="Street Address / Apartment"
                   value={checkoutForm.address}
-                  onChange={(e) => setCheckoutForm({ ...checkoutForm, address: e.target.value })}
+                  onChange={(e) =>
+                    setCheckoutForm({ ...checkoutForm, address: e.target.value })
+                  }
                 />
                 <div className="checkout-row">
                   <input
-                    placeholder="City (optional)"
+                    placeholder="City"
                     value={checkoutForm.city}
-                    onChange={(e) => setCheckoutForm({ ...checkoutForm, city: e.target.value })}
+                    onChange={(e) =>
+                      setCheckoutForm({ ...checkoutForm, city: e.target.value })
+                    }
                   />
                   <input
-                    placeholder="PIN Code (optional)"
+                    placeholder="PIN Code"
                     value={checkoutForm.pincode}
-                    onChange={(e) => setCheckoutForm({ ...checkoutForm, pincode: e.target.value })}
+                    onChange={(e) =>
+                      setCheckoutForm({
+                        ...checkoutForm,
+                        pincode: e.target.value
+                      })
+                    }
                   />
                 </div>
                 <select
                   value={checkoutForm.paymentMethod}
                   onChange={(e) =>
-                    setCheckoutForm({ ...checkoutForm, paymentMethod: e.target.value })
+                    setCheckoutForm({
+                      ...checkoutForm,
+                      paymentMethod: e.target.value
+                    })
                   }
                 >
-                  <option>Razorpay Magic Checkout</option>
-                  <option value="Partial COD (₹299 Advance)">
-                    Partial COD ({money(Number(storeSettings.partialCodAdvance ?? 299))} Advance)
-                  </option>
-                  <option>UPI / Cards / NetBanking</option>
-                  <option>Cash on Delivery</option>
+                  {(storeSettings.paymentMethods?.length
+                    ? storeSettings.paymentMethods
+                    : [
+                        "UPI / Cards / NetBanking",
+                        `Partial COD (₹${partialCodAdvance} Advance)`,
+                        "Cash on Delivery"
+                      ]
+                  ).map((method) => (
+                    <option key={method} value={method}>
+                      {method}
+                    </option>
+                  ))}
                 </select>
 
                 <div style={{ display: "flex", gap: "8px" }}>
                   <input
                     placeholder="Coupon Code (optional)"
                     value={couponInput}
-                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                      setCouponInput(e.target.value.toUpperCase())
+                    }
                   />
                   <button
                     type="button"
@@ -2960,22 +3093,33 @@ function App() {
                   </button>
                 </div>
                 {couponError && (
-                  <p style={{ color: "#9f2d2d", fontSize: "11.5px", margin: 0 }}>{couponError}</p>
+                  <p
+                    style={{
+                      color: "#9f2d2d",
+                      fontSize: "11.5px",
+                      margin: 0
+                    }}
+                  >
+                    {couponError}
+                  </p>
                 )}
                 {appliedCoupon && (
-                  <p style={{ color: "#166534", fontSize: "11.5px", margin: 0 }}>
+                  <p
+                    style={{
+                      color: "#166534",
+                      fontSize: "11.5px",
+                      margin: 0
+                    }}
+                  >
                     ✓ {appliedCoupon.code} applied (−{money(couponDiscount)})
                   </p>
                 )}
 
                 <button type="submit" className="primary-cta-btn">
-                  CONTINUE TO MAGIC CHECKOUT —{" "}
+                  CONTINUE TO PAYMENT —{" "}
                   {money(
                     checkoutForm.paymentMethod.includes("Partial COD")
-                      ? Math.min(
-                          Math.max(0, Number(storeSettings.partialCodAdvance ?? 299)),
-                          cartFinalTotal
-                        )
+                      ? Math.min(partialCodAdvance, cartFinalTotal)
                       : cartFinalTotal
                   )}{" "}
                   <ArrowUpRight size={16} />
@@ -2989,7 +3133,11 @@ function App() {
       {infoModal && (
         <div className="modal-backdrop" onClick={() => setInfoModal(null)}>
           <div className="checkout-modal" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setInfoModal(null)} aria-label="Close">
+            <button
+              className="modal-close"
+              onClick={() => setInfoModal(null)}
+              aria-label="Close"
+            >
               <X size={18} />
             </button>
 
@@ -3003,11 +3151,18 @@ function App() {
                   margin: 0
                 }}
               >
-                Contact CALZARE
+                Contact {storeSettings.storeName || "Al-Zehra Silk"}
               </h3>
-              <p style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.8, margin: 0 }}>
-                Have a question about sizing, orders, or collaborations? Our studio team responds
-                within 24 hours.
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "var(--muted)",
+                  lineHeight: 1.8,
+                  margin: 0
+                }}
+              >
+                Have a question about weaves, bulk wedding orders, or custom
+                styling? Our studio team responds within 24 hours.
               </p>
               <div
                 style={{
@@ -3017,12 +3172,14 @@ function App() {
                   padding: "14px"
                 }}
               >
-                <strong>Email:</strong> {storeSettings.supportEmail || "support@calzare.in"}
+                <strong>Email:</strong>{" "}
+                {storeSettings.supportEmail || "care@alzehrasilk.in"}
                 <br />
                 <strong>WhatsApp Concierge:</strong>{" "}
                 {storeSettings.supportPhone || "+91 98765 43210"}
                 <br />
-                <strong>Studio Hours:</strong> Mon – Sat, 10:00 AM – 6:30 PM IST
+                <strong>Studio Hours:</strong>{" "}
+                {homepage.footer?.hours || "Mon – Sat, 10:00 AM – 7:00 PM IST"}
               </div>
               <button
                 type="button"
@@ -3043,13 +3200,17 @@ function App() {
             style={{ maxHeight: "85dvh", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button className="modal-close" onClick={() => setAuthOpen(false)} aria-label="Close">
+            <button
+              className="modal-close"
+              onClick={() => setAuthOpen(false)}
+              aria-label="Close"
+            >
               <X size={18} />
             </button>
 
             {currentUser ? (
               <div style={{ display: "grid", gap: "16px" }}>
-                <p className="eyebrow">CALZARE MEMBER</p>
+                <p className="eyebrow">AL-ZEHRA SILK MEMBER</p>
                 <h3
                   style={{
                     fontFamily: "'Playfair Display', serif",
@@ -3060,16 +3221,35 @@ function App() {
                 >
                   Hello, <em>{currentUser.name}.</em>
                 </h3>
-                <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0 }}>
-                  {currentUser.email} {currentUser.phone ? `• ${currentUser.phone}` : ""}
+                <p
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--muted)",
+                    margin: 0
+                  }}
+                >
+                  {currentUser.email}{" "}
+                  {currentUser.phone ? `• ${currentUser.phone}` : ""}
                 </p>
 
-                <div style={{ borderTop: "1px solid var(--line)", paddingTop: "12px" }}>
+                <div
+                  style={{
+                    borderTop: "1px solid var(--line)",
+                    paddingTop: "12px"
+                  }}
+                >
                   <p className="eyebrow" style={{ marginBottom: "10px" }}>
                     YOUR ORDERS ({myOrders.length})
                   </p>
                   {myOrders.length ? (
-                    <div style={{ display: "grid", gap: "8px", maxHeight: "200px", overflowY: "auto" }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: "8px",
+                        maxHeight: "200px",
+                        overflowY: "auto"
+                      }}
+                    >
                       {myOrders.map((ord) => (
                         <div
                           key={ord.orderId}
@@ -3089,12 +3269,15 @@ function App() {
                           <div>
                             <strong>{ord.orderId}</strong>
                             <div style={{ color: "var(--muted)" }}>
-                              {ord.items?.length || 1} item(s) • {ord.paymentStatus}
+                              {ord.items?.length || 1} item(s) •{" "}
+                              {ord.paymentStatus}
                             </div>
                           </div>
                           <div style={{ textAlign: "right" }}>
                             <strong>{money(ord.total)}</strong>
-                            <div style={{ color: "#166534", fontWeight: 600 }}>
+                            <div
+                              style={{ color: "#166534", fontWeight: 600 }}
+                            >
                               {ord.status} →
                             </div>
                           </div>
@@ -3102,7 +3285,13 @@ function App() {
                       ))}
                     </div>
                   ) : (
-                    <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0 }}>
+                    <p
+                      style={{
+                        fontSize: "12px",
+                        color: "var(--muted)",
+                        margin: 0
+                      }}
+                    >
                       No orders linked to this profile yet.
                     </p>
                   )}
@@ -3122,16 +3311,26 @@ function App() {
                   </button>
                 )}
 
-                <button type="button" className="primary-cta-btn" onClick={handleSignOut}>
+                <button
+                  type="button"
+                  className="primary-cta-btn"
+                  onClick={handleSignOut}
+                >
                   SIGN OUT
                 </button>
               </div>
             ) : (
               <form className="checkout-form" onSubmit={handleAuthSubmit}>
                 <p className="eyebrow">
-                  {authMode === "login" ? "WELCOME BACK" : "JOIN CALZARE"}
+                  {authMode === "login"
+                    ? "WELCOME BACK"
+                    : "JOIN AL-ZEHRA SILK"}
                 </p>
-                <h3>{authMode === "login" ? "Sign in to your account" : "Create an account"}</h3>
+                <h3>
+                  {authMode === "login"
+                    ? "Sign in to your account"
+                    : "Create an account"}
+                </h3>
 
                 {authMode === "register" && (
                   <>
@@ -3139,13 +3338,17 @@ function App() {
                       required
                       placeholder="Full Name"
                       value={authForm.name}
-                      onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                      onChange={(e) =>
+                        setAuthForm({ ...authForm, name: e.target.value })
+                      }
                     />
                     <input
                       required
                       placeholder="Mobile Number (links your orders)"
                       value={authForm.phone}
-                      onChange={(e) => setAuthForm({ ...authForm, phone: e.target.value })}
+                      onChange={(e) =>
+                        setAuthForm({ ...authForm, phone: e.target.value })
+                      }
                     />
                   </>
                 )}
@@ -3155,18 +3358,30 @@ function App() {
                   type="email"
                   placeholder="Email Address"
                   value={authForm.email}
-                  onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
+                  onChange={(e) =>
+                    setAuthForm({ ...authForm, email: e.target.value })
+                  }
                 />
                 <input
                   required
                   type="password"
                   placeholder="Password"
                   value={authForm.password}
-                  onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
+                  onChange={(e) =>
+                    setAuthForm({ ...authForm, password: e.target.value })
+                  }
                 />
 
                 {authError && (
-                  <p style={{ color: "#9f2d2d", fontSize: "11.5px", margin: 0 }}>{authError}</p>
+                  <p
+                    style={{
+                      color: "#9f2d2d",
+                      fontSize: "11.5px",
+                      margin: 0
+                    }}
+                  >
+                    {authError}
+                  </p>
                 )}
 
                 <button type="submit" className="primary-cta-btn">
@@ -3178,7 +3393,12 @@ function App() {
                   type="button"
                   onClick={() => {
                     setAuthMode(authMode === "login" ? "register" : "login");
-                    setAuthForm({ name: "", email: "", phone: "", password: "" });
+                    setAuthForm({
+                      name: "",
+                      email: "",
+                      phone: "",
+                      password: ""
+                    });
                     setAuthError("");
                   }}
                   style={{
@@ -3192,7 +3412,7 @@ function App() {
                   }}
                 >
                   {authMode === "login"
-                    ? "New to CALZARE? Create an account"
+                    ? "New to Al-Zehra Silk? Create an account"
                     : "Already have an account? Sign in"}
                 </button>
               </form>

@@ -1,0 +1,103 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap');
+
+:root {
+  font-family: 'DM Sans', sans-serif;
+  color: #231917;
+  background: #FAF7F2;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  font-smooth: always;
+  --paper: #FAF7F2;
+  --ink: #231917;
+  --muted: #6B5E57;
+  --line: #E8DFD5;
+  --surface: #F3ECE1;
+  --surface-alt: #EFE7DB;
+  --accent: #7A1C24;
+  --accent-ink: #FAF7F2;
+  --mobile-nav-height: 58px;
+  --mobile-logo-size: 17px;
+  --mobile-hero-title-size: 34px;
+  --mobile-collection-title-size: 26px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body,
+#root,
+.site-shell,
+main {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.site-footer-dark {
+  display: block;
+  background: var(--footer-bg, #090a0b);
+  color: var(--footer-text, #f5f5f3);
+  padding: 56px 5% calc(28px + env(safe-area-inset-bottom, 0px));
+  position: relative;
+  overflow: hidden;
+}
+
+.footer-grid-4 {
+  display: grid;
+  grid-template-columns: 1.35fr 0.8fr 1fr 1.35fr;
+  gap: 36px;
+  align-items: start;
+}
+
+.storefront-reviews-section {
+  background: var(--paper);
+  padding: 64px 5%;
+}
+
+.storefront-reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.storefront-review-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.storefront-standard-block {
+  margin-top: 72px;
+  text-align: center;
+}
+
+.storefront-standard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  text-align: left;
+}
+
+.storefront-standard-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .footer-grid-4,
+  .storefront-reviews-grid,
+  .storefront-standard-grid {
+    grid-template-columns: 1fr;
+  }
+}

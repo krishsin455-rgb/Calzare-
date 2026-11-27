@@ -4,7 +4,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Droplets,
   Film,
   Headphones,
   Heart,
@@ -24,6 +23,9 @@ import {
 
 function resolveApiBase() {
   try {
+    if (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) {
+      return String(import.meta.env.VITE_API_URL);
+    }
     if (
       typeof globalThis !== "undefined" &&
       globalThis.__VITE_API_URL__
@@ -49,39 +51,39 @@ const BROKEN_IMAGE_IDS = [
   "photo-1520256862855-9981c41d8ba0"
 ];
 
-const DEFAULT_SIZES = ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10", "UK 11"];
+const DEFAULT_SIZES = ["Free Size"];
 
 const DEFAULT_REVIEWS = [
   {
     id: "rev-1",
     rating: 5,
-    quote: '"WALKED 18,000 STEPS WITHOUT CALF FATIGUE"',
-    body: "Tested these across Bangalore monsoons and broken pavement. The dual-density microfoam absorbs every harsh impact without feeling mushy. Genuinely superior to standard EVA clogs.",
-    author: "Aarav Mehta",
-    meta: "Verified Owner: Apex Closed-Cell Clog",
-    location: "Bengaluru • Verified Buyer"
+    quote: '"GORGEOUS BANARASI ZARI FINISH & EFFORTLESS DRAPE"',
+    body: "Wore this for my sister's sangeet and received so many compliments. The silk is lightweight, pleats stay neatly in place all evening, and the matching blouse piece is generous.",
+    author: "Ananya Sharma",
+    meta: "Verified Owner: Royal Banarasi Katan Silk Saree",
+    location: "Jaipur • Verified Buyer"
   },
   {
     id: "rev-2",
     rating: 5,
-    quote: '"ARCHITECTURAL SHAPE MEETS ALL-DAY ARCH SUPPORT"',
-    body: "I wear these for 10-hour hospital shifts. The sculpted arch cradle is unmatched. My feet feel fresh when clocking off.",
-    author: "Priya Sundaram",
-    meta: "Verified Owner: Apex All-Terrain Mule",
-    location: "Mumbai • Verified Buyer"
+    quote: '"RICH TEMPLE BORDER WITHOUT FEELING HEAVY"',
+    body: "Usually Kanjivaram drapes feel stiff after a few hours, but this soft silk weave stayed comfortable through a full day of wedding rituals. Packaging was neat and dispatch was quick.",
+    author: "Meenakshi Iyer",
+    meta: "Verified Owner: Kanjivaram Zari Soft Silk Saree",
+    location: "Chennai • Verified Buyer"
   },
   {
     id: "rev-3",
     rating: 5,
-    quote: '"100% WATERPROOF AND EFFORTLESS TO RINSE"',
-    body: "Got caught in a flash downpour. Rinsed them under tap water in 20 seconds and they looked brand new. Bold aesthetic, zero ordinary energy.",
-    author: "Rohan Kapoor",
-    meta: "Verified Owner: Urban Hydro Slide",
-    location: "Delhi • Verified Buyer"
+    quote: '"EXACTLY AS SHOWN — TRUE HEIRLOOM COLOR"',
+    body: "The maroon shade and antique gold pallu look even better in person. Delivered in 3 days to Mumbai with zero creases. Will definitely order again for Diwali.",
+    author: "Zoya Khan",
+    meta: "Verified Owner: Festive Zari Silk Saree",
+    location: "Mumbai • Verified Buyer"
   }
 ];
 
-const CALZARE_STANDARD_CARDS = [
+const BRAND_PROMISE_CARDS = [
   {
     id: "std-1",
     title: "Fast Dispatch",
@@ -90,20 +92,20 @@ const CALZARE_STANDARD_CARDS = [
   },
   {
     id: "std-2",
-    title: "Easy 7-Day Swap",
-    desc: "Hassle-free UK size exchange if your fit needs adjusting.",
+    title: "48-Hour Easy Returns",
+    desc: "Hassle-free returns and exchanges with original tags intact.",
     icon: RefreshCw
   },
   {
     id: "std-3",
-    title: "100% Waterproof",
-    desc: "Closed-cell construction built for rain, heat, and daily rinse.",
-    icon: Droplets
+    title: "Authentic Weaves",
+    desc: "Hand-checked silk, zari finish, and matching blouse piece included.",
+    icon: Sparkles
   },
   {
     id: "std-4",
     title: "Direct Support",
-    desc: "Real sizing and order help whenever you need it.",
+    desc: "Personal help for draping, styling, and order updates.",
     icon: Headphones
   }
 ];
@@ -151,6 +153,7 @@ export function ProductPage({
 }) {
   const current = product || products[0] || null;
   const productId = current?.id || current?._id || "";
+  const currentProductName = current?.name || "AL-ZEHRA SILK";
 
   const [selectedImageOverride, setSelectedImageOverride] = useState("");
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
@@ -210,9 +213,7 @@ export function ProductPage({
     return DEFAULT_SIZES;
   }, [activeVariant, current?.sizes]);
 
-  const [selectedSize, setSelectedSize] = useState(
-    sizes.includes("UK 8") ? "UK 8" : sizes[0]
-  );
+  const [selectedSize, setSelectedSize] = useState(sizes[0] || "Free Size");
   const [quantity, setQuantity] = useState(1);
   const [showVideo, setShowVideo] = useState(false);
   const [selectedColorwayId, setSelectedColorwayId] = useState(productId);
@@ -222,47 +223,54 @@ export function ProductPage({
   const [failedClipIds, setFailedClipIds] = useState({});
   const [backendReviews, setBackendReviews] = useState([]);
 
-  async function fetchBackendReviews() {
-    try {
-      const res = await fetch(`${API}/reviews`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const list = Array.isArray(data?.reviews)
-        ? data.reviews
-        : Array.isArray(data)
-        ? data
-        : [];
-      const approved = list.filter(
-        (r) => r && (r.status || "approved") === "approved"
-      );
-      setBackendReviews(
-        approved.map((r, i) => ({
-          id: r._id || r.id || `api-rev-${i}`,
-          productId: r.productId || "",
-          rating: Number(r.rating) || 5,
-          quote: r.headline
-            ? `"${String(r.headline).replace(/^"+|"+$/g, "").toUpperCase()}"`
-            : `"VERIFIED EXPERIENCE"`,
-          body: r.comment || "",
-          author: r.customerName || "Verified Buyer",
-          meta: `Verified Owner: ${r.productName || current?.name || "CALZARE"}`,
-          location: `${r.location || "India"} • Verified Buyer`
-        }))
-      );
-    } catch {}
-  }
-
   useEffect(() => {
-    fetchBackendReviews();
-    window.addEventListener("calzare_store_updated", fetchBackendReviews);
+    const controller = new AbortController();
+
+    async function loadReviews() {
+      try {
+        const res = await fetch(`${API}/reviews`, { signal: controller.signal });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data?.reviews)
+          ? data.reviews
+          : Array.isArray(data)
+          ? data
+          : [];
+        const approved = list.filter(
+          (r) => r && (r.status || "approved") === "approved"
+        );
+        setBackendReviews(
+          approved.map((r, i) => ({
+            id: r._id || r.id || `api-rev-${i}`,
+            productId: r.productId || "",
+            rating: Number(r.rating) || 5,
+            quote: r.headline
+              ? `"${String(r.headline).replace(/^"+|"+$/g, "").toUpperCase()}"`
+              : `"VERIFIED EXPERIENCE"`,
+            body: r.comment || "",
+            author: r.customerName || "Verified Buyer",
+            meta: `Verified Owner: ${r.productName || currentProductName}`,
+            location: `${r.location || "India"} • Verified Buyer`
+          }))
+        );
+      } catch (err) {
+        if (err?.name !== "AbortError") {
+          // Keep existing reviews on transient error
+        }
+      }
+    }
+
+    loadReviews();
+    window.addEventListener("alzehrasilk_store_updated", loadReviews);
     return () => {
-      window.removeEventListener("calzare_store_updated", fetchBackendReviews);
+      controller.abort();
+      window.removeEventListener("alzehrasilk_store_updated", loadReviews);
     };
-  }, [current?.name]);
+  }, [currentProductName]);
 
   useEffect(() => {
     const nextSizes = current?.sizes?.length ? current.sizes : DEFAULT_SIZES;
-    const defaultSz = nextSizes.includes("UK 8") ? "UK 8" : nextSizes[0];
+    const defaultSz = nextSizes[0] || "Free Size";
     setSelectedVariantIndex(0);
     setSelectedImageOverride("");
     setSelectedSize(defaultSz);
@@ -274,11 +282,11 @@ export function ProductPage({
     setActiveInfoTab("description");
     setPipFloatingOpen(true);
     setAddedFeedback(false);
-  }, [productId]);
+  }, [productId, current?.sizes]);
 
   useEffect(() => {
     if (!sizes.includes(selectedSize)) {
-      setSelectedSize(sizes.includes("UK 8") ? "UK 8" : sizes[0]);
+      setSelectedSize(sizes[0] || "Free Size");
     }
   }, [sizes, selectedSize]);
 
@@ -304,7 +312,7 @@ export function ProductPage({
     current?.pipVideoUrl || current?.videoUrl || ""
   );
   const pipVideoTitle =
-    current?.pipVideoTitle || `${current?.name || "Product"} Fit Video`;
+    current?.pipVideoTitle || `${current?.name || "Saree"} Drape Video`;
 
   const productShortClips = useMemo(() => {
     if (!current || !productReelsEnabled) return [];
@@ -314,7 +322,7 @@ export function ProductPage({
     if (currentVideo) {
       clips.push({
         id: `${productId}-main-clip`,
-        label: "Official Demo",
+        label: "Drape Preview",
         tag: "IN MOTION",
         videoUrl: currentVideo,
         poster: posterImg
@@ -328,12 +336,12 @@ export function ProductPage({
       clips.push({
         id: r.id || `reel-clip-${idx}`,
         label: r.title || `Clip ${idx + 1}`,
-        tag: r.tag || "SHORT PLAY",
+        tag: r.tag || "DRAPE REEL",
         videoUrl: safeVideoSrc(r.videoUrl),
         poster: safeImgSrc(r.poster || posterImg)
       });
     });
-return clips.slice(0, 5);
+    return clips.slice(0, 5);
   }, [current, productId, reels, productReelsEnabled, currentVideo, currentImage]);
 
   const productReviews = useMemo(() => {
@@ -354,20 +362,18 @@ return clips.slice(0, 5);
 
   const colorOptions = useMemo(() => {
     if (!current) return [];
-    const list =
-      Array.isArray(products) ? products : [];
+    const list = Array.isArray(products) ? products : [];
     const sameGroup = list.filter(
       (p) =>
         p &&
         (p.category === current.category ||
           p.collection === current.collection)
     );
-    const merged = [
-      current,
-      ...sameGroup.filter((p) => (p.id || p._id) !== productId)
-    ];
+    const ordered = sameGroup.some((p) => (p.id || p._id) === productId)
+      ? sameGroup
+      : [...sameGroup, current];
     const seen = new Set();
-    return merged
+    return ordered
       .filter((item) => {
         const id = item.id || item._id;
         if (!id || seen.has(id)) return false;
@@ -378,8 +384,7 @@ return clips.slice(0, 5);
   }, [products, current, productId]);
 
   const { suggestedItems, alsoBoughtItems } = useMemo(() => {
-    const sourceList =
-      Array.isArray(products) ? products : [];
+    const sourceList = Array.isArray(products) ? products : [];
     const list = sourceList.filter((p) => {
       const id = p?.id || p?._id;
       return p && id && id !== productId && (p.status || "published") !== "draft";
@@ -474,12 +479,19 @@ return clips.slice(0, 5);
 
   const galleryThumbnails = [
     baseVariantOrProductImage,
-    ...(Array.isArray(current?.images) ? current.images.map(safeImgSrc) : []),
-    ...colorOptions.map((opt) => safeImgSrc(opt.image))
+    ...(Array.isArray(current?.images) ? current.images.map(safeImgSrc) : [])
   ]
     .filter(Boolean)
     .filter((url, idx, arr) => arr.indexOf(url) === idx)
     .slice(0, 5);
+
+  const sareeSpecs = [
+    { label: "Fabric", value: current?.fabric },
+    { label: "Weave", value: current?.weave },
+    { label: "Occasion", value: current?.occasion },
+    { label: "Saree Length", value: current?.sareeLength || "5.5m" },
+    { label: "Blouse Piece", value: current?.blousePiece || "0.8m Unstitched" }
+  ].filter((item) => item.value);
 
   if (!current) return null;
 
@@ -502,8 +514,8 @@ return clips.slice(0, 5);
             </button>
           )}
           <span className="pdp-crumb">
-            {(current.collection || "UNISEX").toUpperCase()} /{" "}
-            {(current.category || "FOOTWEAR").toUpperCase()} / {current.name}
+            {(current.collection || "BANARASI").replace(/-/g, " ").toUpperCase()} /{" "}
+            {(current.category || "SAREES").replace(/-/g, " ").toUpperCase()} / {current.name}
           </span>
         </div>
       </div>
@@ -536,22 +548,16 @@ return clips.slice(0, 5);
                   onClick={() => {
                     setShowVideo(false);
                     setSelectedImageOverride(thumbUrl);
-                    const matchingColor = colorOptions.find(
-                      (c) => safeImgSrc(c.image) === thumbUrl
-                    );
-                    if (matchingColor) {
-                      setSelectedColorwayId(matchingColor.id || matchingColor._id);
-                    }
                   }}
                   style={{
                     width: isMobileView ? "60px" : "68px",
-                    height: isMobileView ? "60px" : "68px",
-                    padding: "4px",
+                    height: isMobileView ? "74px" : "84px",
+                    padding: "3px",
                     borderRadius: "8px",
                     border: isThumbActive
-                      ? "1.5px solid #0F172A"
+                      ? "1.5px solid #7A1C24"
                       : "1px solid #E2E8F0",
-                    background: "#F8F8F8",
+                    background: "#FAF7F2",
                     boxShadow: "0 1px 4px rgba(15, 23, 42, 0.06)",
                     cursor: "pointer",
                     overflow: "hidden",
@@ -568,8 +574,10 @@ return clips.slice(0, 5);
                     style={{
                       width: "100%",
                       height: "100%",
-                      objectFit: "contain",
-                      display: "block"
+                      objectFit: "cover",
+                      objectPosition: "50% 20%",
+                      display: "block",
+                      borderRadius: "5px"
                     }}
                   />
                 </button>
@@ -582,7 +590,7 @@ return clips.slice(0, 5);
             style={{
               flex: 1,
               width: "100%",
-              background: "transparent",
+              background: "#FAF7F2",
               border: "0",
               boxShadow: "none",
               borderRadius: "0",
@@ -590,7 +598,7 @@ return clips.slice(0, 5);
               position: "relative",
               maxHeight: isMobileView
                 ? undefined
-                : `${Number(homepage?.productPage?.galleryMaxHeightPx) || 560}px`
+                : `${Number(homepage?.productPage?.galleryMaxHeightPx) || 600}px`
             }}
           >
             {showVideo && currentVideo ? (
@@ -603,7 +611,7 @@ return clips.slice(0, 5);
                 playsInline
                 controls
                 onError={() => setShowVideo(false)}
-                style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
               <img
@@ -611,11 +619,11 @@ return clips.slice(0, 5);
                 alt={current.name}
                 style={{
                   width: "100%",
-                  height: "100%",
-                  objectFit: current.imageFit || "contain",
-                  objectPosition: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`,
+                  height: isMobileView ? "auto" : "100%",
+                  objectFit: current.imageFit === "contain" ? "contain" : "cover",
+                  objectPosition: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 20}%`,
                   transform: `scale(${Number(current.imageZoom) || 1})`,
-                  transformOrigin: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 50}%`
+                  transformOrigin: `${current.imagePosX ?? 50}% ${current.imagePosY ?? 20}%`
                 }}
                 onError={(e) => {
                   e.currentTarget.onerror = null;
@@ -662,7 +670,7 @@ return clips.slice(0, 5);
                   className={showVideo ? "active" : ""}
                   onClick={() => setShowVideo(true)}
                 >
-                  <Film size={11} /> MOTION FIT
+                  <Film size={11} /> DRAPE VIEW
                 </button>
               </div>
             )}
@@ -704,6 +712,41 @@ return clips.slice(0, 5);
               </span>
             )}
           </div>
+
+          {sareeSpecs.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(115px, 1fr))",
+                gap: "8px",
+                padding: "10px 12px",
+                marginBottom: "14px",
+                borderRadius: "10px",
+                background: "var(--surface, #F3ECE1)",
+                border: "1px solid var(--line, rgba(0,0,0,0.08))"
+              }}
+            >
+              {sareeSpecs.map((spec) => (
+                <div key={spec.label}>
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: "9.5px",
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "var(--muted, #64748B)"
+                    }}
+                  >
+                    {spec.label}
+                  </span>
+                  <strong style={{ fontSize: "12px", color: "var(--ink, #231917)" }}>
+                    {spec.value}
+                  </strong>
+                </div>
+              ))}
+            </div>
+          )}
 
           {variantList.length > 0 && (
             <div className="size-block" style={{ marginBottom: "14px" }}>
@@ -757,7 +800,7 @@ return clips.slice(0, 5);
                     gap: "6px"
                   }}
                 >
-                  <Play size={11} fill="currentColor" /> SEE IT IN ACTION (SHORT PLAY)
+                  <Play size={11} fill="currentColor" /> SEE THE DRAPE IN MOTION
                 </span>
                 <span style={{ fontSize: "11px", opacity: 0.65 }}>
                   Tap to watch
@@ -792,10 +835,10 @@ return clips.slice(0, 5);
                         height: "126px",
                         borderRadius: "12px",
                         border: isSelected
-                          ? "2px solid #2563EB"
-                          : "2px solid #0645B8",
+                          ? "2px solid #7A1C24"
+                          : "2px solid #A8323E",
                         padding: "2px",
-                        background: "#0B0D12",
+                        background: "#1A1210",
                         position: "relative",
                         overflow: "hidden",
                         cursor: "pointer"
@@ -861,7 +904,7 @@ return clips.slice(0, 5);
                             height: "22px",
                             borderRadius: "999px",
                             background: "rgba(255,255,255,0.92)",
-                            color: "#0F172A",
+                            color: "#231917",
                             display: "grid",
                             placeItems: "center",
                             marginTop: "28px"
@@ -891,7 +934,7 @@ return clips.slice(0, 5);
           <div className="pdp-offers-box">
             <div className="pdp-offers-head">
               <Tag size={14} />
-              <strong>Offers</strong>
+              <strong>Festive Offers</strong>
               <span>Auto applies at checkout</span>
             </div>
             <div className="pdp-offer-cards">
@@ -899,13 +942,13 @@ return clips.slice(0, 5);
                 <span className="pdp-offer-pill blue">
                   {pdpCfg.offer1Badge || "10% OFF"}
                 </span>
-                <span>{pdpCfg.offer1Text || "Buy 2 Pairs"}</span>
+                <span>{pdpCfg.offer1Text || "Buy 2 Sarees"}</span>
               </div>
               <div className="pdp-offer-card green">
                 <span className="pdp-offer-pill green">
                   {pdpCfg.offer2Badge || "15% OFF"}
                 </span>
-                <span>{pdpCfg.offer2Text || "Buy 3 Pairs"}</span>
+                <span>{pdpCfg.offer2Text || "Buy 3 Sarees"}</span>
               </div>
             </div>
           </div>
@@ -913,7 +956,7 @@ return clips.slice(0, 5);
           {activeColorLabel && (
             <div>
               <span className="size-label" style={{ marginBottom: "6px" }}>
-                Colors:{" "}
+                Shade:{" "}
                 <strong style={{ color: "var(--ink)" }}>{activeColorLabel}</strong>
               </span>
               <div className="pdp-swatch-row">
@@ -951,7 +994,11 @@ return clips.slice(0, 5);
 
           <div className="size-block">
             <div className="size-head-row">
-              <span className="size-label">Select Shoe size: UK/India</span>
+              <span className="size-label">
+                {sizes.length === 1 && sizes[0] === "Free Size"
+                  ? "Size: Free Size (5.5m Saree + 0.8m Blouse)"
+                  : "Select Size"}
+              </span>
             </div>
             <div className="size-grid">
               {sizes.map((sz) => (
@@ -992,8 +1039,8 @@ return clips.slice(0, 5);
               onClick={handleAddSelection}
             >
               {addedFeedback
-                ? `ADDED (${quantity}) TO CART ✓`
-                : `ADD TO CART — ${formatPrice(priceNum * quantity)}`}
+                ? `ADDED (${quantity}) TO BAG ✓`
+                : `ADD TO BAG — ${formatPrice(priceNum * quantity)}`}
             </button>
 
             <button
@@ -1012,7 +1059,7 @@ return clips.slice(0, 5);
               marginTop: "14px",
               padding: "10px 12px",
               borderRadius: "10px",
-              background: "var(--surface, #f2f1eb)",
+              background: "var(--surface, #F3ECE1)",
               border: "1px solid var(--line, rgba(0,0,0,0.08))",
               display: "flex",
               flexWrap: "wrap",
@@ -1023,7 +1070,7 @@ return clips.slice(0, 5);
             }}
           >
             <span style={{ fontWeight: 600, color: "var(--ink)" }}>
-              Partial COD • Ships in 24–48 hrs • 7-Day Swap
+              Partial COD • Ships in 24–48 hrs • 48-Hour Easy Returns
             </span>
             <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
               {["UPI", "RuPay", "VISA", "Mastercard", "Razorpay"].map((badge) => (
@@ -1056,7 +1103,7 @@ return clips.slice(0, 5);
             >
               {[
                 { key: "description", label: "Description" },
-                { key: "features", label: "Key Features" },
+                { key: "features", label: "Weave & Care" },
                 { key: "shipping", label: "Shipping & Returns" }
               ].map((tab) => (
                 <button
@@ -1068,7 +1115,7 @@ return clips.slice(0, 5);
                     border: 0,
                     borderBottom:
                       activeInfoTab === tab.key
-                        ? "2px solid var(--ink, #1e211d)"
+                        ? "2px solid var(--ink, #231917)"
                         : "2px solid transparent",
                     padding: "8px 0",
                     fontSize: "12px",
@@ -1085,37 +1132,44 @@ return clips.slice(0, 5);
             {activeInfoTab === "description" && (
               <p className="pdp-desc" style={{ margin: 0 }}>
                 {current.description ||
-                  "Engineered for everyday comfort with lightweight cushioning and durable grip."}
+                  "Handpicked silk drape crafted for effortless pleating, rich zari finish, and timeless festive grace."}
               </p>
             )}
 
             {activeInfoTab === "features" && (
-              <ul className="pdp-highlights" style={{ margin: 0 }}>
-                {(current.highlights?.length
-                  ? current.highlights
-                  : [
-                      "Dual-density memory footbed",
-                      "Lightweight all-day construction",
-                      "Anti-slip everyday outsole"
-                    ]
-                ).map((item, idx) => (
-                  <li key={idx}>
-                    <Check size={14} /> {item}
-                  </li>
-                ))}
-              </ul>
+              <div style={{ display: "grid", gap: "10px" }}>
+                <ul className="pdp-highlights" style={{ margin: 0 }}>
+                  {(current.highlights?.length
+                    ? current.highlights
+                    : [
+                        "5.5m Saree with 0.8m matching unstitched blouse piece",
+                        "Lightweight, easy-to-pleat festive drape",
+                        "Hand-checked zari & weave quality"
+                      ]
+                  ).map((item, idx) => (
+                    <li key={idx}>
+                      <Check size={14} /> {item}
+                    </li>
+                  ))}
+                </ul>
+                {current.careInstructions && (
+                  <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
+                    <strong>Care:</strong> {current.careInstructions}
+                  </p>
+                )}
+              </div>
             )}
 
             {activeInfoTab === "shipping" && (
               <div style={{ fontSize: "12.5px", lineHeight: 1.7, color: "var(--muted)" }}>
                 <p style={{ margin: "0 0 6px" }}>
                   <strong>Dispatch:</strong>{" "}
-                  {current.dispatchNotice || "Orders processed within 1–2 business days."}
+                  {current.dispatchNotice || "Orders dispatched within 24–48 business hours."}
                 </p>
                 <p style={{ margin: 0 }}>
                   <strong>Returns & Exchange:</strong>{" "}
                   {current.returnDetails ||
-                    "7-day easy UK size exchange on unworn pairs in original packaging."}
+                    "48-hour easy return and exchange on unused, unwashed sarees with original tags intact."}
                 </p>
               </div>
             )}
@@ -1220,12 +1274,12 @@ return clips.slice(0, 5);
         <section className="shop-section section-pad">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">RECOMMENDED FOR YOUR ROTATION</p>
+              <p className="eyebrow">RECOMMENDED FOR YOUR WARDROBE</p>
               <h2>
                 Suggested <em>for you.</em>
               </h2>
             </div>
-            <span className="product-count">CURATED PICKS</span>
+            <span className="product-count">CURATED WEAVES</span>
           </div>
 
           <div
@@ -1237,7 +1291,7 @@ return clips.slice(0, 5);
           >
             {suggestedItems.map((item) => {
               const itemId = item.id || item._id;
-              const defaultSz = item.sizes?.[2] || item.sizes?.[0] || "UK 8";
+              const defaultSz = item.sizes?.[0] || "Free Size";
               return (
                 <article key={itemId} className="product-card">
                   <div
@@ -1247,6 +1301,7 @@ return clips.slice(0, 5);
                     <img
                       src={safeImgSrc(item.image)}
                       alt={item.name}
+                      style={{ objectFit: "cover", objectPosition: "50% 20%" }}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
                         e.currentTarget.style.display = "none";
@@ -1272,7 +1327,7 @@ return clips.slice(0, 5);
                   >
                     <div>
                       <h3>{item.name}</h3>
-                      <p>{item.color}</p>
+                      <p>{item.fabric || item.color}</p>
                     </div>
                     <strong>{formatPrice(item.price)}</strong>
                   </div>
@@ -1556,7 +1611,7 @@ return clips.slice(0, 5);
                         border: "1px solid rgba(255,255,255,0.35)",
                         background:
                           selectedSize === sz ? "#FFFFFF" : "transparent",
-                        color: selectedSize === sz ? "#0F172A" : "#FFFFFF",
+                        color: selectedSize === sz ? "#231917" : "#FFFFFF",
                         fontSize: "10.5px",
                         fontWeight: 700,
                         cursor: "pointer"
@@ -1580,7 +1635,7 @@ return clips.slice(0, 5);
                     borderRadius: "999px",
                     border: 0,
                     background: "#FFFFFF",
-                    color: "#0F172A",
+                    color: "#231917",
                     fontSize: "11.5px",
                     fontWeight: 800,
                     letterSpacing: "0.1em",
@@ -1605,7 +1660,7 @@ return clips.slice(0, 5);
             <span>({productReviews.length} Customer Reviews)</span>
           </div>
           <p className="calzare-reviews-sub">
-            Honest reviews from customers walking in real rain, heat, and city transit.
+            Honest reviews from women draping Al-Zehra Silk across weddings and celebrations.
           </p>
         </div>
 
@@ -1637,14 +1692,14 @@ return clips.slice(0, 5);
 
         <div className="calzare-standard-block">
           <h2 className="calzare-standard-title">
-            {pdpCfg.standardTitle || "THE CALZARE STANDARD"}
+            {pdpCfg.standardTitle || "THE AL-ZEHRA SILK PROMISE"}
           </h2>
           <p className="calzare-standard-sub">
-            {pdpCfg.standardSubtitle || "Built with science. Tested with life."}
+            {pdpCfg.standardSubtitle || "Authentic weaves. Hand-checked before dispatch."}
           </p>
 
           <div className="calzare-standard-grid">
-            {CALZARE_STANDARD_CARDS.map((item) => {
+            {BRAND_PROMISE_CARDS.map((item) => {
               const IconComp = item.icon;
               return (
                 <div className="calzare-standard-card" key={item.id}>
@@ -1668,18 +1723,18 @@ return clips.slice(0, 5);
         </div>
         <div className="pdp-guarantee-cell">
           <Truck size={22} />
-          <strong>Delivery</strong>
+          <strong>Fast dispatch</strong>
           <span>Ships within 24–48 hours across India</span>
         </div>
         <div className="pdp-guarantee-cell">
           <RefreshCw size={22} />
-          <strong>Returns</strong>
-          <span>7-day easy UK size exchange</span>
+          <strong>Easy returns</strong>
+          <span>48-hour hassle-free return & exchange</span>
         </div>
         <div className="pdp-guarantee-cell">
           <Sparkles size={22} />
-          <strong>Customer Service</strong>
-          <span>Dedicated support for sizing & orders</span>
+          <strong>Customer Support</strong>
+          <span>Dedicated help for draping & orders</span>
         </div>
       </div>
 
@@ -1707,6 +1762,7 @@ return clips.slice(0, 5);
                     <img
                       src={safeImgSrc(item.image)}
                       alt={item.name}
+                      style={{ objectFit: "cover", objectPosition: "50% 20%" }}
                       onError={(e) => {
                         e.currentTarget.onerror = null;
                         e.currentTarget.style.display = "none";
@@ -1716,7 +1772,7 @@ return clips.slice(0, 5);
                   <div className="product-meta">
                     <div>
                       <h3>{item.name}</h3>
-                      <p>{item.color}</p>
+                      <p>{item.fabric || item.color}</p>
                     </div>
                     <strong>{formatPrice(item.price)}</strong>
                   </div>
@@ -1752,7 +1808,7 @@ return clips.slice(0, 5);
               padding: "10px 8px",
               borderRadius: "8px",
               border: "1px solid rgba(0,0,0,0.2)",
-              background: "#F8FAFC",
+              background: "#FAF7F2",
               fontSize: "12px",
               fontWeight: 700
             }}
@@ -1771,8 +1827,8 @@ return clips.slice(0, 5);
             style={{ flex: 1, margin: 0, padding: "12px 14px", borderRadius: "999px" }}
           >
             {addedFeedback
-              ? `ADDED (${quantity}) TO CART ✓`
-              : `ADD TO CART — ${formatPrice(priceNum * quantity)}`}
+              ? `ADDED (${quantity}) TO BAG ✓`
+              : `ADD TO BAG — ${formatPrice(priceNum * quantity)}`}
           </button>
         </div>
       )}

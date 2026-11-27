@@ -12,36 +12,34 @@ import {
   X
 } from "lucide-react";
 
-const COUPONS_STORAGE_KEY = "calzare_coupons_v1";
-const HOMEPAGE_STORAGE_KEY = "calzare_homepage_v1";
+const COUPONS_STORAGE_KEY = "alzehrasilk_coupons_v1";
+const HOMEPAGE_STORAGE_KEY = "alzehrasilk_homepage_v1";
 
-function readCartRewardBannerCfg() {
+const DEFAULT_REWARD_CFG = {
+  b2g1UnlockedTemplate: "1 SAREE FREE unlocked ({freeItemName})!",
+  emptyHeadline: "Buy 2 sarees for 10% OFF • Buy 3 sarees & get 1 SAREE FREE!",
+  onePairHeadline: "Add 1 more saree to unlock 10% OFF on your order!",
+  twoPairHeadline: "10% OFF unlocked! Add 1 more saree to get 1 SAREE FREE!",
+  b2g1SavingsLabel: "Buy 3 Get 1 FREE Savings",
+  b2g10SavingsLabel: "Buy 2 Get 10% OFF",
+  milestone1Label: "FREE PREPAID SHIP",
+  milestone2Label: "2 SAREES: 10% OFF",
+  milestone3Label: "3 SAREES: 1 FREE"
+};
+
+function readCartRewardBannerCfg(backendCfg) {
+  if (backendCfg && typeof backendCfg === "object") {
+    return { ...DEFAULT_REWARD_CFG, ...backendCfg };
+  }
   try {
-    const saved = JSON.parse(localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null");
+    const saved = JSON.parse(
+      localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null"
+    );
     if (saved?.cartRewardBanner && typeof saved.cartRewardBanner === "object") {
-      return {
-        b2g1UnlockedTemplate:
-          saved.cartRewardBanner.b2g1UnlockedTemplate ||
-          "1 PAIR FREE unlocked ({freeItemName})!",
-        emptyHeadline:
-          saved.cartRewardBanner.emptyHeadline ||
-          "Buy 2 pairs for 10% OFF • Buy 3 pairs & get 1 PAIR FREE!",
-        onePairHeadline:
-          saved.cartRewardBanner.onePairHeadline ||
-          "Add 1 more pair to unlock 10% OFF on your order!",
-        twoPairHeadline:
-          saved.cartRewardBanner.twoPairHeadline ||
-          "10% OFF unlocked! Add 1 more pair to get 1 PAIR FREE!"
-      };
+      return { ...DEFAULT_REWARD_CFG, ...saved.cartRewardBanner };
     }
   } catch (_) {}
-
-  return {
-    b2g1UnlockedTemplate: "1 PAIR FREE unlocked ({freeItemName})!",
-    emptyHeadline: "Buy 2 pairs for 10% OFF • Buy 3 pairs & get 1 PAIR FREE!",
-    onePairHeadline: "Add 1 more pair to unlock 10% OFF on your order!",
-    twoPairHeadline: "10% OFF unlocked! Add 1 more pair to get 1 PAIR FREE!"
-  };
+  return DEFAULT_REWARD_CFG;
 }
 
 function safeDrawerImg(url) {
@@ -53,7 +51,8 @@ function safeDrawerImg(url) {
   return clean;
 }
 
-export function readStoredCoupons() {
+export function readStoredCoupons(backendCoupons) {
+  if (Array.isArray(backendCoupons)) return backendCoupons;
   try {
     const raw = JSON.parse(localStorage.getItem(COUPONS_STORAGE_KEY) || "null");
     return Array.isArray(raw) ? raw : [];
@@ -62,18 +61,37 @@ export function readStoredCoupons() {
   }
 }
 
-export function readPromoBoxConfig() {
+export function readPromoBoxConfig(backendPromoCfg) {
+  if (backendPromoCfg && typeof backendPromoCfg === "object") {
+    return {
+      enabled: backendPromoCfg.enabled !== false,
+      position:
+        backendPromoCfg.position === "inside-scroll" ? "inside-scroll" : "top",
+      title: backendPromoCfg.title || "Have a promo code?",
+      placeholder: backendPromoCfg.placeholder || "Enter coupon code",
+      applyLabel: backendPromoCfg.applyLabel || "APPLY"
+    };
+  }
   try {
     const hp = JSON.parse(localStorage.getItem(HOMEPAGE_STORAGE_KEY) || "null");
     if (hp?.cartPromoBox && typeof hp.cartPromoBox === "object") {
       return {
         enabled: hp.cartPromoBox.enabled !== false,
         position:
-          hp.cartPromoBox.position === "inside-scroll" ? "inside-scroll" : "top"
+          hp.cartPromoBox.position === "inside-scroll" ? "inside-scroll" : "top",
+        title: hp.cartPromoBox.title || "Have a promo code?",
+        placeholder: hp.cartPromoBox.placeholder || "Enter coupon code",
+        applyLabel: hp.cartPromoBox.applyLabel || "APPLY"
       };
     }
   } catch (_) {}
-  return { enabled: true, position: "top" };
+  return {
+    enabled: true,
+    position: "top",
+    title: "Have a promo code?",
+    placeholder: "Enter coupon code",
+    applyLabel: "APPLY"
+  };
 }
 
 export function isCouponActive(cp) {
@@ -125,31 +143,63 @@ export function CartDrawer({
   onCheckout,
   money,
   promoBoxSetting,
-  rewardBannerSetting
+  rewardBannerSetting,
+  storeSettings = {},
+  homepage = {}
 }) {
   const [upsellSizes, setUpsellSizes] = useState({});
-  const [localCoupons, setLocalCoupons] = useState(() => readStoredCoupons());
-  const [localPromoCfg, setLocalPromoCfg] = useState(() => readPromoBoxConfig());
+  const backendCoupons = storeSettings?.coupons;
+  const backendPromo =
+    promoBoxSetting || storeSettings?.cartPromoBox || homepage?.cartPromoBox;
+  const backendReward =
+    rewardBannerSetting ||
+    storeSettings?.cartRewardBanner ||
+    homepage?.cartRewardBanner;
+
+  const [localCoupons, setLocalCoupons] = useState(() =>
+    readStoredCoupons(backendCoupons)
+  );
+  const [localPromoCfg, setLocalPromoCfg] = useState(() =>
+    readPromoBoxConfig(backendPromo)
+  );
   const [localRewardCfg, setLocalRewardCfg] = useState(() =>
-    readCartRewardBannerCfg()
+    readCartRewardBannerCfg(backendReward)
   );
   const [localInput, setLocalInput] = useState("");
   const [localApplied, setLocalApplied] = useState(null);
   const [localError, setLocalError] = useState("");
 
   useEffect(() => {
+    setLocalCoupons(readStoredCoupons(backendCoupons));
+  }, [backendCoupons]);
+
+  useEffect(() => {
+    setLocalPromoCfg(readPromoBoxConfig(backendPromo));
+  }, [backendPromo]);
+
+  useEffect(() => {
+    setLocalRewardCfg(readCartRewardBannerCfg(backendReward));
+  }, [backendReward]);
+
+  useEffect(() => {
     const sync = () => {
-      setLocalCoupons(readStoredCoupons());
-      setLocalPromoCfg(readPromoBoxConfig());
-      setLocalRewardCfg(readCartRewardBannerCfg());
+      if (!Array.isArray(backendCoupons)) {
+        setLocalCoupons(readStoredCoupons());
+      }
+      if (!backendPromo) {
+        setLocalPromoCfg(readPromoBoxConfig());
+      }
+      if (!backendReward) {
+        setLocalRewardCfg(readCartRewardBannerCfg());
+      }
     };
-    window.addEventListener("calzare_store_updated", sync);
+    window.addEventListener("alzehrasilk_store_updated", sync);
     window.addEventListener("storage", sync);
     return () => {
-      window.removeEventListener("calzare_store_updated", sync);
+      window.removeEventListener("alzehrasilk_store_updated", sync);
       window.removeEventListener("storage", sync);
     };
-  }, []);
+  }, [backendCoupons, backendPromo, backendReward]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -170,7 +220,11 @@ export function CartDrawer({
       ? money
       : (val) => `₹${Number(val || 0).toLocaleString("en-IN")}`;
 
-  const activePromoCfg = promoBoxSetting || localPromoCfg;
+  const cartCopy = storeSettings?.cartCopy || homepage?.cartCopy || {};
+  const accentColor =
+    storeSettings?.accentColor || homepage?.accentColor || "#7A1C24";
+
+  const activePromoCfg = localPromoCfg;
   const showPromoBox = activePromoCfg?.enabled !== false;
   const promoAtTop = (activePromoCfg?.position || "top") === "top";
 
@@ -206,7 +260,7 @@ export function CartDrawer({
     if (onApplyCoupon) return onApplyCoupon();
     const code = String(localInput || "").trim().toUpperCase();
     if (!code) {
-      setLocalError("Please enter a coupon code.");
+      setLocalError(cartCopy.emptyCouponError || "Please enter a coupon code.");
       return;
     }
     const found = localCoupons.find(
@@ -238,41 +292,23 @@ export function CartDrawer({
     setLocalError("");
   }
 
-  const activeRewardCfg = {
-    ...localRewardCfg,
-    ...(rewardBannerSetting || {})
-  };
+  const activeRewardCfg = localRewardCfg;
 
   const rewardProgress = useMemo(() => {
     if (cartCount === 0) {
-      return {
-        percent: 10,
-        headline:
-          activeRewardCfg.emptyHeadline ||
-          "Buy 2 pairs for 10% OFF • Buy 3 pairs & get 1 PAIR FREE!"
-      };
+      return { percent: 10, headline: activeRewardCfg.emptyHeadline };
     }
     if (cartCount === 1) {
-      return {
-        percent: 48,
-        headline:
-          activeRewardCfg.onePairHeadline ||
-          "Add 1 more pair to unlock 10% OFF on your order!"
-      };
+      return { percent: 48, headline: activeRewardCfg.onePairHeadline };
     }
     if (cartCount === 2) {
-      return {
-        percent: 78,
-        headline:
-          activeRewardCfg.twoPairHeadline ||
-          "10% OFF unlocked! Add 1 more pair to get 1 PAIR FREE!"
-      };
+      return { percent: 78, headline: activeRewardCfg.twoPairHeadline };
     }
     const rawTemplate =
       activeRewardCfg.b2g1UnlockedTemplate !== undefined &&
       activeRewardCfg.b2g1UnlockedTemplate !== ""
         ? activeRewardCfg.b2g1UnlockedTemplate
-        : "1 PAIR FREE unlocked ({freeItemName})!";
+        : DEFAULT_REWARD_CFG.b2g1UnlockedTemplate;
 
     return {
       percent: 100,
@@ -294,8 +330,8 @@ export function CartDrawer({
       style={{
         padding: "12px",
         borderRadius: "12px",
-        border: "1px dashed #CBD5E1",
-        background: "#F8FAFC"
+        border: "1px dashed #D6C7B8",
+        background: "#FAF7F2"
       }}
     >
       <div
@@ -306,10 +342,10 @@ export function CartDrawer({
           fontSize: "11.5px",
           fontWeight: 700,
           marginBottom: "8px",
-          color: "#0F172A"
+          color: "#231917"
         }}
       >
-        <Tag size={13} /> Have a promo code?
+        <Tag size={13} /> {activePromoCfg.title}
       </div>
 
       {activeCoupon ? (
@@ -343,23 +379,21 @@ export function CartDrawer({
               cursor: "pointer"
             }}
           >
-            Remove
+            {cartCopy.removeCouponLabel || "Remove"}
           </button>
         </div>
       ) : (
         <div style={{ display: "flex", gap: "6px" }}>
           <input
             type="text"
-            placeholder="Enter coupon code"
+            placeholder={activePromoCfg.placeholder}
             value={activeInput}
-            onChange={(e) =>
-              handleInputChange?.(e.target.value.toUpperCase())
-            }
+            onChange={(e) => handleInputChange?.(e.target.value.toUpperCase())}
             style={{
               flex: 1,
               padding: "8px 10px",
               borderRadius: "8px",
-              border: "1px solid #CBD5E1",
+              border: "1px solid #D6C7B8",
               fontSize: "12px",
               background: "#FFFFFF"
             }}
@@ -371,7 +405,7 @@ export function CartDrawer({
               padding: "8px 14px",
               borderRadius: "8px",
               border: 0,
-              background: "#111827",
+              background: accentColor,
               color: "#FFFFFF",
               fontSize: "11px",
               fontWeight: 700,
@@ -379,7 +413,7 @@ export function CartDrawer({
               cursor: "pointer"
             }}
           >
-            APPLY
+            {activePromoCfg.applyLabel}
           </button>
         </div>
       )}
@@ -408,7 +442,7 @@ export function CartDrawer({
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(15, 23, 42, 0.52)",
+          background: "rgba(35, 25, 23, 0.52)",
           backdropFilter: "blur(3px)",
           opacity: isOpen ? 1 : 0,
           transition: "opacity 0.3s ease"
@@ -418,7 +452,7 @@ export function CartDrawer({
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Shopping Cart"
+        aria-label={cartCopy.drawerTitle || "Shopping Bag"}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "fixed",
@@ -427,7 +461,7 @@ export function CartDrawer({
           bottom: 0,
           width: "min(440px, 100vw)",
           background: "#FFFFFF",
-          color: "#111827",
+          color: "#231917",
           boxShadow: "-16px 0 48px rgba(0, 0, 0, 0.18)",
           display: "flex",
           flexDirection: "column",
@@ -442,7 +476,7 @@ export function CartDrawer({
             alignItems: "center",
             justifyContent: "space-between",
             padding: "16px 20px",
-            borderBottom: "1px solid #E5E7EB",
+            borderBottom: "1px solid #E8DFD5",
             background: "#FFFFFF",
             flexShrink: 0
           }}
@@ -457,7 +491,7 @@ export function CartDrawer({
                 textTransform: "uppercase"
               }}
             >
-              Shopping Cart ({cartCount})
+              {cartCopy.drawerTitle || "Shopping Bag"} ({cartCount})
             </h2>
             {totalSavings > 0 && (
               <span
@@ -477,15 +511,15 @@ export function CartDrawer({
 
           <button
             type="button"
-            aria-label="Close cart"
+            aria-label="Close bag"
             onClick={onClose}
             style={{
               width: "32px",
               height: "32px",
               borderRadius: "999px",
-              border: "1px solid #E5E7EB",
-              background: "#F9FAFB",
-              color: "#111827",
+              border: "1px solid #E8DFD5",
+              background: "#FAF7F2",
+              color: "#231917",
               display: "grid",
               placeItems: "center",
               cursor: "pointer"
@@ -516,7 +550,7 @@ export function CartDrawer({
                   width: "8px",
                   height: "8px",
                   borderRadius: "999px",
-                  background: ["#03226B", "#10B981", "#F59E0B", "#2563EB"][i % 4]
+                  background: [accentColor, "#C9A66B", "#10B981", "#F59E0B"][i % 4]
                 }}
               />
             ))}
@@ -526,8 +560,8 @@ export function CartDrawer({
         <div
           style={{
             padding: "12px 20px",
-            background: "#F4F6FA",
-            borderBottom: "1px solid #E5E7EB",
+            background: "#FAF7F2",
+            borderBottom: "1px solid #E8DFD5",
             flexShrink: 0
           }}
         >
@@ -536,7 +570,7 @@ export function CartDrawer({
               margin: "0 0 8px",
               fontSize: "12px",
               fontWeight: 600,
-              color: "#0F172A",
+              color: "#231917",
               textAlign: "center"
             }}
           >
@@ -547,7 +581,7 @@ export function CartDrawer({
             style={{
               height: "6px",
               borderRadius: "999px",
-              background: "#DCE3F0",
+              background: "#E8DFD5",
               overflow: "hidden",
               marginBottom: "8px"
             }}
@@ -556,7 +590,7 @@ export function CartDrawer({
               style={{
                 height: "100%",
                 width: `${rewardProgress.percent}%`,
-                background: "linear-gradient(90deg, #03226B 0%, #16A34A 100%)",
+                background: `linear-gradient(90deg, ${accentColor} 0%, #16A34A 100%)`,
                 borderRadius: "999px",
                 transition: "width 0.35s ease"
               }}
@@ -570,17 +604,20 @@ export function CartDrawer({
               fontSize: "10px",
               fontWeight: 700,
               letterSpacing: "0.04em",
-              color: "#64748B"
+              color: "#6B5E57"
             }}
           >
-            <span style={{ color: cartCount >= 1 ? "#15803D" : "#64748B" }}>
-              {cartCount >= 1 ? "✓ " : ""}FREE PREPAID SHIP
+            <span style={{ color: cartCount >= 1 ? "#15803D" : "#6B5E57" }}>
+              {cartCount >= 1 ? "✓ " : ""}
+              {activeRewardCfg.milestone1Label}
             </span>
-            <span style={{ color: cartCount >= 2 ? "#15803D" : "#64748B" }}>
-              {cartCount >= 2 ? "✓ " : ""}2 PAIRS: 10% OFF
+            <span style={{ color: cartCount >= 2 ? "#15803D" : "#6B5E57" }}>
+              {cartCount >= 2 ? "✓ " : ""}
+              {activeRewardCfg.milestone2Label}
             </span>
-            <span style={{ color: cartCount >= 3 ? "#15803D" : "#64748B" }}>
-              {cartCount >= 3 ? "✓ " : ""}3 PAIRS: 1 FREE
+            <span style={{ color: cartCount >= 3 ? "#15803D" : "#6B5E57" }}>
+              {cartCount >= 3 ? "✓ " : ""}
+              {activeRewardCfg.milestone3Label}
             </span>
           </div>
         </div>
@@ -589,7 +626,7 @@ export function CartDrawer({
           <div
             style={{
               padding: "10px 20px",
-              borderBottom: "1px solid #E5E7EB",
+              borderBottom: "1px solid #E8DFD5",
               background: "#FFFFFF",
               flexShrink: 0
             }}
@@ -625,7 +662,7 @@ export function CartDrawer({
                       borderRadius: "12px",
                       border: isFreeGiftItem
                         ? "1.5px solid #86EFAC"
-                        : "1px solid #E5E7EB",
+                        : "1px solid #E8DFD5",
                       background: isFreeGiftItem ? "#F0FDF4" : "#FFFFFF"
                     }}
                   >
@@ -638,10 +675,11 @@ export function CartDrawer({
                       }}
                       style={{
                         width: "76px",
-                        height: "76px",
+                        height: "92px",
                         borderRadius: "10px",
                         objectFit: "cover",
-                        background: "#F5F5F5",
+                        objectPosition: "50% 20%",
+                        background: "#FAF7F2",
                         flexShrink: 0
                       }}
                     />
@@ -678,8 +716,14 @@ export function CartDrawer({
                         </button>
                       </div>
 
-                      <p style={{ margin: "3px 0 6px", fontSize: "11px", color: "#6B7280" }}>
-                        Size: <strong>{item.size}</strong>
+                      <p
+                        style={{
+                          margin: "3px 0 6px",
+                          fontSize: "11px",
+                          color: "#6B5E57"
+                        }}
+                      >
+                        Size: <strong>{item.size || "Free Size"}</strong>
                         {item.color ? ` • ${item.color}` : ""}
                       </p>
 
@@ -698,7 +742,8 @@ export function CartDrawer({
                             marginBottom: "6px"
                           }}
                         >
-                          <Gift size={11} /> 1 PAIR FREE APPLIED
+                          <Gift size={11} />{" "}
+                          {cartCopy.freeBadgeLabel || "1 SAREE FREE APPLIED"}
                         </div>
                       )}
 
@@ -732,7 +777,7 @@ export function CartDrawer({
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
-                            border: "1px solid #D1D5DB",
+                            border: "1px solid #D6C7B8",
                             borderRadius: "999px",
                             overflow: "hidden",
                             background: "#FFFFFF"
@@ -797,10 +842,10 @@ export function CartDrawer({
                       fontWeight: 700,
                       letterSpacing: "0.08em",
                       textTransform: "uppercase",
-                      color: "#334155"
+                      color: "#6B5E57"
                     }}
                   >
-                    Pairs Well With
+                    {cartCopy.upsellHeading || "Style It With"}
                   </span>
                   <div
                     style={{
@@ -811,16 +856,14 @@ export function CartDrawer({
                     }}
                   >
                     {upsellProducts.map((u) => {
-                      const sizes = u.sizes?.length
-                        ? u.sizes
-                        : ["UK 6", "UK 7", "UK 8", "UK 9", "UK 10"];
-                      const chosenSz = upsellSizes[u.id] || sizes[2] || sizes[0];
+                      const sizes = u.sizes?.length ? u.sizes : ["Free Size"];
+                      const chosenSz = upsellSizes[u.id] || sizes[0];
                       return (
                         <div
                           key={u.id}
                           style={{
                             flex: "0 0 152px",
-                            border: "1px solid #E5E7EB",
+                            border: "1px solid #E8DFD5",
                             borderRadius: "10px",
                             padding: "8px",
                             background: "#FFFFFF",
@@ -838,10 +881,11 @@ export function CartDrawer({
                             }}
                             style={{
                               width: "100%",
-                              height: "86px",
+                              height: "96px",
                               objectFit: "cover",
+                              objectPosition: "50% 20%",
                               borderRadius: "7px",
-                              background: "#F5F5F5"
+                              background: "#FAF7F2"
                             }}
                           />
                           <strong
@@ -858,47 +902,49 @@ export function CartDrawer({
                             {formatMoney(u.price)}
                           </span>
                           <div style={{ display: "flex", gap: "4px", marginTop: "auto" }}>
-                            <select
-                              aria-label={`Select size for ${u.name}`}
-                              value={chosenSz}
-                              onChange={(e) =>
-                                setUpsellSizes((prev) => ({
-                                  ...prev,
-                                  [u.id]: e.target.value
-                                }))
-                              }
-                              style={{
-                                width: "64px",
-                                padding: "5px 4px",
-                                borderRadius: "6px",
-                                border: "1px solid #D1D5DB",
-                                fontSize: "10px",
-                                fontWeight: 600,
-                                background: "#F9FAFB"
-                              }}
-                            >
-                              {sizes.map((sz) => (
-                                <option key={sz} value={sz}>
-                                  {sz}
-                                </option>
-                              ))}
-                            </select>
+                            {sizes.length > 1 && (
+                              <select
+                                aria-label={`Select size for ${u.name}`}
+                                value={chosenSz}
+                                onChange={(e) =>
+                                  setUpsellSizes((prev) => ({
+                                    ...prev,
+                                    [u.id]: e.target.value
+                                  }))
+                                }
+                                style={{
+                                  width: "64px",
+                                  padding: "5px 4px",
+                                  borderRadius: "6px",
+                                  border: "1px solid #D6C7B8",
+                                  fontSize: "10px",
+                                  fontWeight: 600,
+                                  background: "#FAF7F2"
+                                }}
+                              >
+                                {sizes.map((sz) => (
+                                  <option key={sz} value={sz}>
+                                    {sz}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                             <button
                               type="button"
                               onClick={() => onAddUpsell?.(u, chosenSz, 1, true)}
                               style={{
                                 flex: 1,
-                                padding: "5px 8px",
+                                padding: "6px 8px",
                                 borderRadius: "6px",
                                 border: 0,
-                                background: "#111827",
+                                background: accentColor,
                                 color: "#FFFFFF",
                                 fontSize: "10px",
                                 fontWeight: 700,
                                 cursor: "pointer"
                               }}
                             >
-                              + ADD
+                              {cartCopy.upsellAddLabel || "+ ADD"}
                             </button>
                           </div>
                         </div>
@@ -911,8 +957,8 @@ export function CartDrawer({
 
             <div
               style={{
-                borderTop: "1px solid #E5E7EB",
-                background: "#FAFAFA",
+                borderTop: "1px solid #E8DFD5",
+                background: "#FAF7F2",
                 padding: "14px 20px 18px",
                 flexShrink: 0
               }}
@@ -922,25 +968,38 @@ export function CartDrawer({
                   display: "flex",
                   justifyContent: "space-between",
                   fontSize: "10.5px",
-                  color: "#4B5563",
+                  color: "#6B5E57",
                   marginBottom: "10px",
                   paddingBottom: "8px",
-                  borderBottom: "1px solid #E5E7EB"
+                  borderBottom: "1px solid #E8DFD5"
                 }}
               >
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                  <Truck size={12} /> Free Prepaid Ship
+                  <Truck size={12} /> {cartCopy.trustShipping || "Free Ship ₹999+"}
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                  <RefreshCw size={12} /> Easy Exchange
+                  <RefreshCw size={12} /> {cartCopy.trustReturns || "48-Hr Returns"}
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                  <ShieldCheck size={12} /> Partial COD
+                  <ShieldCheck size={12} /> {cartCopy.trustCod || "Partial COD"}
                 </span>
               </div>
 
-              <div style={{ display: "grid", gap: "5px", fontSize: "12.5px", marginBottom: "12px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", color: "#4B5563" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gap: "5px",
+                  fontSize: "12.5px",
+                  marginBottom: "12px"
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    color: "#6B5E57"
+                  }}
+                >
                   <span>Subtotal</span>
                   <span>{formatMoney(cartSubtotal)}</span>
                 </div>
@@ -956,8 +1015,8 @@ export function CartDrawer({
                   >
                     <span>
                       {bundleTier.mode === "b2g1"
-                        ? "Buy 3 Get 1 FREE Savings"
-                        : "Buy 2 Get 10% OFF"}
+                        ? activeRewardCfg.b2g1SavingsLabel
+                        : activeRewardCfg.b2g10SavingsLabel}
                     </span>
                     <span>−{formatMoney(bundleTier.discountAmount)}</span>
                   </div>
@@ -977,11 +1036,17 @@ export function CartDrawer({
                   </div>
                 )}
 
-                <div style={{ display: "flex", justifyContent: "space-between", color: "#4B5563" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    color: "#6B5E57"
+                  }}
+                >
                   <span>Shipping</span>
                   <span
                     style={{
-                      color: shippingFee === 0 ? "#15803D" : "#111827",
+                      color: shippingFee === 0 ? "#15803D" : "#231917",
                       fontWeight: 600
                     }}
                   >
@@ -996,11 +1061,13 @@ export function CartDrawer({
                     alignItems: "center",
                     paddingTop: "8px",
                     marginTop: "4px",
-                    borderTop: "1px solid #E5E7EB",
+                    borderTop: "1px solid #E8DFD5",
                     fontSize: "15px"
                   }}
                 >
-                  <span style={{ fontWeight: 700 }}>Estimated Total</span>
+                  <span style={{ fontWeight: 700 }}>
+                    {cartCopy.totalLabel || "Estimated Total"}
+                  </span>
                   <strong style={{ fontSize: "17px" }}>{formatMoney(displayFinalTotal)}</strong>
                 </div>
               </div>
@@ -1021,7 +1088,8 @@ export function CartDrawer({
                     marginBottom: "10px"
                   }}
                 >
-                  <Sparkles size={13} /> You are saving {formatMoney(totalSavings)} on this order!
+                  <Sparkles size={13} /> You are saving {formatMoney(totalSavings)}{" "}
+                  on this order!
                 </div>
               )}
 
@@ -1033,7 +1101,7 @@ export function CartDrawer({
                   padding: "13px 18px",
                   borderRadius: "999px",
                   border: 0,
-                  background: "#111827",
+                  background: accentColor,
                   color: "#FFFFFF",
                   fontSize: "12.5px",
                   fontWeight: 700,
@@ -1046,7 +1114,8 @@ export function CartDrawer({
                   cursor: "pointer"
                 }}
               >
-                PROCEED TO CHECKOUT • {formatMoney(displayFinalTotal)} <ArrowRight size={16} />
+                {cartCopy.checkoutCta || "PROCEED TO CHECKOUT"} •{" "}
+                {formatMoney(displayFinalTotal)} <ArrowRight size={16} />
               </button>
             </div>
           </>
@@ -1063,11 +1132,26 @@ export function CartDrawer({
               gap: "12px"
             }}
           >
-            <p style={{ margin: 0, fontSize: "15px", fontWeight: 600, color: "#111827" }}>
-              Your shopping bag is empty.
+            <p
+              style={{
+                margin: 0,
+                fontSize: "15px",
+                fontWeight: 600,
+                color: "#231917"
+              }}
+            >
+              {cartCopy.emptyTitle || "Your shopping bag is empty."}
             </p>
-            <p style={{ margin: 0, fontSize: "12.5px", color: "#6B7280", maxWidth: "260px" }}>
-              Add 2 pairs to unlock 10% OFF or 3 pairs to get 1 PAIR FREE.
+            <p
+              style={{
+                margin: 0,
+                fontSize: "12.5px",
+                color: "#6B5E57",
+                maxWidth: "260px"
+              }}
+            >
+              {cartCopy.emptySubtitle ||
+                "Add 2 sarees to unlock 10% OFF or 3 sarees to get 1 SAREE FREE."}
             </p>
             <button
               type="button"
@@ -1077,7 +1161,7 @@ export function CartDrawer({
                 padding: "11px 24px",
                 borderRadius: "999px",
                 border: 0,
-                background: "#111827",
+                background: accentColor,
                 color: "#FFFFFF",
                 fontSize: "11.5px",
                 fontWeight: 700,
@@ -1085,7 +1169,7 @@ export function CartDrawer({
                 cursor: "pointer"
               }}
             >
-              CONTINUE SHOPPING
+              {cartCopy.continueShoppingLabel || "CONTINUE SHOPPING"}
             </button>
           </div>
         )}

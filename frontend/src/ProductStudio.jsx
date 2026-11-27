@@ -692,12 +692,11 @@ export function ProductPage({
         p &&
         (p.category === current.category || p.collection === current.collection)
     );
-    const merged = [
-      current,
-      ...sameGroup.filter((p) => (p.id || p._id) !== productId)
-    ];
+    const ordered = sameGroup.some((p) => (p.id || p._id) === productId)
+      ? sameGroup
+      : [...sameGroup, current];
     const seen = new Set();
-    return merged
+    return ordered
       .filter((item) => {
         const id = item.id || item._id;
         if (!id || seen.has(id)) return false;
@@ -1454,7 +1453,7 @@ export function ProductPage({
             style={{
               flex: 1,
               width: "100%",
-              background: "#F5F5F5",
+              background: "#FFFFFF",
               borderRadius: "12px",
               overflow: "hidden",
               position: "relative",
